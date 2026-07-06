@@ -34,12 +34,12 @@ Youtubator permet de **mixer plusieurs morceaux YouTube simultanément** comme s
 
 - Chaque **deck** est un player YouTube visible (on voit la vidéo).
 - Un **mixer central** offre : fader de volume par deck, crossfader, 3 potentiomètres d'égalisation (aigus / médiums / basses) par deck, un fader de **vitesse de lecture (tempo)** par deck.
-- Une case **SYNC** permet d'asservir le tempo d'un deck à celui du deck maître.
+- Une case **SYNC** permet d'asservir le tempo d'un deck à celui du deck maître, avec **deux modes au choix par deck** : *Master Tempo* (time-stretch : la vitesse change, la tonalité reste) ou *Vinyle* (le pitch suit la vitesse, comme une platine).
 - La moitié basse de l'écran est un **browser** à 3 onglets : Recherche (routage d'un résultat vers le deck A ou B), Historique, Favoris.
 - Le nombre de decks est **dynamique** (ajouter / retirer des platines, 2 par défaut).
 - Les sélections sont sauvegardables en **playlists**.
 
-Cible : Chrome (desktop). Public : DJs amateurs, curieux, mashup lovers.
+Cible : Chrome (desktop), sous forme d'**extension Chrome** — c'est elle qui rend possibles l'EQ réel et les modes tempo (cf. § 3.2) ; une page web seule reste utilisable en mode dégradé. Public : DJs amateurs, curieux, mashup lovers.
 
 ## 2. Glossaire
 
@@ -74,19 +74,30 @@ L'API officielle [YouTube IFrame Player API](https://developers.google.com/youtu
 | EQ 3 bandes réel | ❌ **impossible en page web pure** |
 | Pitch fin / preservesPitch | ❌ non |
 
-**Conséquence architecturale** : le produit se construit en deux étages.
+**Conséquence architecturale** : l'EQ réel et le choix time-stretch/pitch étant des **exigences fondatrices** du produit, **Youtubator est une extension Chrome (MV3) dès le départ**. La page web pure n'est qu'un mode dégradé de secours.
 
-1. **MVP — page web pure** : tout fonctionne (decks, volume, tempo par paliers, sync, browser, playlists) via l'IFrame API. L'EQ est présent dans l'UI mais **désactivé (grisé)** avec un tooltip explicatif.
-2. **V2 — extension Chrome (MV3)** : un content script injecté dans les iframes `youtube.com` (`all_frames: true`) accède au `<video>` **depuis l'intérieur de la frame** → `captureStream()` + graphe Web Audio local à la frame (EQ 3 bandes, gain, VU-mètre), `video.playbackRate` **continu** (0.0625 → 16) et `preservesPitch`. La page principale pilote les frames par `postMessage` (protocole typé). Le son sort par l'élément vidéo muté + `AudioContext.destination` de chaque frame.
+1. **Cœur du produit — extension Chrome (MV3)** : un content script injecté dans les iframes `youtube.com` (`all_frames: true`) accède au `<video>` **depuis l'intérieur de la frame** → `captureStream()` + graphe Web Audio local à la frame (EQ 3 bandes, gain, VU-mètre), `video.playbackRate` **continu** (0.0625 → 16) et bascule `preservesPitch` (cf. § 3.3). La page principale pilote les frames par `postMessage` (protocole typé). Le son sort par l'élément vidéo muté + `AudioContext.destination` de chaque frame.
+2. **Mode dégradé — page web sans extension** : decks, volume, tempo par paliers, browser et playlists fonctionnent via l'IFrame API. L'EQ et le choix de mode tempo sont **grisés**, avec un bandeau invitant à installer l'extension.
 
-L'abstraction `DeckAudioBackend` (interface) isole ces deux mondes : `IframeApiBackend` (MVP) et `ExtensionBackend` (V2). C'est le point d'application du **D** de SOLID.
+L'abstraction `DeckAudioBackend` (interface) isole ces deux mondes : `ExtensionBackend` (nominal) et `IframeApiBackend` (dégradé). C'est le point d'application du **D** de SOLID.
 
-### 3.3 Recherche YouTube
+### 3.3 Time-stretch vs pitch : les deux modes existent nativement
+
+Chrome expose `HTMLMediaElement.preservesPitch` sur l'élément `<video>` (accessible uniquement depuis l'intérieur de la frame → autre raison d'être de l'extension) :
+
+| Mode deck | `preservesPitch` | Comportement | Équivalent matériel |
+|---|---|---|---|
+| **Master Tempo** (défaut) | `true` | Time-stretch : la vitesse change, la **tonalité reste constante** | Touche « Master Tempo » des CDJ |
+| **Vinyle** | `false` | Le **pitch suit la vitesse** (+6 % = plus aigu) | Platine vinyle |
+
+Le time-stretch de Chrome (WSOLA) est de qualité correcte jusqu'à environ ±15–20 % ; au-delà, artefacts audibles — plage de tempo par défaut limitée à ±16 % (extensible à ±50 % dans les réglages, avec avertissement). **Aucun WASM requis** pour ces deux modes. La **transposition indépendante** (changer la tonalité *sans* changer le tempo, « key shift ») n'est pas couverte par `preservesPitch` : c'est le seul cas qui justifiera un pitch-shifter WASM (SoundTouch) en V3.
+
+### 3.4 Recherche YouTube
 
 - **YouTube Data API v3** (`search.list`) avec clé API fournie par l'utilisateur (champ réglages, stockée en `localStorage`). Quota : 100 unités/recherche, 10 000/jour → mettre en cache les recherches (IndexedDB, TTL 24 h).
 - Fallback sans clé : saisie/collage direct d'une URL ou d'un ID YouTube dans le champ de recherche (regex de parsing d'URL).
 
-### 3.4 Conditions d'utilisation YouTube
+### 3.5 Conditions d'utilisation YouTube
 
 - Les players restent **visibles** (taille ≥ 200×200, pas de superposition) — exigence des ToS de l'IFrame API.
 - Pas de téléchargement ni d'extraction de flux hors navigateur (pas de yt-dlp côté serveur). Tout se passe dans le lecteur officiel.
@@ -100,7 +111,7 @@ L'abstraction `DeckAudioBackend` (interface) isole ces deux mondes : `IframeApiB
 | UI framework | **Svelte 5 (runes)** | Réactivité fine sans virtual DOM → 60 fps garantis sur les knobs/faders/VU-mètres, bundle minuscule. |
 | Lib de contrôles | **Custom Elements (Web Components) + Canvas 2D** | Framework-agnostique (réutilisable hors Svelte), rendu canvas = zéro layout/reflow pendant le drag. |
 | Audio | **Web Audio API** (`BiquadFilterNode`, `GainNode`, `AnalyserNode`), `AudioWorklet` + **WASM (Rust)** en option V3 (BPM, time-stretch) | Les nœuds natifs suffisent pour EQ/gain ; WASM seulement là où il apporte réellement. |
-| Player | **YouTube IFrame Player API** (MVP), **extension Chrome MV3** (V2) | Cf. § 3.2. |
+| Player | **Extension Chrome MV3** (nominal) + YouTube IFrame Player API (mode dégradé) | Cf. § 3.2 — EQ et modes tempo exigent l'accès in-frame. |
 | État | Stores Svelte (runes) + machine à états par deck | Un deck est un automate : `empty → loading → cued → playing → paused → error`. |
 | Persistance | **IndexedDB** via **Dexie** | Historique, favoris, playlists, cache de recherche. `localStorage` pour les réglages simples. |
 | Tests | **Vitest** (unitaires, TDD), **Playwright** (E2E Chrome) | TDD obligatoire, cf. § 12. |
@@ -149,7 +160,8 @@ interface DeckAudioBackend {
   setPlaybackRate(rate: number): Promise<number>; // retourne le rate effectif
   getAvailableRates(): number[];           // paliers (MVP) ou continu (V2)
   setEq(band: 'low' | 'mid' | 'high', gainDb: number): boolean; // false si non supporté
-  readonly capabilities: DeckCapabilities; // { eq: boolean; continuousRate: boolean; ... }
+  setTempoMode(mode: 'master-tempo' | 'vinyl'): boolean; // preservesPitch true/false
+  readonly capabilities: DeckCapabilities; // { eq: boolean; continuousRate: boolean; tempoModes: boolean; ... }
   onStateChange(cb: (s: PlayerState) => void): Unsubscribe;
   onTimeUpdate(cb: (t: TimeInfo) => void): Unsubscribe;
   destroy(): void;
@@ -165,22 +177,24 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-DECK-01** : 2 decks par défaut (A à gauche, B à droite), vidéos **visibles** (16:9, ≥ 320 px de large).
 - **F-DECK-02** : transport par deck — Play/Pause, Cue (retour au point de cue, défini au dernier arrêt), Stop, seek par clic sur barre de progression.
 - **F-DECK-03** : affichage — titre, chaîne, durée, temps écoulé/restant, vitesse effective (`×1.06`), état (machine à états visible via couleur du deck).
-- **F-DECK-04** : **tempo fader** vertical par deck, plage ±50 % (MVP : snap aux paliers disponibles de l'IFrame API avec indication des crans ; V2 : continu). Double-clic = retour à ×1.00.
+- **F-DECK-04** : **tempo fader** vertical par deck, **continu**, plage ±16 % par défaut (±50 % en réglage avancé, avec avertissement qualité). Double-clic = retour à ×1.00. En mode dégradé sans extension : snap aux paliers de l'IFrame API avec indication des crans.
+- **F-DECK-04b** : bascule **mode tempo** par deck — bouton `MT` (Master Tempo, time-stretch, défaut) / `VINYL` (le pitch suit la vitesse), via `preservesPitch` (§ 3.3). Changement possible en cours de lecture, sans coupure. Affichage du pitch résultant en demi-tons en mode Vinyle (ex. « −0.8 st »).
 - **F-DECK-05** : ajouter un deck (bouton `+`, max 4) / retirer un deck (croix, avec confirmation si en lecture). Les decks C et D s'insèrent dans la grille, le mixer s'adapte (un channel strip par deck).
 - **F-DECK-06** : chargement d'un morceau dans un deck **en lecture** → confirmation (« Remplacer le morceau en cours ? »).
 
 ### 6.2 Mixer
 
-- **F-MIX-01** : un **channel strip** par deck : fader de volume vertical (loi logarithmique, 0 dB en haut, −∞ en bas) + 3 knobs EQ (HI / MID / LOW, ±12 dB, centre cranté) + bouton kill par bande (V2) + VU-mètre.
+- **F-MIX-01** : un **channel strip** par deck : fader de volume vertical (loi logarithmique, 0 dB en haut, −∞ en bas) + 3 knobs EQ (HI / MID / LOW, ±12 dB, centre cranté) + bouton **kill** par bande + VU-mètre.
 - **F-MIX-02** : **crossfader** horizontal A↔B (courbe réglable : constant power / sharp cut). Avec > 2 decks, chaque deck est assignable au côté A, B ou THRU.
-- **F-MIX-03** : EQ — MVP : contrôles grisés + tooltip « Nécessite l'extension Youtubator » ; V2 : `BiquadFilterNode` low-shelf 320 Hz / peaking 1 kHz / high-shelf 3.2 kHz.
-- **F-MIX-04** : VU-mètres — MVP : approximation depuis le volume ; V2 : `AnalyserNode` réel par deck.
+- **F-MIX-03** : EQ **réel dès le nominal** : `BiquadFilterNode` low-shelf 320 Hz / peaking 1 kHz / high-shelf 3.2 kHz, kill = −40 dB. En mode dégradé sans extension : contrôles grisés + bandeau « Installer l'extension Youtubator ».
+- **F-MIX-04** : VU-mètres réels par deck (`AnalyserNode`). Mode dégradé : approximation depuis le volume.
 
 ### 6.3 Sync
 
 - **F-SYNC-01** : case **SYNC** par deck. Le premier deck en lecture est **maître** (badge « MASTER »).
-- **F-SYNC-02** : cocher SYNC sur un deck esclave aligne son `playbackRate` sur le rate du maître ; bouger le tempo du maître propage aux esclaves synchronisés.
-- **F-SYNC-03 (V2)** : sync de phase basique — bouton « nudge » (+/− momentané) pour caler manuellement, le vrai beatmatching automatique (détection BPM WASM) est en V3.
+- **F-SYNC-02** : cocher SYNC sur un deck esclave aligne son `playbackRate` sur le rate du maître ; bouger le tempo du maître propage aux esclaves synchronisés. Chaque deck garde **son propre mode tempo** (Master Tempo ou Vinyle) pendant la sync — le mode définit l'effet sonore du rate, pas sa valeur.
+- **F-SYNC-03** : sync de phase basique — boutons « nudge » (+/− momentané, ±2 % tant que pressé) pour caler manuellement les temps.
+- **F-SYNC-04 (V3)** : beatmatching automatique — détection de BPM (WASM, autocorrélation) et alignement rate = BPM_maître / BPM_esclave, puis calage de phase assisté.
 
 ### 6.4 Browser (zone basse, 3 onglets)
 
@@ -192,7 +206,7 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 ### 6.5 Réglages
 
 - **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide).
-- **F-SET-02** : courbe du crossfader, nombre de decks par défaut, thème (dark par défaut).
+- **F-SET-02** : courbe du crossfader, nombre de decks par défaut, plage du tempo fader (±16 % défaut / ±50 % avec avertissement), mode tempo par défaut (Master Tempo), thème (dark par défaut).
 - **F-SET-03** : raccourcis clavier (voir § 7.4).
 
 ## 7. Spécification UI/UX (layout Traktor-like)
@@ -210,7 +224,7 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 │ └───────────────────────┘ │ │LO│ │LO│ │ └───────────────────────┘ │
 │ titre ─ temps ─ ×1.00     │ │  │ │  │ │ titre ─ temps ─ ×1.00     │
 │ [CUE][PLAY][SYNC☐] ▐TEMPO │ │V │ │V │ │ TEMPO▌ [SYNC☐][PLAY][CUE] │
-│                     ▐FADER│ │O │ │O │ │ FADER▌                    │
+│ [MT|VINYL]          ▐FADER│ │O │ │O │ │ FADER▌         [MT|VINYL] │
 │                           │ │L │ │L │ │                           │
 │                           │ └──┘ └──┘ │                           │
 │                           │ ◄─XFADER─►│                           │
@@ -271,12 +285,12 @@ Paquet **autonome, publiable sur npm**, zéro dépendance runtime, Custom Elemen
 
 ## 9. `@youtubator/audio-engine` — moteur audio
 
-- Implémente `DeckAudioBackend` (× 2 : `IframeApiBackend`, `ExtensionBackend`).
-- **`IframeApiBackend`** : wrapper typé et testable de l'IFrame API (chargement du script `https://www.youtube.com/iframe_api` isolé derrière une factory injectable → mockable en test).
-- **`ExtensionBackend`** (V2) : protocole `postMessage` versionné (`{ v: 1, type: 'SET_EQ', band, gainDb }`), handshake de détection de l'extension, timeouts et retries.
-- **Graphe V2 (dans la frame YouTube)** : `videoEl.captureStream() → MediaStreamSource → low-shelf → peaking → high-shelf → GainNode → AnalyserNode → destination`, vidéo mutée.
+- Implémente `DeckAudioBackend` (× 2 : `ExtensionBackend` nominal, `IframeApiBackend` dégradé).
+- **`ExtensionBackend`** (nominal) : protocole `postMessage` versionné (`{ v: 1, type: 'SET_EQ', band, gainDb }` / `SET_TEMPO_MODE` / `SET_RATE` / …), handshake de détection de l'extension, timeouts et retries.
+- **Graphe audio (dans la frame YouTube)** : `videoEl.captureStream() → MediaStreamSource → low-shelf → peaking → high-shelf → GainNode → AnalyserNode → destination`, vidéo mutée. Modes tempo : `videoEl.playbackRate` (continu) + `videoEl.preservesPitch` (`true` = Master Tempo / `false` = Vinyle).
+- **`IframeApiBackend`** (dégradé) : wrapper typé et testable de l'IFrame API (chargement du script `https://www.youtube.com/iframe_api` isolé derrière une factory injectable → mockable en test).
 - Module `sync/` : logique maître/esclaves pure (fonctions pures, 100 % testables sans DOM).
-- Module V3 (optionnel, WASM Rust) : détection de BPM (autocorrélation / onset detection) via `AudioWorklet`.
+- Module V3 (optionnel, WASM Rust via `AudioWorklet`) : détection de BPM (autocorrélation / onset detection) et **key shift** (transposer la tonalité à tempo constant, SoundTouch) — le seul besoin que `preservesPitch` ne couvre pas.
 
 ## 10. Modèle de données & persistance
 
@@ -322,12 +336,12 @@ interface Settings     { ytApiKey?: string; xfaderCurve: 'constant-power' | 'sha
 |---|---|---|
 | **M0 — Socle** | Monorepo pnpm, TS strict, Vite, Vitest, ESLint/Prettier, CI GitHub Actions | `pnpm test` et `pnpm build` verts en CI |
 | **M1 — Controls** | `@youtubator/controls` complet + démo HTML | Tous composants testés, démo interactive |
-| **M2 — Deck MVP** | `IframeApiBackend`, `DeckCore`, 2 decks avec vidéo, transport, volume, tempo à paliers | Mixer 2 morceaux au volume, tempo modifiable |
-| **M3 — Mixer & Sync** | Channel strips, crossfader, SYNC maître/esclave, raccourcis clavier | Scénario E2E Playwright « mix de 2 titres » vert |
+| **M2 — Extension & Decks** | Extension MV3 minimale, `ExtensionBackend`, `DeckCore`, 2 decks avec vidéo, transport, volume, **tempo continu + modes MT/Vinyle** | Ralentir un morceau à −8 % en Master Tempo (tonalité stable) puis en Vinyle (pitch qui baisse) |
+| **M3 — Mixer & Sync** | Channel strips, **EQ 3 bandes réel + kills**, VU réels, crossfader, SYNC maître/esclave, nudge, raccourcis clavier | Scénario E2E Playwright « mix de 2 titres avec kill des basses » vert |
 | **M4 — Browser** | Recherche (Data API + URL), historique, favoris, playlists, Dexie | Routage → deck fonctionnel, données persistées |
 | **M5 — Decks dynamiques** | Ajout/retrait de decks (2→4), layout adaptatif | 4 decks fluides (P-02) |
-| **M6 — Extension V2** | Extension MV3, `ExtensionBackend`, EQ réel, tempo continu, VU réels | EQ audible, kill des basses fonctionnel |
-| **M7 — Polish** | Thème final, a11y, i18n fr/en, GitHub Pages + store CWS | Lighthouse ≥ 90, publication |
+| **M6 — Mode dégradé** | `IframeApiBackend`, détection d'extension, bandeau d'installation, EQ/modes grisés | L'app reste utilisable (volume + tempo à paliers) sans extension |
+| **M7 — Polish** | Thème final, a11y, i18n fr/en, GitHub Pages + Chrome Web Store | Lighthouse ≥ 90, publication CWS |
 
 ## 14. Structure du dépôt
 
@@ -350,7 +364,7 @@ youtubator/
 │           ├── backends/       # iframe-api/, extension/
 │           ├── sync/
 │           └── types.ts
-├── extension/                  # (M6) Extension Chrome MV3
+├── extension/                  # (M2) Extension Chrome MV3 — cœur du produit
 ├── docs/                       # décisions d'architecture (ADR)
 ├── idea.md                     # idée d'origine
 └── README.md                   # ce document
@@ -359,10 +373,10 @@ youtubator/
 ## 15. Critères d'acceptation globaux
 
 1. Je peux charger deux morceaux YouTube, les lire **simultanément**, voir les deux vidéos, et passer de l'un à l'autre au crossfader sans coupure.
-2. Je peux ralentir un deck à ×0.75, cocher SYNC sur l'autre, et voir son tempo s'aligner.
+2. Je peux ralentir un deck à −8 % **sans que la tonalité change** (Master Tempo), basculer en mode **Vinyle** et entendre le pitch descendre, cocher SYNC sur l'autre deck et voir son tempo s'aligner.
 3. Je peux chercher « daft punk », router un résultat vers B, le retrouver dans l'historique, le mettre en favori, et le sauver dans une playlist qui survit au rechargement de la page.
 4. Je peux passer à 4 decks puis revenir à 2 sans fuite mémoire ni freeze.
-5. Avec l'extension (V2), couper les basses du deck A s'entend immédiatement.
+5. Couper les basses du deck A (kill LOW) s'entend immédiatement ; sans extension, l'app fonctionne en mode dégradé avec EQ grisé et bandeau d'installation.
 6. `pnpm test` : 100 % vert ; couverture ≥ 90 % sur `packages/*`.
 
 ## 16. Démarrage rapide

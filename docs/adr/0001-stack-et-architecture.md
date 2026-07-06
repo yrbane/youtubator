@@ -1,6 +1,6 @@
 # ADR 0001 — Stack et architecture en deux étages
 
-- **Statut** : accepté
+- **Statut** : accepté — point 3 (« MVP page web d'abord ») amendé par [ADR 0002](./0002-extension-first-et-modes-tempo.md)
 - **Date** : 2026-07-06
 
 ## Contexte
