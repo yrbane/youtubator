@@ -1,4 +1,4 @@
-import { applySync, electMaster, DEFAULT_TEMPO_RANGE } from '@youtubator/audio-engine';
+import { alignPhaseDelta, applySync, electMaster, DEFAULT_TEMPO_RANGE } from '@youtubator/audio-engine';
 import { crossfadeGains, type CrossfadeCurve } from 'potard';
 import { Deck } from './deck.svelte.js';
 
@@ -45,13 +45,27 @@ export class Mixer {
       isPlaying: d.isPlaying,
       synced: d.synced,
       rate: d.rate,
+      bpm: d.grid?.bpm ?? null,
     }));
     this.masterId = electMaster(snapshot, this.masterId);
     for (const update of applySync(snapshot, this.masterId)) {
       const deck = this.decks.find((d) => d.id === update.id);
       void deck?.setRate(update.rate, this.tempoRange);
     }
+    this.#alignSlavePhases();
     this.applyVolumes();
+  }
+
+  /** Beatmatch : recale la phase des esclaves synchronisés sur celle du maître. */
+  #alignSlavePhases(): void {
+    const master = this.decks.find((d) => d.id === this.masterId);
+    if (!master?.grid || !master.isPlaying) return;
+    for (const slave of this.decks) {
+      if (slave === master || !slave.synced || !slave.grid || !slave.isPlaying || slave.sampleLoop) continue;
+      const delta = alignPhaseDelta(master.grid, master.displayTimeS(), slave.grid, slave.displayTimeS());
+      // seuil : on ne corrige que les dérives audibles (> 40 ms), pas le jitter
+      if (Math.abs(delta) > 0.04) slave.seekToS(slave.displayTimeS() + delta);
+    }
   }
 
   applyVolumes(): void {

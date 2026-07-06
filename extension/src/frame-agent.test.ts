@@ -4,14 +4,34 @@ import { FrameAgent } from './frame-agent.js';
 import type { EqGraph, VideoLike } from './frame-agent.js';
 
 function makeVideo(): VideoLike {
-  return { playbackRate: 1, preservesPitch: true, muted: false };
+  const v: VideoLike = {
+    playbackRate: 1,
+    preservesPitch: true,
+    muted: false,
+    paused: true,
+    currentTime: 0,
+    play() {
+      v.paused = false;
+      return Promise.resolve();
+    },
+    pause() {
+      v.paused = true;
+    },
+  };
+  return v;
 }
 
-function makeGraph(): EqGraph & { bands: Record<string, number>; gain: number; running: boolean } {
+function makeGraph(): EqGraph & {
+  bands: Record<string, number>;
+  gain: number;
+  running: boolean;
+  looping: boolean;
+} {
   const g = {
     bands: {} as Record<string, number>,
     gain: 1,
     running: true,
+    looping: false,
     setBandGain(band: string, db: number) {
       g.bands[band] = db;
     },
@@ -23,6 +43,16 @@ function makeGraph(): EqGraph & { bands: Record<string, number>; gain: number; r
       // no-op : le resume réel peut échouer tant qu'il n'y a pas de geste utilisateur
     },
     isRunning: () => g.running,
+    getEnvelope: () => ({ rate: 43, data: [0.2, 0.8], endTimeS: 25 }),
+    engageLoop(_inS: number, _outS: number) {
+      g.looping = true;
+      return true;
+    },
+    exitLoop() {
+      if (!g.looping) return null;
+      g.looping = false;
+      return 9.1;
+    },
   };
   return g;
 }
@@ -49,7 +79,7 @@ describe('FrameAgent — handshake', () => {
     agent.handleMessage(createMessage('HELLO', {}));
     expect(posted).toEqual([
       createMessage('HELLO_ACK', {
-        capabilities: { eq: true, continuousRate: true, tempoModes: true },
+        capabilities: { eq: true, continuousRate: true, tempoModes: true, sampleLoops: true },
       }),
     ]);
   });
@@ -76,7 +106,7 @@ describe('FrameAgent — handshake', () => {
     agent.handleMessage(createMessage('HELLO', {}));
     expect(posted).toEqual([
       createMessage('HELLO_ACK', {
-        capabilities: { eq: true, continuousRate: true, tempoModes: true },
+        capabilities: { eq: true, continuousRate: true, tempoModes: true, sampleLoops: true },
       }),
     ]);
     expect(agent.graphCreated).toBe(false);
@@ -145,6 +175,47 @@ describe('FrameAgent — contrôles', () => {
     const { agent, graph } = makeAgent();
     agent.handleMessage(createMessage('SET_EQ', { band: 'low', gainDb: -6 }));
     expect(graph.bands).toEqual({});
+  });
+});
+
+describe('FrameAgent — enveloppe et boucles sample-accurate', () => {
+  function connected() {
+    const made = makeAgent();
+    made.agent.handleMessage(createMessage('HELLO', {}));
+    made.posted.length = 0;
+    return made;
+  }
+
+  it('annonce sampleLoops dans les capabilities', () => {
+    const { agent, posted } = makeAgent();
+    agent.handleMessage(createMessage('HELLO', {}));
+    const ack = posted[0] as { capabilities?: { sampleLoops?: boolean } };
+    expect(ack.capabilities?.sampleLoops).toBe(true);
+  });
+
+  it('répond à GET_ENVELOPE avec l’enveloppe du graphe', () => {
+    const { agent, posted } = connected();
+    agent.handleMessage(createMessage('GET_ENVELOPE', {}));
+    expect(posted).toEqual([createMessage('ENVELOPE', { rate: 43, data: [0.2, 0.8], endTimeS: 25 })]);
+  });
+
+  it('LOOP_ENGAGE engage la boucle, met la vidéo en pause et publie LOOP_STATE', () => {
+    const { agent, video, graph, posted } = connected();
+    video.paused = false;
+    agent.handleMessage(createMessage('LOOP_ENGAGE', { inS: 8.2, outS: 10.2 }));
+    expect(graph.looping).toBe(true);
+    expect(video.paused).toBe(true);
+    expect(posted.at(-1)).toEqual(createMessage('LOOP_STATE', { engaged: true, resumeAtS: null }));
+  });
+
+  it('LOOP_EXIT arrête la boucle, replace la vidéo et relance la lecture', () => {
+    const { agent, video, graph, posted } = connected();
+    agent.handleMessage(createMessage('LOOP_ENGAGE', { inS: 8.2, outS: 10.2 }));
+    agent.handleMessage(createMessage('LOOP_EXIT', {}));
+    expect(graph.looping).toBe(false);
+    expect(video.currentTime).toBe(9.1);
+    expect(video.paused).toBe(false);
+    expect(posted.at(-1)).toEqual(createMessage('LOOP_STATE', { engaged: false, resumeAtS: 9.1 }));
   });
 });
 

@@ -9,6 +9,8 @@ export interface DeckCapabilities {
   eq: boolean;
   continuousRate: boolean;
   tempoModes: boolean;
+  /** Boucles sample-accurate depuis le buffer local de la frame. */
+  sampleLoops?: boolean;
 }
 
 /** Corps de chaque type de message du protocole page ↔ frame. */
@@ -20,6 +22,13 @@ export interface ProtocolPayloads {
   SET_EQ: { band: EqBand; gainDb: number };
   SET_GAIN: { gain: number };
   METER: { level: number };
+  /** Enveloppe d'énergie du ring buffer (détection de BPM côté page). */
+  GET_ENVELOPE: Record<string, never>;
+  ENVELOPE: { rate: number; data: number[]; endTimeS: number };
+  /** Boucle sample-accurate jouée depuis le buffer local de la frame. */
+  LOOP_ENGAGE: { inS: number; outS: number };
+  LOOP_EXIT: Record<string, never>;
+  LOOP_STATE: { engaged: boolean; resumeAtS: number | null };
 }
 
 export type ProtocolType = keyof ProtocolPayloads;
@@ -38,6 +47,11 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set([
   'SET_EQ',
   'SET_GAIN',
   'METER',
+  'GET_ENVELOPE',
+  'ENVELOPE',
+  'LOOP_ENGAGE',
+  'LOOP_EXIT',
+  'LOOP_STATE',
 ] satisfies ProtocolType[]);
 
 /** Construit un message estampillé namespace + version. */

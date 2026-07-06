@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { beatPhase, floorBeat, periodS } from '@youtubator/audio-engine';
   import { BUCKET_S, nearestCue } from '../lib/waveform.js';
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
@@ -51,6 +52,20 @@
       ctx.fillRect(x, mid - bh / 2, barW, bh);
     }
 
+    // graduations de beats (fine) et de mesures 4/4 (marquée)
+    if (deck.grid) {
+      const p = periodS(deck.grid);
+      let t = floorBeat(deck.grid, center - half) - p;
+      while (t <= center + half) {
+        const x = w / 2 + (t - center) * PX_PER_S;
+        const beatIndex = Math.round((t - deck.grid.anchorS) / p);
+        const isMeasure = ((beatIndex % 4) + 4) % 4 === 0;
+        ctx.fillStyle = isMeasure ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.12)';
+        ctx.fillRect(x, 0, 1, isMeasure ? h : h * 0.55);
+        t += p;
+      }
+    }
+
     // zone de boucle
     if (deck.loop.inS !== null) {
       const x1 = w / 2 + (deck.loop.inS - center) * PX_PER_S;
@@ -76,13 +91,18 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(w / 2 - 1, 0, 2, h);
 
-    // libellé deck + mode waveform
+    // libellé deck + mode waveform + BPM effectif
     ctx.font = 'bold 10px ui-monospace, monospace';
     ctx.fillStyle = accent;
     ctx.fillText(deck.id, 6, 13);
     if (!deck.waveIsReal && deck.waveBuckets.length > 0) {
       ctx.fillStyle = '#8b93a0';
       ctx.fillText('~', 16, 13); // pseudo-waveform (pas encore capturée)
+    }
+    if (deck.grid) {
+      const label = `${(deck.grid.bpm * deck.effectiveRate).toFixed(1)} BPM`;
+      ctx.fillStyle = '#d7dce2';
+      ctx.fillText(label, w - ctx.measureText(label).width - 6, 13);
     }
   }
 
@@ -140,6 +160,22 @@
                   : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
               >
                 {i + 1}
+              </button>
+            {/each}
+          </div>
+          <div class="beats" title={deck.grid ? 'Boucle des N derniers beats, calée sur la grille' : 'BPM inconnu — laisse jouer ~15 s avec l’extension pour détecter la grille'}>
+            {#each [1, 2, 4, 8, 16, 32] as n (n)}
+              <button
+                class="beat"
+                disabled={!deck.grid}
+                class:on={deck.loop.active &&
+                  deck.grid !== null &&
+                  deck.loop.inS !== null &&
+                  deck.loop.outS !== null &&
+                  Math.round((deck.loop.outS - deck.loop.inS) / periodS(deck.grid)) === n}
+                onclick={() => deck.beatLoop(n)}
+              >
+                {n}
               </button>
             {/each}
           </div>
@@ -227,6 +263,37 @@
   }
 
   .hotcue:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .beats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+  }
+
+  .beat {
+    min-width: 24px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--yt-panel);
+    border: 1px solid var(--yt-border);
+    border-radius: 3px;
+    color: var(--yt-text);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .beat.on {
+    background: var(--yt-deck-c);
+    border-color: transparent;
+    color: #101318;
+  }
+
+  .beat:disabled {
     opacity: 0.35;
     cursor: default;
   }

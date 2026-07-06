@@ -2,11 +2,17 @@ import { EQ_BANDS } from '@youtubator/audio-engine';
 import type { EqBand } from '@youtubator/audio-engine';
 import type { EqGraph } from './frame-agent.js';
 
+/** Durée du ring buffer PCM (mémoire ~16 Mo stéréo à 44,1 kHz). */
+const RING_S = 48;
+const BLOCK = 1024;
+
 /**
  * Graphe Web Audio réel, construit sur le <video> de la frame :
  * MediaElementSource → low-shelf → peaking → high-shelf → gain → analyser → destination.
- * MediaElementSource reroute toute la sortie de l'élément (pas de double son,
- * pas de mute nécessaire) et fonctionne avec le MSE de YouTube.
+ * Un ScriptProcessor en dérivation du source alimente :
+ *  - un ring buffer PCM stéréo (boucles sample-accurate) ;
+ *  - une enveloppe d'énergie par bloc (détection de BPM côté page) ;
+ *  - la correspondance bloc → temps vidéo (localisation des régions).
  * Couche mince volontairement non testée unitairement (adaptateur I/O).
  */
 export function createEqGraph(video: HTMLVideoElement): EqGraph {
@@ -36,8 +42,64 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
 
   const buffer = new Uint8Array(analyser.frequencyBinCount);
 
-  // l'autoplay policy peut suspendre le contexte : on retente au play
-  video.addEventListener('playing', () => void ctx.resume());
+  // --- ring PCM + enveloppe + temps vidéo par bloc ---
+  const sr = ctx.sampleRate;
+  const ringBlocks = Math.ceil((RING_S * sr) / BLOCK);
+  const ringL = new Float32Array(ringBlocks * BLOCK);
+  const ringR = new Float32Array(ringBlocks * BLOCK);
+  const blockVideoTime = new Float64Array(ringBlocks).fill(-1);
+  const blockEnergy = new Float32Array(ringBlocks);
+  let blockCount = 0; // compteur absolu de blocs écrits
+
+  const tap = ctx.createScriptProcessor(BLOCK, 2, 1);
+  source.connect(tap);
+  const sink = ctx.createGain();
+  sink.gain.value = 0; // le tap doit être connecté à la destination pour tourner
+  tap.connect(sink);
+  sink.connect(ctx.destination);
+
+  tap.onaudioprocess = (e) => {
+    if (video.paused) return; // on ne capture que la lecture réelle
+    const inL = e.inputBuffer.getChannelData(0);
+    const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+    const slot = blockCount % ringBlocks;
+    ringL.set(inL, slot * BLOCK);
+    ringR.set(inR, slot * BLOCK);
+    let sum = 0;
+    for (let i = 0; i < inL.length; i++) sum += inL[i]! * inL[i]!;
+    blockEnergy[slot] = Math.sqrt(sum / inL.length);
+    blockVideoTime[slot] = video.currentTime;
+    blockCount++;
+  };
+
+  /** Index absolu du bloc le plus proche d'un temps vidéo (recherche arrière). */
+  function findBlock(videoTimeS: number): number | null {
+    const available = Math.min(blockCount, ringBlocks);
+    let best: number | null = null;
+    let bestDist = Infinity;
+    for (let k = 1; k <= available; k++) {
+      const abs = blockCount - k;
+      const t = blockVideoTime[abs % ringBlocks]!;
+      if (t < 0) continue;
+      const d = Math.abs(t - videoTimeS);
+      if (d < bestDist) {
+        bestDist = d;
+        best = abs;
+      } else if (t < videoTimeS - 2) {
+        break; // on s'éloigne dans le passé
+      }
+    }
+    return best !== null && bestDist < 0.5 ? best : null;
+  }
+
+  // --- boucle sample-accurate ---
+  let loopSource: AudioBufferSourceNode | null = null;
+  let loopStartCtx = 0;
+  let loopInS = 0;
+  let loopMediaSpan = 0;
+  let loopBufferDur = 0;
+  let currentRate = video.playbackRate;
+  let captureRate = currentRate;
 
   return {
     setBandGain(band, gainDb) {
@@ -60,6 +122,63 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
         sum += centered * centered;
       }
       return Math.min(1, Math.sqrt(sum / buffer.length) * 2);
+    },
+
+    getEnvelope() {
+      const available = Math.min(blockCount, ringBlocks);
+      if (available < 64) return null;
+      const data = new Array<number>(available);
+      for (let k = 0; k < available; k++) {
+        const abs = blockCount - available + k;
+        data[k] = blockEnergy[abs % ringBlocks]!;
+      }
+      const newest = blockVideoTime[(blockCount - 1) % ringBlocks]!;
+      return { rate: sr / BLOCK, data, endTimeS: newest };
+    },
+
+    engageLoop(inS, outS) {
+      const inBlock = findBlock(inS);
+      const outBlock = findBlock(outS);
+      if (inBlock === null || outBlock === null || outBlock <= inBlock) return false;
+      if (blockCount - inBlock > ringBlocks) return false; // sorti du ring
+      const nSamples = (outBlock - inBlock) * BLOCK;
+      const audio = ctx.createBuffer(2, nSamples, sr);
+      const outL = audio.getChannelData(0);
+      const outR = audio.getChannelData(1);
+      for (let b = 0; b < outBlock - inBlock; b++) {
+        const slot = (inBlock + b) % ringBlocks;
+        outL.set(ringL.subarray(slot * BLOCK, (slot + 1) * BLOCK), b * BLOCK);
+        outR.set(ringR.subarray(slot * BLOCK, (slot + 1) * BLOCK), b * BLOCK);
+      }
+      this.exitLoop(); // remplace une éventuelle boucle en cours
+      captureRate = currentRate || 1;
+      loopSource = ctx.createBufferSource();
+      loopSource.buffer = audio;
+      loopSource.loop = true;
+      // le buffer a été capturé au rate courant : on rejoue à l'identique
+      loopSource.playbackRate.value = 1;
+      loopSource.connect(filters.low);
+      loopSource.start();
+      loopStartCtx = ctx.currentTime;
+      loopInS = inS;
+      loopMediaSpan = outS - inS;
+      loopBufferDur = audio.duration;
+      return true;
+    },
+
+    exitLoop() {
+      if (!loopSource) return null;
+      const elapsed = (ctx.currentTime - loopStartCtx) * loopSource.playbackRate.value;
+      loopSource.stop();
+      loopSource.disconnect();
+      loopSource = null;
+      const posInBuffer = loopBufferDur > 0 ? elapsed % loopBufferDur : 0;
+      return loopInS + (posInBuffer / loopBufferDur) * loopMediaSpan;
+    },
+
+    setLoopRate(rate) {
+      currentRate = rate;
+      if (loopSource && captureRate > 0) loopSource.playbackRate.value = rate / captureRate;
     },
   };
 }

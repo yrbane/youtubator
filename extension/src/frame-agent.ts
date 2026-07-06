@@ -11,6 +11,10 @@ export interface VideoLike {
   playbackRate: number;
   preservesPitch: boolean;
   muted: boolean;
+  paused: boolean;
+  currentTime: number;
+  play(): Promise<void> | void;
+  pause(): void;
 }
 
 /** Graphe EQ abstrait — l'implémentation Web Audio vit dans audio-graph.ts. */
@@ -21,6 +25,14 @@ export interface EqGraph {
   /** Tente de relancer l'AudioContext (autoplay policy). */
   resume(): void;
   isRunning(): boolean;
+  /** Enveloppe d'énergie du ring buffer (null si trop tôt). */
+  getEnvelope(): { rate: number; data: number[]; endTimeS: number } | null;
+  /** Joue [inS, outS] en boucle sample-accurate depuis le buffer local. */
+  engageLoop(inS: number, outS: number): boolean;
+  /** Arrête la boucle ; retourne la position vidéo de reprise (null si inactive). */
+  exitLoop(): number | null;
+  /** Aligne la vitesse de la boucle sur celle de la vidéo (optionnel). */
+  setLoopRate?(rate: number): void;
 }
 
 interface FrameAgentDeps {
@@ -69,14 +81,37 @@ export class FrameAgent {
         this.#helloReceived = true;
         this.#deps.postToParent(
           createMessage('HELLO_ACK', {
-            capabilities: { eq: true, continuousRate: true, tempoModes: true },
+            capabilities: { eq: true, continuousRate: true, tempoModes: true, sampleLoops: true },
           }),
         );
         this.#applyPending();
         break;
+      case 'GET_ENVELOPE': {
+        const envelope = this.#graph?.getEnvelope();
+        if (envelope) this.#deps.postToParent(createMessage('ENVELOPE', envelope));
+        break;
+      }
+      case 'LOOP_ENGAGE': {
+        const video = this.#video;
+        if (!video || !this.#graph?.engageLoop(msg.inS, msg.outS)) break;
+        video.pause();
+        this.#deps.postToParent(createMessage('LOOP_STATE', { engaged: true, resumeAtS: null }));
+        break;
+      }
+      case 'LOOP_EXIT': {
+        const video = this.#video;
+        const resumeAtS = this.#graph?.exitLoop() ?? null;
+        if (video && resumeAtS !== null) {
+          video.currentTime = resumeAtS;
+          void video.play();
+        }
+        this.#deps.postToParent(createMessage('LOOP_STATE', { engaged: false, resumeAtS }));
+        break;
+      }
       case 'SET_RATE':
         this.#pendingRate = msg.rate;
         if (this.#video) this.#video.playbackRate = msg.rate;
+        this.#graph?.setLoopRate?.(msg.rate);
         break;
       case 'SET_TEMPO_MODE':
         this.#pendingMode = msg.mode;

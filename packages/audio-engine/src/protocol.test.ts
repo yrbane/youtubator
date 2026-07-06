@@ -36,12 +36,19 @@ describe('parseMessage', () => {
   it('fait le tour complet pour chaque type du protocole', () => {
     const samples = [
       createMessage('HELLO', {}),
-      createMessage('HELLO_ACK', { capabilities: { eq: true, continuousRate: true, tempoModes: true } }),
+      createMessage('HELLO_ACK', {
+        capabilities: { eq: true, continuousRate: true, tempoModes: true, sampleLoops: true },
+      }),
       createMessage('SET_RATE', { rate: 0.92 }),
       createMessage('SET_TEMPO_MODE', { mode: 'vinyl' }),
       createMessage('SET_EQ', { band: 'mid', gainDb: 3 }),
       createMessage('SET_GAIN', { gain: 0.5 }),
       createMessage('METER', { level: 0.7 }),
+      createMessage('GET_ENVELOPE', {}),
+      createMessage('ENVELOPE', { rate: 43, data: [0.1, 0.5], endTimeS: 32.5 }),
+      createMessage('LOOP_ENGAGE', { inS: 8.2, outS: 10.2 }),
+      createMessage('LOOP_EXIT', {}),
+      createMessage('LOOP_STATE', { engaged: true, resumeAtS: null }),
     ];
     for (const s of samples) {
       expect(parseMessage(s)).toEqual(s);

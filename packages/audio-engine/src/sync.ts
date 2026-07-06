@@ -3,6 +3,8 @@ export interface SyncDeck {
   isPlaying: boolean;
   synced: boolean;
   rate: number;
+  /** BPM natif du morceau si la grille de beats est connue. */
+  bpm?: number | null;
 }
 
 export interface RateUpdate {
@@ -21,13 +23,22 @@ export function electMaster(decks: readonly SyncDeck[], currentMasterId: string 
 }
 
 /**
- * Mises à jour de rate à appliquer aux esclaves synchronisés
- * pour s'aligner sur le maître. Le maître n'est jamais mis à jour.
+ * Mises à jour de rate à appliquer aux esclaves synchronisés.
+ * Beatmatch : si les BPM des deux decks sont connus, le rate esclave égalise
+ * les BPM effectifs (master.rate × master.bpm / slave.bpm) ; sinon copie de rate.
+ * Le maître n'est jamais mis à jour.
  */
 export function applySync(decks: readonly SyncDeck[], masterId: string | null): RateUpdate[] {
   const master = decks.find((d) => d.id === masterId);
   if (!master) return [];
   return decks
-    .filter((d) => d.id !== master.id && d.synced && d.rate !== master.rate)
-    .map((d) => ({ id: d.id, rate: master.rate }));
+    .filter((d) => d.id !== master.id && d.synced)
+    .map((d) => ({
+      id: d.id,
+      rate: master.bpm && d.bpm ? (master.rate * master.bpm) / d.bpm : master.rate,
+    }))
+    .filter((u) => {
+      const deck = decks.find((d) => d.id === u.id)!;
+      return Math.abs(deck.rate - u.rate) > 1e-9;
+    });
 }

@@ -21,6 +21,8 @@ export class ExtensionBackend implements DeckAudioBackend {
   #connected = false;
   #capabilities: DeckCapabilities | null = null;
   #meterListeners = new Set<(level: number) => void>();
+  #loopStateListeners = new Set<(s: { engaged: boolean; resumeAtS: number | null }) => void>();
+  #envelopeWaiters: Array<(e: { rate: number; data: number[]; endTimeS: number }) => void> = [];
   #unsubChannel: Unsubscribe;
   #helloTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -56,7 +58,50 @@ export class ExtensionBackend implements DeckAudioBackend {
       case 'METER':
         for (const l of this.#meterListeners) l(msg.level);
         break;
+      case 'ENVELOPE': {
+        const waiter = this.#envelopeWaiters.shift();
+        waiter?.({ rate: msg.rate, data: msg.data, endTimeS: msg.endTimeS });
+        break;
+      }
+      case 'LOOP_STATE':
+        for (const l of this.#loopStateListeners) l({ engaged: msg.engaged, resumeAtS: msg.resumeAtS });
+        break;
     }
+  }
+
+  /** Enveloppe d'énergie du ring buffer (pour la détection de BPM). */
+  async getEnvelope(): Promise<{ rate: number; data: number[]; endTimeS: number } | null> {
+    if (!this.#connected) return null;
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        const i = this.#envelopeWaiters.indexOf(waiter);
+        if (i >= 0) this.#envelopeWaiters.splice(i, 1);
+        resolve(null);
+      }, 3000);
+      const waiter = (e: { rate: number; data: number[]; endTimeS: number }): void => {
+        clearTimeout(timeout);
+        resolve(e);
+      };
+      this.#envelopeWaiters.push(waiter);
+      this.#channel.send(createMessage('GET_ENVELOPE', {}));
+    });
+  }
+
+  /** Boucle sample-accurate jouée depuis le buffer local de la frame. */
+  engageLoop(inS: number, outS: number): boolean {
+    if (!this.#connected) return false;
+    this.#channel.send(createMessage('LOOP_ENGAGE', { inS, outS }));
+    return true;
+  }
+
+  exitLoop(): void {
+    if (!this.#connected) return;
+    this.#channel.send(createMessage('LOOP_EXIT', {}));
+  }
+
+  onLoopState(cb: (s: { engaged: boolean; resumeAtS: number | null }) => void): Unsubscribe {
+    this.#loopStateListeners.add(cb);
+    return () => this.#loopStateListeners.delete(cb);
   }
 
   setEq(band: EqBand, gainDb: number): boolean {

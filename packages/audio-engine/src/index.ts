@@ -1,4 +1,5 @@
 export * from './tempo.js';
+export * from './beatgrid.js';
 export * from './eq.js';
 export * from './sync.js';
 export * from './protocol.js';

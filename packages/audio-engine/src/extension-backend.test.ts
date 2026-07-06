@@ -129,6 +129,42 @@ describe('ExtensionBackend — contrôles audio', () => {
   });
 });
 
+describe('ExtensionBackend — enveloppe et boucles sample-accurate', () => {
+  it('getEnvelope envoie GET_ENVELOPE et résout avec la réponse ENVELOPE', async () => {
+    const { backend, sent, receive } = makeConnected();
+    const promise = backend.getEnvelope();
+    expect(parseMessage(sent.at(-1))?.type).toBe('GET_ENVELOPE');
+    receive(createMessage('ENVELOPE', { rate: 43, data: [0.1, 0.9], endTimeS: 30 }));
+    await expect(promise).resolves.toEqual({ rate: 43, data: [0.1, 0.9], endTimeS: 30 });
+  });
+
+  it('getEnvelope résout null hors connexion', async () => {
+    const { channel } = makeChannel();
+    const backend = new ExtensionBackend(makeInner(), channel);
+    await expect(backend.getEnvelope()).resolves.toBeNull();
+  });
+
+  it('engageLoop/exitLoop envoient les messages quand connecté', () => {
+    const { backend, sent } = makeConnected();
+    expect(backend.engageLoop(8.2, 10.2)).toBe(true);
+    expect(sent.at(-1)).toEqual(createMessage('LOOP_ENGAGE', { inS: 8.2, outS: 10.2 }));
+    backend.exitLoop();
+    expect(parseMessage(sent.at(-1))?.type).toBe('LOOP_EXIT');
+  });
+
+  it('relaie LOOP_STATE aux abonnés', () => {
+    const { backend, receive } = makeConnected();
+    const states: Array<{ engaged: boolean; resumeAtS: number | null }> = [];
+    backend.onLoopState((s) => states.push(s));
+    receive(createMessage('LOOP_STATE', { engaged: true, resumeAtS: null }));
+    receive(createMessage('LOOP_STATE', { engaged: false, resumeAtS: 9.1 }));
+    expect(states).toEqual([
+      { engaged: true, resumeAtS: null },
+      { engaged: false, resumeAtS: 9.1 },
+    ]);
+  });
+});
+
 describe('ExtensionBackend — délégation transport', () => {
   it('délègue load/play/pause/seek/volume au backend interne', async () => {
     const { backend, inner } = makeConnected();

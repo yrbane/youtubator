@@ -60,6 +60,9 @@ export interface WaveformRecord {
   /** true si les buckets viennent de la capture réelle (extension). */
   real: boolean;
   cues: number[];
+  /** Grille de beats détectée (null tant que l'analyse n'a pas abouti). */
+  bpm?: number | null;
+  anchorS?: number | null;
   updatedAt: number;
 }
 
@@ -231,6 +234,8 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     buckets: record.buckets.map((v) => Math.round(v * 100) / 100),
     real: record.real,
     cues: [...record.cues],
+    bpm: record.bpm ?? null,
+    anchorS: record.anchorS ?? null,
     updatedAt: Date.now(),
   });
 }

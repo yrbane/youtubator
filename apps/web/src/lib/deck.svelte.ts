@@ -2,8 +2,11 @@ import {
   DeckCore,
   ExtensionBackend,
   IframeApiBackend,
+  beatLoopBounds,
   clampRate,
+  detectBpm,
   effectiveEqGain,
+  type BeatGrid,
   type DeckAudioBackend,
   type DeckState,
   type EqBand,
@@ -43,6 +46,11 @@ export class Deck {
   cues = $state<number[]>([]);
   waveIsReal = $state(false);
   loop = $state<LoopState>(emptyLoop());
+  /** Grille de beats (BPM + ancre) détectée ou restaurée du cache. */
+  grid = $state<BeatGrid | null>(null);
+  /** Boucle sample-accurate en cours côté extension. */
+  sampleLoop = $state(false);
+  #analyzingBpm = false;
 
   #core: DeckCore;
   #backend: DeckAudioBackend | null = null;
@@ -85,6 +93,8 @@ export class Deck {
     this.cues = [];
     this.waveIsReal = false;
     this.loop = emptyLoop();
+    this.grid = null;
+    this.sampleLoop = false;
     this.#waveDirty = false;
     this.#core.load(track.videoId);
     void this.#restoreWaveform(track.videoId);
@@ -128,6 +138,13 @@ export class Deck {
       this.timeUpdatedAt = performance.now();
       this.#ensureWaveBuckets();
     });
+    this.#extension?.onLoopState((s) => {
+      this.sampleLoop = s.engaged;
+      if (!s.engaged && s.resumeAtS !== null) {
+        this.currentTimeS = s.resumeAtS;
+        this.timeUpdatedAt = performance.now();
+      }
+    });
     this.#extension?.onMeter((level) => {
       this.meterLevel = level;
       // capture progressive : la waveform réelle se construit pendant la lecture
@@ -140,12 +157,18 @@ export class Deck {
       }
     });
     this.#waveSaveTimer = setInterval(() => void this.#flushWaveform(), 8000);
-    // garde de boucle : re-saute au point IN dès que la sortie est franchie
+    // garde de boucle (mode dégradé) : re-saute au IN dès que la sortie est franchie
     this.#loopTimer = setInterval(() => {
-      if (!this.isPlaying) return;
+      if (!this.isPlaying || this.sampleLoop) return;
       const target = shouldJump(this.loop, this.displayTimeS());
       if (target !== null) this.seekToS(target);
     }, 80);
+    // analyse de BPM automatique après ~12 s de lecture capturée
+    setInterval(() => {
+      if (this.hasExtension && this.isPlaying && !this.grid && !this.#analyzingBpm && this.currentTimeS > 12) {
+        void this.analyzeBpm();
+      }
+    }, 4000);
     // VU approximatif tant que l'extension n'est pas là (F-MIX-04 dégradé)
     this.#meterTimer = setInterval(() => {
       if (!this.hasExtension) {
@@ -217,16 +240,65 @@ export class Deck {
   }
 
   loopIn(): void {
+    if (this.sampleLoop) this.#extension?.exitLoop();
     this.loop = pressIn(this.loop, this.displayTimeS());
   }
 
   loopOut(): void {
     this.loop = pressOut(this.loop, this.displayTimeS());
+    this.#engageSampleLoopIfPossible();
   }
 
   /** Coupe / relance la boucle (reloop) en gardant les points. */
   toggleLoop(): void {
     this.loop = toggleActive(this.loop);
+    if (this.loop.active) this.#engageSampleLoopIfPossible();
+    else if (this.sampleLoop) this.#extension?.exitLoop();
+  }
+
+  /**
+   * Boucle d'un nombre exact de beats : sortie calée sur le beat courant,
+   * entrée N périodes plus tôt (on boucle les N derniers beats — l'audio
+   * futur n'est pas encore capturé). Sample-accurate avec l'extension.
+   */
+  beatLoop(beats: number): void {
+    if (!this.grid) return;
+    const bounds = beatLoopBounds(this.grid, this.displayTimeS(), beats);
+    if (!bounds) return;
+    this.loop = { inS: bounds.inS, outS: bounds.outS, active: true };
+    this.#engageSampleLoopIfPossible();
+  }
+
+  #engageSampleLoopIfPossible(): void {
+    const { inS, outS, active } = this.loop;
+    if (!active || inS === null || outS === null) return;
+    if (this.#backend?.capabilities.sampleLoops) {
+      this.#extension?.engageLoop(inS, outS);
+    }
+  }
+
+  /** Détecte la grille de beats depuis l'enveloppe capturée par l'extension. */
+  async analyzeBpm(): Promise<void> {
+    if (!this.#extension || this.#analyzingBpm) return;
+    this.#analyzingBpm = true;
+    try {
+      const envelope = await this.#extension.getEnvelope();
+      if (!envelope || envelope.data.length === 0) return;
+      const detection = detectBpm(Float32Array.from(envelope.data), envelope.rate);
+      if (!detection || detection.confidence < 0.12) return;
+      // l'enveloppe vit en temps de contexte audio : conversion en temps média
+      const r = this.effectiveRate || 1;
+      const ctxLenS = envelope.data.length / envelope.rate;
+      const envStartVideoS = envelope.endTimeS - ctxLenS * r;
+      this.grid = {
+        bpm: detection.bpm / r,
+        anchorS: envStartVideoS + detection.anchorS * r,
+      };
+      this.#waveDirty = true;
+      void this.#flushWaveform();
+    } finally {
+      this.#analyzingBpm = false;
+    }
   }
 
   /** Waveform en cache → restaurée telle quelle ; sinon pseudo dès que la durée est connue. */
@@ -235,6 +307,9 @@ export class Deck {
     if (this.track?.videoId !== videoId) return; // le deck a déjà changé de morceau
     if (record) {
       this.cues = record.cues;
+      if (record.bpm && record.anchorS !== null && record.anchorS !== undefined) {
+        this.grid = { bpm: record.bpm, anchorS: record.anchorS };
+      }
       if (record.real && record.buckets.length > 0) {
         this.waveBuckets = record.buckets;
         this.waveIsReal = true;
@@ -259,6 +334,8 @@ export class Deck {
       buckets: this.waveIsReal ? this.waveBuckets : [],
       real: this.waveIsReal,
       cues: this.cues,
+      bpm: this.grid?.bpm ?? null,
+      anchorS: this.grid?.anchorS ?? null,
       updatedAt: Date.now(),
     });
   }
