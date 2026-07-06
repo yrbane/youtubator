@@ -20,6 +20,8 @@
   } from '../lib/library.js';
   import { session } from '../lib/session.svelte.js';
   import { rateVideo } from '../lib/youtube-account.js';
+  import { suggestNext } from '../lib/suggest.js';
+  import { db } from '../lib/library.js';
   import type { Track } from '../lib/tracks.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
@@ -47,6 +49,29 @@
   let userFilter = $state<string | null>(null); // filtre « par utilisateur » (historique/favoris)
 
   const favoriteIds = $derived(new Set(favorites.map((f) => f.videoId)));
+
+  // suggestions « à mixer ensuite » : bibliothèque locale vs deck maître
+  let waveMeta = $state<Map<string, { bpm: number | null; key: string | null }>>(new Map());
+  const libraryTracks = $derived.by(() => {
+    const byId = new Map<string, Track>();
+    for (const f of favorites) byId.set(f.videoId, f.track);
+    for (const h of history) byId.set(h.track.videoId, h.track);
+    return byId;
+  });
+  const suggestions = $derived.by(() => {
+    const master = mixer.decks.find((d) => d.id === mixer.masterId);
+    if (!master?.grid || !master.track || !master.isPlaying) return [];
+    const candidates = [...libraryTracks.values()].map((t) => ({
+      videoId: t.videoId,
+      title: t.title,
+      bpm: waveMeta.get(t.videoId)?.bpm ?? null,
+      key: waveMeta.get(t.videoId)?.key ?? null,
+    }));
+    return suggestNext(
+      { videoId: master.track.videoId, bpm: master.grid.bpm, key: master.musicalKey?.camelot ?? null },
+      candidates,
+    ).slice(0, 5);
+  });
   const knownUsers = $derived([
     ...new Set([...history, ...favorites].map((e) => e.by).filter((b) => b !== '')),
   ]);
@@ -69,6 +94,12 @@
       listPlaylists(),
       listSearches(),
     ]);
+    waveMeta = new Map(
+      (await db.waveforms.toArray()).map((w) => [
+        w.videoId,
+        { bpm: w.bpm ?? null, key: w.keyCamelot ?? null },
+      ]),
+    );
   }
 
   $effect(() => {
@@ -132,6 +163,27 @@
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
     <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
   </nav>
+
+  {#if suggestions.length > 0}
+    <div class="suggest" title="Bibliothèque locale filtrée : tempo à ±6 % du maître, tonalités compatibles d'abord">
+      <span class="bulb">💡 ensuite :</span>
+      {#each suggestions as s (s.videoId)}
+        <span class="chip s-chip" class:harmonic={s.keyMatch}>
+          <span class="s-title" title={s.title}>{s.title}</span>
+          <span class="mono s-meta">{s.bpm!.toFixed(0)}{s.key ? `·${s.key}` : ''}</span>
+          {#each mixer.decks.slice(0, 2) as deck (deck.id)}
+            <button
+              class="s-route"
+              style="color: var({deck.colorVar})"
+              onclick={() => libraryTracks.get(s.videoId) && route(libraryTracks.get(s.videoId)!, deck.id)}
+            >
+              →{deck.id}
+            </button>
+          {/each}
+        </span>
+      {/each}
+    </div>
+  {/if}
 
   <div class="content">
     {#if tab === 'search'}
@@ -444,5 +496,53 @@
 
   .filters.pad {
     padding: 8px 10px 0;
+  }
+
+  .suggest {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--yt-border);
+    background: var(--yt-panel-deep);
+  }
+
+  .bulb {
+    color: var(--yt-text-dim);
+    font-size: 11px;
+  }
+
+  .s-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+  }
+
+  .s-chip.harmonic {
+    border-color: var(--yt-deck-c);
+  }
+
+  .s-title {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+
+  .s-meta {
+    color: var(--yt-deck-c);
+    font-size: 10px;
+  }
+
+  .s-route {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 2px;
   }
 </style>
