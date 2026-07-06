@@ -5,8 +5,18 @@
   "type": "module",
   "description": "Application principale Youtubator (Svelte 5 + Vite)",
   "scripts": {
-    "dev": "echo 'M0 : scaffolding Vite/Svelte à venir' && exit 0",
-    "build": "echo 'M0 : scaffolding Vite/Svelte à venir' && exit 0",
-    "test": "echo 'M0 : Vitest à venir' && exit 0"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "svelte": "^5.56.4",
+    "vite": "^8.1.3"
+  },
+  "dependencies": {
+    "@youtubator/audio-engine": "workspace:*",
+    "@youtubator/controls": "workspace:*",
+    "dexie": "^4.4.4"
   }
 }

@@ -12,6 +12,7 @@ export interface YtPlayerHandle {
   setPlaybackRate(rate: number): void;
   getAvailablePlaybackRates(): number[];
   getCurrentTime(): number;
+  getDuration(): number;
   destroy(): void;
 }
 
@@ -51,6 +52,7 @@ export class IframeApiBackend implements DeckAudioBackend {
   #player: YtPlayerHandle | null = null;
   #stateListeners = new Set<(s: PlayerState) => void>();
   #timeListeners = new Set<(t: TimeInfo) => void>();
+  #timeTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(factory: PlayerFactory) {
     this.#factory = factory;
@@ -71,6 +73,12 @@ export class IframeApiBackend implements DeckAudioBackend {
         },
       });
     });
+    this.#timeTimer = setInterval(() => {
+      const p = this.#player;
+      if (!p) return;
+      const info: TimeInfo = { currentTimeS: p.getCurrentTime(), durationS: p.getDuration() };
+      for (const l of this.#timeListeners) l(info);
+    }, 250);
   }
 
   play(): void {
@@ -119,6 +127,10 @@ export class IframeApiBackend implements DeckAudioBackend {
   }
 
   destroy(): void {
+    if (this.#timeTimer !== null) {
+      clearInterval(this.#timeTimer);
+      this.#timeTimer = null;
+    }
     this.#player?.destroy();
     this.#player = null;
     this.#stateListeners.clear();

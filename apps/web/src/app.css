@@ -1,0 +1,92 @@
+/* Thème Traktor dark — source unique des tokens (README § 7.3) */
+:root {
+  --yt-bg: #1a1d21;
+  --yt-panel: #24282e;
+  --yt-panel-deep: #1f2226;
+  --yt-border: #32373e;
+  --yt-text: #d7dce2;
+  --yt-text-dim: #8b93a0;
+  --yt-deck-a: #19c2ff;
+  --yt-deck-b: #ff8a1e;
+  --yt-deck-c: #3ddc84;
+  --yt-deck-d: #b18aff;
+  --yt-danger: #ff4d5e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--yt-bg);
+  color: var(--yt-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+.panel {
+  background: var(--yt-panel);
+  border: 1px solid var(--yt-border);
+  border-radius: 6px;
+}
+
+.btn {
+  background: var(--yt-panel-deep);
+  border: 1px solid var(--yt-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--yt-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.btn:hover {
+  border-color: var(--yt-text-dim);
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+yt-button {
+  display: inline-block;
+  background: var(--yt-panel-deep);
+  border: 1px solid var(--yt-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  user-select: none;
+  text-align: center;
+}
+
+yt-button.active {
+  background: var(--ctl-accent, var(--yt-deck-a));
+  color: #101318;
+  border-color: transparent;
+}

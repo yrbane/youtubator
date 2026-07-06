@@ -12,6 +12,7 @@ function makeFakePlayer(): YtPlayerHandle & Record<string, ReturnType<typeof vi.
     setPlaybackRate: vi.fn(),
     getAvailablePlaybackRates: vi.fn(() => [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]),
     getCurrentTime: vi.fn(() => 12.3),
+    getDuration: vi.fn(() => 180),
     destroy: vi.fn(),
   };
 }
@@ -97,6 +98,24 @@ describe('IframeApiBackend', () => {
     const { backend } = makeBackend();
     expect(backend.setEq('low', -12)).toBe(false);
     expect(backend.setTempoMode('vinyl')).toBe(false);
+  });
+
+  it('émet des time updates périodiques une fois le player prêt', async () => {
+    vi.useFakeTimers();
+    const { backend, fire } = makeBackend();
+    const seen: Array<{ currentTimeS: number; durationS: number }> = [];
+    backend.onTimeUpdate((t) => seen.push(t));
+    const p = backend.load('abc');
+    fire().onReady();
+    await p;
+    vi.advanceTimersByTime(600);
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(seen[0]).toEqual({ currentTimeS: 12.3, durationS: 180 });
+    backend.destroy();
+    const count = seen.length;
+    vi.advanceTimersByTime(1000);
+    expect(seen.length).toBe(count);
+    vi.useRealTimers();
   });
 
   it('traduit les codes d’état YouTube en états métier', async () => {
