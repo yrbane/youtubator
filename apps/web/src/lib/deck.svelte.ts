@@ -247,6 +247,7 @@ export class Deck {
   loopOut(): void {
     this.loop = pressOut(this.loop, this.displayTimeS());
     this.#engageSampleLoopIfPossible();
+    this.#persistLoop();
   }
 
   /** Coupe / relance la boucle (reloop) en gardant les points. */
@@ -267,6 +268,13 @@ export class Deck {
     if (!bounds) return;
     this.loop = { inS: bounds.inS, outS: bounds.outS, active: true };
     this.#engageSampleLoopIfPossible();
+    this.#persistLoop();
+  }
+
+  #persistLoop(): void {
+    if (this.loop.outS === null) return;
+    this.#waveDirty = true;
+    void this.#flushWaveform();
   }
 
   #engageSampleLoopIfPossible(): void {
@@ -310,6 +318,10 @@ export class Deck {
       if (record.bpm && record.anchorS !== null && record.anchorS !== undefined) {
         this.grid = { bpm: record.bpm, anchorS: record.anchorS };
       }
+      if (record.loopInS != null && record.loopOutS != null) {
+        // boucle restaurée inactive : le bouton ∞ (reloop) la relance telle quelle
+        this.loop = { inS: record.loopInS, outS: record.loopOutS, active: false };
+      }
       if (record.real && record.buckets.length > 0) {
         this.waveBuckets = record.buckets;
         this.waveIsReal = true;
@@ -336,6 +348,8 @@ export class Deck {
       cues: this.cues,
       bpm: this.grid?.bpm ?? null,
       anchorS: this.grid?.anchorS ?? null,
+      loopInS: this.loop.inS,
+      loopOutS: this.loop.outS,
       updatedAt: Date.now(),
     });
   }

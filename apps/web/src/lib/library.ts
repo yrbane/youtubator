@@ -63,6 +63,9 @@ export interface WaveformRecord {
   /** Grille de beats détectée (null tant que l'analyse n'a pas abouti). */
   bpm?: number | null;
   anchorS?: number | null;
+  /** Dernière boucle posée (restaurée désactivée : ∞ pour relancer). */
+  loopInS?: number | null;
+  loopOutS?: number | null;
   updatedAt: number;
 }
 
@@ -236,6 +239,8 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     cues: [...record.cues],
     bpm: record.bpm ?? null,
     anchorS: record.anchorS ?? null,
+    loopInS: record.loopInS ?? null,
+    loopOutS: record.loopOutS ?? null,
     updatedAt: Date.now(),
   });
 }
