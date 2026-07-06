@@ -23,7 +23,7 @@ async function start(streamId: string): Promise<void> {
   });
 
   // re-jeu du flux : sans ça, tabCapture coupe le son de l'onglet
-  playback = new AudioContext();
+  playback = new AudioContext({ latencyHint: 'playback' });
   playback.createMediaStreamSource(stream).connect(playback.destination);
 
   chunks = [];

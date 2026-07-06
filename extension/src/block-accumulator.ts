@@ -9,11 +9,17 @@ export class BlockAccumulator {
   #r: Float32Array;
   #filled = 0;
   #sumSquares = 0;
+  #acquire: (() => { l: Float32Array; r: Float32Array } | null) | null;
 
-  constructor(blockSize: number) {
+  /**
+   * `acquire` (optionnel) fournit des buffers recyclés — sur le thread
+   * audio, allouer à chaque bloc provoque des passages de GC (coupures).
+   */
+  constructor(blockSize: number, acquire?: () => { l: Float32Array; r: Float32Array } | null) {
     this.#size = blockSize;
     this.#l = new Float32Array(blockSize);
     this.#r = new Float32Array(blockSize);
+    this.#acquire = acquire ?? null;
   }
 
   push(left: Float32Array, right: Float32Array): { l: Float32Array; r: Float32Array; energy: number } | null {
@@ -29,9 +35,10 @@ export class BlockAccumulator {
       r: this.#r,
       energy: Math.sqrt(this.#sumSquares / this.#size),
     };
-    // buffers neufs : les précédents partent en transfert
-    this.#l = new Float32Array(this.#size);
-    this.#r = new Float32Array(this.#size);
+    // buffers suivants : recyclés si possible, neufs sinon (transfert en cours)
+    const next = this.#acquire?.() ?? null;
+    this.#l = next?.l ?? new Float32Array(this.#size);
+    this.#r = next?.r ?? new Float32Array(this.#size);
     this.#filled = 0;
     this.#sumSquares = 0;
     // reste du quantum (si le bloc s'est rempli en cours de route)

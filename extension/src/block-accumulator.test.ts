@@ -32,6 +32,21 @@ describe('BlockAccumulator — quanta de 128 → blocs de 1024 + énergie', () =
     expect(blocks[0]).not.toBe(blocks[1]); // pas de réutilisation après transfert
   });
 
+  it('réutilise les buffers fournis par la fabrique (recyclage, zéro GC audio)', () => {
+    const recycled = { l: new Float32Array(256), r: new Float32Array(256) };
+    let served = 0;
+    const acc = new BlockAccumulator(256, () => {
+      served++;
+      return recycled;
+    });
+    // premier bloc : buffers initiaux ; le suivant vient de la fabrique
+    acc.push(quantum(0.2, 256), quantum(0.2, 256));
+    const out = acc.push(quantum(0.3, 256), quantum(0.3, 256));
+    expect(out).not.toBeNull();
+    expect(served).toBeGreaterThanOrEqual(1);
+    expect(out!.l).toBe(recycled.l); // le bloc émis EST le buffer recyclé
+  });
+
   it('gère un quantum plus court (fin de flux) sans déborder', () => {
     const acc = new BlockAccumulator(256);
     acc.push(quantum(0.1), quantum(0.1));

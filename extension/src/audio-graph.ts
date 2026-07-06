@@ -17,7 +17,10 @@ const BLOCK = 1024;
  * Couche mince volontairement non testée unitairement (adaptateur I/O).
  */
 export function createEqGraph(video: HTMLVideoElement): EqGraph {
-  const ctx = new AudioContext();
+  // 'playback' : buffer de sortie plus grand qu'en 'interactive' → bien plus
+  // tolérant aux à-coups du système (anti-coupures ; on n'est pas un synthé,
+  // quelques ms de latence supplémentaires sont invisibles ici)
+  const ctx = new AudioContext({ latencyHint: 'playback' });
   const source = ctx.createMediaElementSource(video);
 
   const filters = {} as Record<EqBand, BiquadFilterNode>;
@@ -115,6 +118,8 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
       });
       tap.port.onmessage = (e: MessageEvent<{ l: ArrayBuffer; r: ArrayBuffer; energy: number; t: number }>) => {
         writeBlock(new Float32Array(e.data.l), new Float32Array(e.data.r), e.data.energy, e.data.t);
+        // renvoie les buffers au worklet pour réutilisation (zéro GC audio)
+        tap.port.postMessage({ recycle: [e.data.l, e.data.r] }, [e.data.l, e.data.r]);
       };
       source.connect(tap);
       tap.connect(sink);

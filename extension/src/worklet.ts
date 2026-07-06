@@ -17,7 +17,19 @@ declare const currentTime: number;
 const BLOCK = 1024;
 
 class TapProcessor extends AudioWorkletProcessor {
-  #acc = new BlockAccumulator(BLOCK);
+  /** Buffers renvoyés par le main thread après copie : zéro GC en régime permanent. */
+  #freelist: Array<{ l: Float32Array; r: Float32Array }> = [];
+  #acc = new BlockAccumulator(BLOCK, () => this.#freelist.pop() ?? null);
+
+  constructor() {
+    super();
+    this.port.onmessage = (e: MessageEvent<{ recycle?: [ArrayBuffer, ArrayBuffer] }>) => {
+      const pair = e.data?.recycle;
+      if (pair && this.#freelist.length < 8) {
+        this.#freelist.push({ l: new Float32Array(pair[0]), r: new Float32Array(pair[1]) });
+      }
+    };
+  }
 
   process(inputs: Float32Array[][]): boolean {
     const input = inputs[0];
