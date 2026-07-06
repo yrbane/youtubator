@@ -3,6 +3,7 @@
   import MixerCenter from './components/MixerCenter.svelte';
   import Browser from './components/Browser.svelte';
   import Settings from './components/Settings.svelte';
+  import Avatar from './components/Avatar.svelte';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
@@ -101,7 +102,7 @@
   </span>
   {#if session.active}
     <span class="user" title="Compte YouTube actif — les actions lui sont attribuées">
-      {#if session.active.avatarUrl}<img src={session.active.avatarUrl} alt="" />{/if}
+      <Avatar name={session.active.title} url={session.active.avatarUrl} size={26} />
       {session.active.title}
     </span>
   {/if}
@@ -178,18 +179,13 @@
   .user {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
     color: var(--yt-deck-c);
-    border: 1px solid var(--yt-border);
-    border-radius: 14px;
-    padding: 2px 10px 2px 4px;
-  }
-
-  .user img {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
+    border: 1px solid var(--yt-deck-c);
+    border-radius: 16px;
+    padding: 3px 12px 3px 4px;
   }
 
   .spacer {

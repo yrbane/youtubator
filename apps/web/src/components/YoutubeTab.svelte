@@ -1,5 +1,6 @@
 <script lang="ts">
   import TrackRow from './TrackRow.svelte';
+  import Avatar from './Avatar.svelte';
   import {
     fetchLikedPlaylistId,
     fetchMyPlaylists,
@@ -133,7 +134,7 @@
         title={account.email}
       >
         <button class="who" onclick={() => void activate(account.accountId)}>
-          {#if account.avatarUrl}<img src={account.avatarUrl} alt="" />{/if}
+          <Avatar name={account.title} url={account.avatarUrl} size={28} />
           {account.title}
           {#if account.accountId === session.activeId && !session.activeToken}
             <em>(session expirée)</em>
@@ -231,19 +232,13 @@
   .who {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     background: none;
     border: none;
     color: var(--yt-text);
-    padding: 4px 8px;
+    padding: 4px 8px 4px 4px;
     cursor: pointer;
-    font-size: 12px;
-  }
-
-  .who img {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
+    font-size: 12.5px;
   }
 
   .who em {
