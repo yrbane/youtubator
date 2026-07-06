@@ -95,7 +95,8 @@ Le time-stretch de Chrome (WSOLA) est de qualité correcte jusqu'à environ ±15
 ### 3.4 Recherche YouTube
 
 - **YouTube Data API v3** (`search.list`) avec clé API fournie par l'utilisateur (champ réglages, stockée en `localStorage`). Quota : 100 unités/recherche, 10 000/jour → mettre en cache les recherches (IndexedDB, TTL 24 h).
-- Fallback sans clé : saisie/collage direct d'une URL ou d'un ID YouTube dans le champ de recherche (regex de parsing d'URL).
+- **Compte connecté (OAuth)** : via Google Identity Services (token implicite, scope `youtube.readonly`, Client ID OAuth fourni par l'utilisateur), la recherche fonctionne **sans clé API** (header `Authorization: Bearer`), et l'app accède aux « J'aime » et playlists du compte (§ 6.4 F-BRW-05).
+- Fallback sans clé ni compte : saisie/collage direct d'une URL ou d'un ID YouTube dans le champ de recherche (regex de parsing d'URL).
 
 ### 3.5 Conditions d'utilisation YouTube
 
@@ -202,10 +203,11 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-BRW-02 — Historique** : tout morceau chargé dans un deck est horodaté et ajouté en tête. Regroupement par session de mix. Mêmes actions de routage. Vidage possible.
 - **F-BRW-03 — Favoris** : liste ordonnable (drag & drop), ajout/retrait par ⭐ partout dans l'app.
 - **F-BRW-04 — Playlists** : créer/renommer/supprimer une playlist ; y ajouter depuis recherche/historique/favoris (menu contextuel) ; export/import JSON.
+- **F-BRW-05 — Onglet ▶ YouTube (compte connecté)** : connexion OAuth au compte YouTube (Google Identity Services, scope `youtube.readonly`). Affiche la playlist **« J'aime »** (`relatedPlaylists.likes`) et **toutes les playlists du compte** en chips ; chaque piste est routable →A/→B et peut passer en favori local. Trois états : pas de Client ID (tutoriel de création dans la console Google), déconnecté (bouton de connexion), connecté (listes + déconnexion). Le token de session vit en `sessionStorage` (~1 h, marge 60 s), révoqué à la déconnexion.
 
 ### 6.5 Réglages
 
-- **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide).
+- **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide) et **Client ID OAuth Google** (connexion compte, origine autorisée = URL de l'app).
 - **F-SET-02** : courbe du crossfader, nombre de decks par défaut, plage du tempo fader (±16 % défaut / ±50 % avec avertissement), mode tempo par défaut (Master Tempo), thème (dark par défaut).
 - **F-SET-03** : raccourcis clavier (voir § 7.4).
 

@@ -1,23 +1,34 @@
 import { isoDurationToSeconds } from './iso-duration.js';
 import { parseYoutubeInput } from './youtube-url.js';
+import { getValidToken } from './youtube-auth.js';
 import { trackFromId, type Track } from './tracks.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
+/** Authentification : token OAuth (compte connecté) prioritaire sur la clé API. */
+function authQueryAndHeaders(apiKey: string | null): { qs: string; init: RequestInit } {
+  const token = getValidToken();
+  if (token) return { qs: '', init: { headers: { Authorization: `Bearer ${token}` } } };
+  return { qs: `&key=${apiKey}`, init: {} };
+}
+
 /**
  * Recherche : URL/ID YouTube collé → piste directe (métadonnées via oEmbed) ;
- * texte libre → YouTube Data API v3 (clé requise).
+ * texte libre → YouTube Data API v3 (compte connecté ou clé API).
  */
 export async function searchYoutube(query: string, apiKey: string | null): Promise<Track[]> {
   const videoId = parseYoutubeInput(query);
   if (videoId) return [await fetchTrackMeta(videoId)];
 
-  if (!apiKey) {
-    throw new Error('Colle une URL/ID YouTube, ou ajoute une clé API Data v3 dans ⚙ Réglages.');
+  if (!apiKey && !getValidToken()) {
+    throw new Error(
+      'Colle une URL/ID YouTube, connecte ton compte (onglet ▶ YOUTUBE), ou ajoute une clé API dans ⚙ Réglages.',
+    );
   }
 
-  const searchUrl = `${API}/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}&key=${apiKey}`;
-  const searchRes = await fetch(searchUrl);
+  const { qs, init } = authQueryAndHeaders(apiKey);
+  const searchUrl = `${API}/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}${qs}`;
+  const searchRes = await fetch(searchUrl, init);
   if (!searchRes.ok) throw new Error(`Recherche YouTube en échec (${searchRes.status})`);
   const searchJson = (await searchRes.json()) as {
     items: Array<{ id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails: { default: { url: string } } } }>;
@@ -27,7 +38,7 @@ export async function searchYoutube(query: string, apiKey: string | null): Promi
   // durées via videos.list
   const durations = new Map<string, number>();
   if (ids.length > 0) {
-    const videosRes = await fetch(`${API}/videos?part=contentDetails&id=${ids.join(',')}&key=${apiKey}`);
+    const videosRes = await fetch(`${API}/videos?part=contentDetails&id=${ids.join(',')}${qs}`, init);
     if (videosRes.ok) {
       const videosJson = (await videosRes.json()) as {
         items: Array<{ id: string; contentDetails: { duration: string } }>;

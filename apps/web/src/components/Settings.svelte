@@ -1,11 +1,13 @@
 <script lang="ts">
   import { DEFAULT_TEMPO_RANGE } from '@youtubator/audio-engine';
   import { getApiKey, setApiKey } from '../lib/search.js';
+  import { getClientId, setClientId } from '../lib/youtube-auth.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let { mixer, onClose }: { mixer: Mixer; onClose: () => void } = $props();
 
   let apiKey = $state(getApiKey() ?? '');
+  let clientId = $state(getClientId() ?? '');
 </script>
 
 <div class="backdrop" onclick={onClose} role="presentation">
@@ -23,6 +25,20 @@
         bind:value={apiKey}
         onchange={() => setApiKey(apiKey)}
         placeholder="AIza…"
+      />
+    </label>
+
+    <label>
+      Client ID OAuth Google <small>(connexion au compte YouTube — onglet ▶ YOUTUBE ; <a
+          href="https://console.cloud.google.com/apis/credentials"
+          target="_blank"
+          rel="noreferrer">créer un ID client</a
+        >, origine autorisée : ce site)</small>
+      <input
+        type="text"
+        bind:value={clientId}
+        onchange={() => setClientId(clientId)}
+        placeholder="1234567890-xxxx.apps.googleusercontent.com"
       />
     </label>
 

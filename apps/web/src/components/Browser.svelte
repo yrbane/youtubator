@@ -1,5 +1,6 @@
 <script lang="ts">
   import TrackRow from './TrackRow.svelte';
+  import YoutubeTab from './YoutubeTab.svelte';
   import { searchYoutube, getApiKey } from '../lib/search.js';
   import {
     clearHistory,
@@ -19,9 +20,14 @@
   let {
     mixer,
     onRoute,
-  }: { mixer: Mixer; onRoute: (track: Track, deckId: string) => void } = $props();
+    onOpenSettings,
+  }: {
+    mixer: Mixer;
+    onRoute: (track: Track, deckId: string) => void;
+    onOpenSettings: () => void;
+  } = $props();
 
-  type Tab = 'search' | 'history' | 'favorites';
+  type Tab = 'search' | 'history' | 'favorites' | 'youtube';
   let tab = $state<Tab>('search');
   let query = $state('');
   let results = $state<Track[]>([]);
@@ -89,6 +95,7 @@
     <button class="tab" class:on={tab === 'search'} onclick={() => (tab = 'search')}>RECHERCHE</button>
     <button class="tab" class:on={tab === 'history'} onclick={() => (tab = 'history')}>HISTORIQUE</button>
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
+    <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
   </nav>
 
   <div class="content">
@@ -124,6 +131,14 @@
           <p class="hint">Les résultats se routent vers un deck avec les boutons →A / →B.</p>
         {/if}
       {/each}
+    {:else if tab === 'youtube'}
+      <YoutubeTab
+        {mixer}
+        favoriteIds={favoriteIds}
+        onRoute={route}
+        onToggleFavorite={handleToggleFavorite}
+        {onOpenSettings}
+      />
     {:else if tab === 'history'}
       <div class="list-head">
         <span>{history.length} morceaux chargés</span>
@@ -228,6 +243,10 @@
   .tab.on {
     color: var(--yt-text);
     border-bottom-color: var(--yt-deck-a);
+  }
+
+  .tab.yt.on {
+    border-bottom-color: #ff0033;
   }
 
   .content {

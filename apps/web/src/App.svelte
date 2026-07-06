@@ -124,7 +124,12 @@
   <p class="onboarding">👇 Cherche un morceau (ou colle une URL YouTube) puis route-le vers un deck avec →A / →B</p>
 {/if}
 
-<Browser bind:this={browser} {mixer} onRoute={(t, d) => void routeTrack(t, d)} />
+<Browser
+  bind:this={browser}
+  {mixer}
+  onRoute={(t, d) => void routeTrack(t, d)}
+  onOpenSettings={() => (showSettings = true)}
+/>
 
 {#if showSettings}
   <Settings {mixer} onClose={() => (showSettings = false)} />
