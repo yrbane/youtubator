@@ -7,6 +7,7 @@
   let { mixer, onClose }: { mixer: Mixer; onClose: () => void } = $props();
 
   import { exportCrate, importCrate } from '../lib/crate.js';
+  import { midi, MIDI_ACTIONS } from '../lib/midi.svelte.js';
 
   let apiKey = $state(getApiKey() ?? '');
   let clientId = $state(getClientId() ?? '');
@@ -96,6 +97,30 @@
       </select>
     </label>
 
+    <div class="midi">
+      <span>Contrôleur MIDI</span>
+      {#if !midi.enabled}
+        <button class="btn" onclick={() => void midi.enable()}>Activer le MIDI</button>
+        {#if midi.error}<small class="err">{midi.error}</small>{/if}
+      {:else}
+        <small>{midi.deviceNames.length ? midi.deviceNames.join(', ') : 'Aucun périphérique détecté'}</small>
+        <div class="midi-grid">
+          {#each MIDI_ACTIONS as action (action.id)}
+            <span class="m-label">{action.label}</span>
+            <span class="mono m-bind">
+              {midi.map[action.id]
+                ? `${midi.map[action.id]!.kind} ch${midi.map[action.id]!.channel + 1} #${midi.map[action.id]!.number}`
+                : '—'}
+            </span>
+            <button class="btn m-learn" class:learning={midi.learning === action.id} onclick={() => midi.learn(action.id)}>
+              {midi.learning === action.id ? 'Bouge…' : 'Learn'}
+            </button>
+            <button class="btn" disabled={!midi.map[action.id]} onclick={() => midi.clear(action.id)}>✕</button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
     <div class="crate">
       <span>Crate (waveforms, BPM, tonalités, cues, favoris, playlists)</span>
       <div class="crate-actions">
@@ -144,6 +169,43 @@
 
   small a {
     color: var(--yt-deck-a);
+  }
+
+  .midi {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--yt-text-dim);
+    font-size: 12px;
+    border-top: 1px solid var(--yt-border);
+    padding-top: 12px;
+  }
+
+  .midi-grid {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 3px 8px;
+    align-items: center;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .m-label {
+    color: var(--yt-text);
+  }
+
+  .m-bind {
+    font-size: 10px;
+  }
+
+  .m-learn.learning {
+    background: var(--yt-deck-b);
+    color: #101318;
+    border-color: transparent;
+  }
+
+  .err {
+    color: var(--yt-danger);
   }
 
   .crate {

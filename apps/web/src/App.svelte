@@ -7,6 +7,7 @@
   import WaveformStrip from './components/WaveformStrip.svelte';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { ghost } from './lib/ghost.svelte.js';
+  import { midi } from './lib/midi.svelte.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
@@ -18,6 +19,51 @@
   let showSettings = $state(false);
   let browser = $state<ReturnType<typeof Browser>>();
   let ghostContainer: HTMLDivElement;
+
+  // contrôleur MIDI → actions sur les decks et le mixer
+  midi.onAction((action, value) => {
+    const deck = action.includes('A') ? mixer.decks[0] : mixer.decks[1];
+    switch (action) {
+      case 'crossfader':
+        mixer.crossfader = value * 2 - 1;
+        mixer.applyVolumes();
+        return;
+      case 'volumeA':
+      case 'volumeB':
+        if (deck) {
+          deck.volume = value;
+          mixer.applyVolumes();
+        }
+        return;
+      case 'tempoA':
+      case 'tempoB':
+        void deck?.setRate(1 + (value * 2 - 1) * mixer.tempoRange, mixer.tempoRange);
+        mixer.refresh();
+        return;
+      case 'filterA':
+      case 'filterB':
+        deck?.setFilter(value * 2 - 1);
+        return;
+      case 'playA':
+      case 'playB':
+        deck?.togglePlay();
+        mixer.refresh();
+        return;
+      case 'cueA':
+      case 'cueB':
+        deck?.cue();
+        return;
+      case 'syncA':
+      case 'syncB':
+        if (deck) {
+          deck.synced = !deck.synced;
+          mixer.refresh();
+        }
+        return;
+    }
+    const hotcue = /^hotcue[AB]([1-4])$/.exec(action);
+    if (hotcue) deck?.jumpToCue(Number(hotcue[1]) - 1);
+  });
 
   $effect(() => {
     ghost.attach(ghostContainer);
