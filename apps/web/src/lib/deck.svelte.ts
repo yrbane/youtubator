@@ -15,7 +15,15 @@ import {
 import { iframeChannel } from './deck-channel.js';
 import { createPlayerFactory } from './yt-iframe.js';
 import { loadWaveform, saveWaveform } from './library.js';
-import { emptyLoop, pressIn, pressOut, shouldJump, toggleActive, type LoopState } from './loop.js';
+import {
+  emptyLoop,
+  ghostPosition,
+  pressIn,
+  pressOut,
+  shouldJump,
+  toggleActive,
+  type LoopState,
+} from './loop.js';
 import { bucketCount, mergeSample, pseudoWaveform, toggleCue } from './waveform.js';
 import type { Track } from './tracks.js';
 
@@ -46,6 +54,10 @@ export class Deck {
   cues = $state<number[]>([]);
   waveIsReal = $state(false);
   loop = $state<LoopState>(emptyLoop());
+  /** Loop roll : à la sortie de boucle, saute à la position fantôme. */
+  rollMode = $state(false);
+  #loopEngagedAtS = 0;
+  #loopEngagedWall = 0;
   /** Grille de beats (BPM + ancre) détectée ou restaurée du cache. */
   grid = $state<BeatGrid | null>(null);
   /** Boucle sample-accurate en cours côté extension. */
@@ -246,6 +258,7 @@ export class Deck {
 
   loopOut(): void {
     this.loop = pressOut(this.loop, this.displayTimeS());
+    if (this.loop.active) this.#markLoopEngaged();
     this.#engageSampleLoopIfPossible();
     this.#persistLoop();
   }
@@ -253,8 +266,28 @@ export class Deck {
   /** Coupe / relance la boucle (reloop) en gardant les points. */
   toggleLoop(): void {
     this.loop = toggleActive(this.loop);
-    if (this.loop.active) this.#engageSampleLoopIfPossible();
-    else if (this.sampleLoop) this.#extension?.exitLoop();
+    if (this.loop.active) {
+      this.#markLoopEngaged();
+      this.#engageSampleLoopIfPossible();
+    } else {
+      const ghost = this.rollMode ? this.ghostTimeS() : null;
+      if (this.sampleLoop) this.#extension?.exitLoop();
+      if (ghost !== null) this.seekToS(ghost); // roll : reprise comme si jamais bouclé
+    }
+  }
+
+  /** Position fantôme courante (avance pendant la boucle, pour le roll). */
+  ghostTimeS(): number {
+    return ghostPosition(
+      this.#loopEngagedAtS,
+      (performance.now() - this.#loopEngagedWall) / 1000,
+      this.effectiveRate,
+    );
+  }
+
+  #markLoopEngaged(): void {
+    this.#loopEngagedAtS = this.displayTimeS();
+    this.#loopEngagedWall = performance.now();
   }
 
   /**
@@ -267,6 +300,7 @@ export class Deck {
     const bounds = beatLoopBounds(this.grid, this.displayTimeS(), beats);
     if (!bounds) return;
     this.loop = { inS: bounds.inS, outS: bounds.outS, active: true };
+    this.#markLoopEngaged();
     this.#engageSampleLoopIfPossible();
     this.#persistLoop();
   }

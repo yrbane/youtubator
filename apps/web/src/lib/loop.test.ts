@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLoop, pressIn, pressOut, shouldJump, toggleActive } from './loop.js';
+import { emptyLoop, ghostPosition, pressIn, pressOut, shouldJump, toggleActive } from './loop.js';
+
+describe('ghostPosition — position fantôme pour le loop roll', () => {
+  it('avance depuis le point d’engagement au rate effectif', () => {
+    expect(ghostPosition(120, 4, 1)).toBe(124);
+    expect(ghostPosition(120, 4, 1.05)).toBeCloseTo(124.2, 10);
+  });
+
+  it('reste au point d’engagement à t=0', () => {
+    expect(ghostPosition(120, 0, 1.2)).toBe(120);
+  });
+});
 
 describe('boucle IN/OUT', () => {
   it('pressIn pose le point d’entrée', () => {

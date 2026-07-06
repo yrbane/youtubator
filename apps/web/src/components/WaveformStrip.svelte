@@ -257,6 +257,14 @@
             >
               ∞
             </button>
+            <button
+              class="lp roll"
+              class:on={deck.rollMode}
+              onclick={() => (deck.rollMode = !deck.rollMode)}
+              title="Loop roll : à la sortie, reprendre là où le morceau serait arrivé sans la boucle"
+            >
+              ROLL
+            </button>
           </div>
         </div>
       </div>
@@ -383,6 +391,12 @@
 
   .lp.toggle.on {
     background: var(--yt-deck-c);
+    border-color: transparent;
+    color: #101318;
+  }
+
+  .lp.roll.on {
+    background: var(--yt-deck-d);
     border-color: transparent;
     color: #101318;
   }

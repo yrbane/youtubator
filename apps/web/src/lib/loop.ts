@@ -26,6 +26,14 @@ export function toggleActive(loop: LoopState): LoopState {
   return { ...loop, active: !loop.active };
 }
 
+/**
+ * Position fantôme (loop roll) : là où serait la lecture si la boucle
+ * n'avait jamais été engagée.
+ */
+export function ghostPosition(engagedAtS: number, elapsedWallS: number, rate: number): number {
+  return engagedAtS + elapsedWallS * rate;
+}
+
 /** Position de re-saut si la tête de lecture a franchi la sortie. */
 export function shouldJump(loop: LoopState, timeS: number): number | null {
   if (!loop.active || loop.inS === null || loop.outS === null) return null;
