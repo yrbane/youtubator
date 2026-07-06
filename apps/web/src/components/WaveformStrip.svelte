@@ -12,10 +12,9 @@
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
-  let { mixer }: { mixer: Mixer } = $props();
+  let { mixer, rowH = 56 }: { mixer: Mixer; rowH?: number } = $props();
 
   const PX_PER_S = 30;
-  const ROW_H = 56;
   const CUE_SNAP_S = 0.5;
 
   let canvases: Record<string, HTMLCanvasElement> = $state({});
@@ -30,7 +29,7 @@
 
   function draw(deck: Deck, canvas: HTMLCanvasElement): void {
     const w = canvas.clientWidth;
-    const h = ROW_H;
+    const h = rowH;
     if (w === 0) return;
     const dpr = window.devicePixelRatio || 1;
     if (canvas.width !== Math.round(w * dpr)) {
@@ -216,7 +215,7 @@
       <div class="row" style="--accent: var({deck.colorVar})">
         <canvas
           bind:this={canvases[deck.id]}
-          style="height: {ROW_H}px"
+          style="height: {rowH}px"
           onclick={(e) => onClick(deck, e)}
         ></canvas>
         <div class="controls">

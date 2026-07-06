@@ -17,6 +17,13 @@
   if (import.meta.env.DEV) (window as unknown as { __mixer: Mixer }).__mixer = mixer;
   let apiReady = $state(false);
   let showSettings = $state(false);
+  let perfMode = $state(false);
+
+  function togglePerf(): void {
+    perfMode = !perfMode;
+    if (perfMode) void document.documentElement.requestFullscreen?.().catch(() => {});
+    else if (document.fullscreenElement) void document.exitFullscreen();
+  }
   let browser = $state<ReturnType<typeof Browser>>();
   let ghostContainer: HTMLDivElement;
 
@@ -171,6 +178,7 @@
   {/if}
   <span class="spacer"></span>
   <span class="hint mono">espace/Q : play · S/L : sync · 1-8 : cues (Maj = deck B) · ←→ : crossfader · / : recherche</span>
+  <button class="btn" class:on={perfMode} onclick={togglePerf} title="Mode performance : plein écran, browser masqué, grosses waveforms">⛶</button>
   <button class="btn" onclick={() => (showSettings = true)} title="Réglages">⚙</button>
 </header>
 
@@ -192,16 +200,18 @@
   <main class="loading">Chargement de l’API YouTube…</main>
 {/if}
 
-<WaveformStrip {mixer} />
+<WaveformStrip {mixer} rowH={perfMode ? 110 : 56} />
 
 <div class="ghost-hole" bind:this={ghostContainer}></div>
 
-<Browser
-  bind:this={browser}
-  {mixer}
-  onRoute={(t, d) => void routeTrack(t, d)}
-  onOpenSettings={() => (showSettings = true)}
-/>
+<div class="browser-zone" class:hidden={perfMode}>
+  <Browser
+    bind:this={browser}
+    {mixer}
+    onRoute={(t, d) => void routeTrack(t, d)}
+    onOpenSettings={() => (showSettings = true)}
+  />
+</div>
 
 {#if showSettings}
   <Settings {mixer} onClose={() => (showSettings = false)} />
@@ -237,6 +247,20 @@
 
   .ext.on {
     color: var(--yt-deck-c);
+  }
+
+  .browser-zone {
+    display: contents;
+  }
+
+  .browser-zone.hidden {
+    display: none;
+  }
+
+  .btn.on {
+    background: var(--yt-deck-a);
+    color: #101318;
+    border-color: transparent;
   }
 
   .ghost-badge {
