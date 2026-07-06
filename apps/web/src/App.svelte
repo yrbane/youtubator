@@ -189,7 +189,9 @@
         <DeckView {deck} {mixer} />
       {/each}
     </div>
-    <MixerCenter {mixer} />
+    <div class="mixer-slot" style="width: {44 + Math.max(2, mixer.decks.length) * 76}px">
+      <MixerCenter {mixer} />
+    </div>
     <div class="col right">
       {#each mixer.decks.filter((_, i) => i % 2 === 1) as deck (deck.id)}
         <DeckView {deck} {mixer} />
@@ -250,7 +252,16 @@
   }
 
   .browser-zone {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 220px; /* la playlist respire toujours */
+  }
+
+  .browser-zone > :global(.browser) {
+    flex: 1;
+    min-height: 0;
+    margin: 0 10px 10px;
   }
 
   .browser-zone.hidden {
@@ -307,6 +318,7 @@
     gap: 10px;
     padding: 10px;
     min-height: 0;
+    flex: 0 0 auto; /* les decks dictent la hauteur, le browser prend le reste */
   }
 
   .col {
@@ -314,6 +326,46 @@
     flex-direction: column;
     gap: 10px;
     min-width: 0;
+  }
+
+  /* le mixer ne participe pas à la hauteur de la rangée : il est plafonné
+     à la hauteur des decks (scroll interne au besoin) */
+  .mixer-slot {
+    position: relative;
+    align-self: stretch;
+  }
+
+  .mixer-slot > :global(.mixer) {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+  }
+
+  /* à 3-4 decks : vidéos compactées, adaptées au viewport, pour que
+     les decks restent en haut et que la playlist garde sa place */
+  main.four :global(.video) {
+    max-height: clamp(80px, calc((100vh - 700px) / 2), 220px);
+  }
+
+  main.four :global(.deck header) {
+    padding: 3px 8px;
+  }
+
+  main.four :global(.deck .body) {
+    padding: 5px;
+    align-items: flex-start;
+  }
+
+  main.four :global(.tempo) {
+    height: 150px;
+  }
+
+  main.four :global(.tempo pt-fader) {
+    min-height: 0;
+  }
+
+  main.four :global(.deck .transport) {
+    gap: 3px;
   }
 
   .loading {

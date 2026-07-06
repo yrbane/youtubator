@@ -194,13 +194,40 @@
     if (bpm !== null) deck.setGridManually(bpm);
   }
 
-  // boucle de rendu
+  // boucle de rendu — on ne redessine que si quelque chose a changé
+  // (deck en pause + aucun réglage touché = zéro travail canvas)
+  const lastSignature: Record<string, string> = {};
+
+  function signature(deck: Deck, canvas: HTMLCanvasElement): string {
+    return [
+      displayTime(deck).toFixed(3),
+      canvas.clientWidth,
+      rowH,
+      deck.waveBuckets.length,
+      deck.waveIsReal,
+      deck.cues.length,
+      deck.loop.inS,
+      deck.loop.outS,
+      deck.loop.active,
+      deck.grid?.bpm,
+      deck.grid?.anchorS,
+      deck.musicalKey?.camelot,
+      deck.effectiveRate,
+      deck.synced,
+    ].join('|');
+  }
+
   $effect(() => {
     let raf = 0;
     const loop = (): void => {
       for (const deck of loadedDecks) {
         const canvas = canvases[deck.id];
-        if (canvas) draw(deck, canvas);
+        if (!canvas) continue;
+        const sig = signature(deck, canvas);
+        if (sig !== lastSignature[deck.id] || (deck.isPlaying && deck.waveIsReal)) {
+          lastSignature[deck.id] = sig;
+          draw(deck, canvas);
+        }
       }
       raf = requestAnimationFrame(loop);
     };

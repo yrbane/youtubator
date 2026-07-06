@@ -40,43 +40,45 @@
     {/each}
   </div>
 
-  <div class="band filter" class:disabled={!deck.hasExtension} title={deck.hasExtension ? 'Filtre : gauche LP, droite HP, double-clic neutre' : 'Filtre : installe l’extension Youtubator'}>
-    <pt-knob
-      min="-1"
-      max="1"
-      value={deck.filterValue}
-      default="0"
-      label="FILTER"
-      oninput={(e: CustomEvent<number>) => deck.setFilter(e.detail)}
-      aria-label="Filtre deck {deck.id}"
-      style="--ctl-accent: var(--yt-deck-d)"
-    ></pt-knob>
+  <div class="fx">
+    <div class="band filter" class:disabled={!deck.hasExtension} title={deck.hasExtension ? 'Filtre : gauche LP, droite HP, double-clic neutre' : 'Filtre : installe l’extension Youtubator'}>
+      <pt-knob
+        min="-1"
+        max="1"
+        value={deck.filterValue}
+        default="0"
+        label="FLT"
+        oninput={(e: CustomEvent<number>) => deck.setFilter(e.detail)}
+        aria-label="Filtre deck {deck.id}"
+        style="--ctl-accent: var(--yt-deck-d)"
+      ></pt-knob>
+    </div>
+    <div class="band echo" class:disabled={!deck.hasExtension || !deck.grid} title={deck.grid ? 'Delay calé sur le BPM' : 'Delay : BPM requis (extension + ~15 s de lecture)'}>
+      <pt-knob
+        min="0"
+        max="1"
+        value={deck.delayWet}
+        default="0"
+        label="DLY"
+        oninput={(e: CustomEvent<number>) => {
+          deck.delayWet = e.detail;
+          deck.applyDelay();
+        }}
+        aria-label="Delay deck {deck.id}"
+        style="--ctl-accent: var(--yt-deck-b)"
+      ></pt-knob>
+    </div>
   </div>
-
-  <div class="band echo" class:disabled={!deck.hasExtension || !deck.grid} title={deck.grid ? 'Delay calé sur le BPM' : 'Delay : BPM requis (extension + ~15 s de lecture)'}>
-    <pt-knob
-      min="0"
-      max="1"
-      value={deck.delayWet}
-      default="0"
-      label="ECHO"
-      oninput={(e: CustomEvent<number>) => {
-        deck.delayWet = e.detail;
-        deck.applyDelay();
-      }}
-      aria-label="Delay deck {deck.id}"
-      style="--ctl-accent: var(--yt-deck-b)"
-    ></pt-knob>
-    <pt-stepper
-      options="1/4,1/2,3/4,1"
-      value={deck.delayBeats}
-      onchange={(e: CustomEvent<string>) => {
-        deck.delayBeats = e.detail;
-        deck.applyDelay();
-      }}
-      aria-label="Fraction du delay deck {deck.id}"
-    ></pt-stepper>
-  </div>
+  <pt-stepper
+    class="dly-frac"
+    options="1/4,1/2,3/4,1"
+    value={deck.delayBeats}
+    onchange={(e: CustomEvent<string>) => {
+      deck.delayBeats = e.detail;
+      deck.applyDelay();
+    }}
+    aria-label="Fraction du delay deck {deck.id}"
+  ></pt-stepper>
 
   <div class="fader-row">
     <pt-fader
@@ -99,11 +101,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 8px 6px;
+    gap: 4px;
+    padding: 6px 5px;
     background: var(--yt-panel-deep);
     border: 1px solid var(--yt-border);
     border-radius: 6px;
+    min-height: 0;
   }
 
   .deck-id {
@@ -114,7 +117,7 @@
   .eq {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
     align-items: center;
   }
 
@@ -131,16 +134,19 @@
   }
 
   pt-knob {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
   }
 
-  .filter {
+  .fx {
+    display: flex;
+    gap: 4px;
     margin-top: 2px;
   }
 
-  .filter pt-knob {
-    height: 52px;
+  .fx pt-knob {
+    width: 30px;
+    height: 42px;
   }
 
   .filter.disabled,
@@ -149,11 +155,7 @@
     pointer-events: none;
   }
 
-  .echo pt-knob {
-    height: 52px;
-  }
-
-  .echo pt-stepper {
+  .dly-frac {
     font-size: 9px;
   }
 
@@ -179,15 +181,17 @@
     display: flex;
     gap: 4px;
     align-items: stretch;
+    flex: 1;
+    min-height: 90px; /* le fader absorbe la hauteur restante */
   }
 
   pt-fader {
-    width: 34px;
-    height: 140px;
+    width: 32px;
+    height: 100%;
   }
 
   pt-vumeter {
     width: 8px;
-    height: 140px;
+    height: 100%;
   }
 </style>

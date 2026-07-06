@@ -30,15 +30,21 @@
   .mixer {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+    gap: 8px;
+    padding: 8px;
     align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
   }
 
   .strips {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex: 1;
+    min-height: 0;
+    align-self: stretch;
+    justify-content: center;
   }
 
   .xfader {
@@ -48,9 +54,15 @@
   }
 
   pt-crossfader {
-    width: 180px;
-    height: 34px;
+    width: 100%;
+    max-width: 200px;
+    height: 30px;
     --ctl-accent: var(--yt-text);
+  }
+
+  .xfader {
+    align-self: stretch;
+    justify-content: center;
   }
 
   .side {
