@@ -42,6 +42,14 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
 
   const buffer = new Uint8Array(analyser.frequencyBinCount);
 
+  // analyseur dédié au chromagramme (résolution fine, branché avant l'EQ)
+  const chromaAnalyser = ctx.createAnalyser();
+  chromaAnalyser.fftSize = 8192;
+  source.connect(chromaAnalyser);
+  const spectrum = new Float32Array(chromaAnalyser.frequencyBinCount);
+  const chroma = new Float64Array(12);
+  let chromaSamples = 0;
+
   // --- ring PCM + enveloppe + temps vidéo par bloc ---
   const sr = ctx.sampleRate;
   const ringBlocks = Math.ceil((RING_S * sr) / BLOCK);
@@ -122,6 +130,27 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
         sum += centered * centered;
       }
       return Math.min(1, Math.sqrt(sum / buffer.length) * 2);
+    },
+
+    accumulateChroma() {
+      chromaAnalyser.getFloatFrequencyData(spectrum);
+      const binHz = sr / chromaAnalyser.fftSize;
+      for (let k = 1; k < spectrum.length; k++) {
+        const f = k * binHz;
+        if (f < 60 || f > 5000) continue;
+        const mag = Math.pow(10, spectrum[k]! / 20);
+        if (!Number.isFinite(mag) || mag <= 0) continue;
+        const midi = Math.round(12 * Math.log2(f / 440) + 69);
+        chroma[((midi % 12) + 12) % 12] += mag;
+      }
+      chromaSamples++;
+    },
+
+    getChroma() {
+      if (chromaSamples < 30) return null; // ~3 s minimum d'accumulation
+      const max = Math.max(...chroma);
+      if (max <= 0) return null;
+      return { bins: [...chroma].map((v) => v / max), samples: chromaSamples };
     },
 
     getEnvelope() {

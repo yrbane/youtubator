@@ -149,7 +149,8 @@
       ctx.fillText('~', 16, 13); // pseudo-waveform (pas encore capturée)
     }
     if (deck.grid) {
-      const label = `${(deck.grid.bpm * deck.effectiveRate).toFixed(1)} BPM`;
+      const key = deck.musicalKey ? `${deck.musicalKey.camelot} · ` : '';
+      const label = `${key}${(deck.grid.bpm * deck.effectiveRate).toFixed(1)} BPM`;
       ctx.fillStyle = '#d7dce2';
       ctx.fillText(label, w - ctx.measureText(label).width - 6, 13);
       // compte à rebours avant la prochaine phrase (préparation des transitions)

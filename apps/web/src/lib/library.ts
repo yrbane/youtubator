@@ -66,6 +66,9 @@ export interface WaveformRecord {
   /** Dernière boucle posée (restaurée désactivée : ∞ pour relancer). */
   loopInS?: number | null;
   loopOutS?: number | null;
+  /** Tonalité détectée (mix harmonique). */
+  keyCamelot?: string | null;
+  keyName?: string | null;
   updatedAt: number;
 }
 
@@ -241,6 +244,8 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     anchorS: record.anchorS ?? null,
     loopInS: record.loopInS ?? null,
     loopOutS: record.loopOutS ?? null,
+    keyCamelot: record.keyCamelot ?? null,
+    keyName: record.keyName ?? null,
     updatedAt: Date.now(),
   });
 }

@@ -27,6 +27,10 @@ export interface EqGraph {
   isRunning(): boolean;
   /** Enveloppe d'énergie du ring buffer (null si trop tôt). */
   getEnvelope(): { rate: number; data: number[]; endTimeS: number } | null;
+  /** Accumule un instantané de chromagramme (appelé au tick). */
+  accumulateChroma?(): void;
+  /** Chromagramme accumulé (12 classes, normalisé) + nombre d'instantanés. */
+  getChroma?(): { bins: number[]; samples: number } | null;
   /** Joue [inS, outS] en boucle sample-accurate depuis le buffer local. */
   engageLoop(inS: number, outS: number): boolean;
   /** Arrête la boucle ; retourne la position vidéo de reprise (null si inactive). */
@@ -91,6 +95,11 @@ export class FrameAgent {
         if (envelope) this.#deps.postToParent(createMessage('ENVELOPE', envelope));
         break;
       }
+      case 'GET_CHROMA': {
+        const chroma = this.#graph?.getChroma?.();
+        if (chroma) this.#deps.postToParent(createMessage('CHROMA', chroma));
+        break;
+      }
       case 'LOOP_ENGAGE': {
         const video = this.#video;
         if (!video || !this.#graph?.engageLoop(msg.inS, msg.outS)) break;
@@ -135,6 +144,7 @@ export class FrameAgent {
   meterTick(): void {
     if (!this.#graph) return;
     this.#graph.resume();
+    if (this.#video && !this.#video.paused) this.#graph.accumulateChroma?.();
     this.#deps.postToParent(createMessage('METER', { level: this.#graph.getLevel() }));
   }
 

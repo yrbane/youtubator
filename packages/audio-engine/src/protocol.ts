@@ -25,6 +25,9 @@ export interface ProtocolPayloads {
   /** Enveloppe d'énergie du ring buffer (détection de BPM côté page). */
   GET_ENVELOPE: Record<string, never>;
   ENVELOPE: { rate: number; data: number[]; endTimeS: number };
+  /** Chromagramme accumulé (détection de tonalité côté page). */
+  GET_CHROMA: Record<string, never>;
+  CHROMA: { bins: number[]; samples: number };
   /** Boucle sample-accurate jouée depuis le buffer local de la frame. */
   LOOP_ENGAGE: { inS: number; outS: number };
   LOOP_EXIT: Record<string, never>;
@@ -49,6 +52,8 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set([
   'METER',
   'GET_ENVELOPE',
   'ENVELOPE',
+  'GET_CHROMA',
+  'CHROMA',
   'LOOP_ENGAGE',
   'LOOP_EXIT',
   'LOOP_STATE',

@@ -23,6 +23,7 @@ export class ExtensionBackend implements DeckAudioBackend {
   #meterListeners = new Set<(level: number) => void>();
   #loopStateListeners = new Set<(s: { engaged: boolean; resumeAtS: number | null }) => void>();
   #envelopeWaiters: Array<(e: { rate: number; data: number[]; endTimeS: number }) => void> = [];
+  #chromaWaiters: Array<(c: { bins: number[]; samples: number }) => void> = [];
   #unsubChannel: Unsubscribe;
   #helloTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -63,6 +64,11 @@ export class ExtensionBackend implements DeckAudioBackend {
         waiter?.({ rate: msg.rate, data: msg.data, endTimeS: msg.endTimeS });
         break;
       }
+      case 'CHROMA': {
+        const chromaWaiter = this.#chromaWaiters.shift();
+        chromaWaiter?.({ bins: msg.bins, samples: msg.samples });
+        break;
+      }
       case 'LOOP_STATE':
         for (const l of this.#loopStateListeners) l({ engaged: msg.engaged, resumeAtS: msg.resumeAtS });
         break;
@@ -84,6 +90,24 @@ export class ExtensionBackend implements DeckAudioBackend {
       };
       this.#envelopeWaiters.push(waiter);
       this.#channel.send(createMessage('GET_ENVELOPE', {}));
+    });
+  }
+
+  /** Chromagramme accumulé côté frame (détection de tonalité). */
+  async getChroma(): Promise<{ bins: number[]; samples: number } | null> {
+    if (!this.#connected) return null;
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        const i = this.#chromaWaiters.indexOf(waiter);
+        if (i >= 0) this.#chromaWaiters.splice(i, 1);
+        resolve(null);
+      }, 3000);
+      const waiter = (c: { bins: number[]; samples: number }): void => {
+        clearTimeout(timeout);
+        resolve(c);
+      };
+      this.#chromaWaiters.push(waiter);
+      this.#channel.send(createMessage('GET_CHROMA', {}));
     });
   }
 

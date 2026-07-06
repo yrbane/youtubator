@@ -5,6 +5,7 @@ import {
   beatLoopBounds,
   clampRate,
   detectBpm,
+  detectKey,
   effectiveEqGain,
   type BeatGrid,
   type DeckAudioBackend,
@@ -60,6 +61,8 @@ export class Deck {
   #loopEngagedWall = 0;
   /** Grille de beats (BPM + ancre) détectée ou restaurée du cache. */
   grid = $state<BeatGrid | null>(null);
+  /** Tonalité détectée (code Camelot + nom), null tant qu'inconnue. */
+  musicalKey = $state<{ camelot: string; name: string } | null>(null);
   /** Boucle sample-accurate en cours côté extension. */
   sampleLoop = $state(false);
   #analyzingBpm = false;
@@ -106,6 +109,7 @@ export class Deck {
     this.waveIsReal = false;
     this.loop = emptyLoop();
     this.grid = null;
+    this.musicalKey = null;
     this.sampleLoop = false;
     this.#waveDirty = false;
     this.#core.load(track.videoId);
@@ -346,6 +350,12 @@ export class Deck {
         bpm: detection.bpm / r,
         anchorS: envStartVideoS + detection.anchorS * r,
       };
+      // la tonalité s'appuie sur le chromagramme accumulé pendant la même lecture
+      const chroma = await this.#extension.getChroma();
+      if (chroma) {
+        const key = detectKey(chroma.bins);
+        if (key) this.musicalKey = { camelot: key.camelot, name: key.name };
+      }
       this.#waveDirty = true;
       void this.#flushWaveform();
     } finally {
@@ -361,6 +371,9 @@ export class Deck {
       this.cues = record.cues;
       if (record.bpm && record.anchorS !== null && record.anchorS !== undefined) {
         this.grid = { bpm: record.bpm, anchorS: record.anchorS };
+      }
+      if (record.keyCamelot) {
+        this.musicalKey = { camelot: record.keyCamelot, name: record.keyName ?? '' };
       }
       if (record.loopInS != null && record.loopOutS != null) {
         // boucle restaurée inactive : le bouton ∞ (reloop) la relance telle quelle
@@ -394,6 +407,8 @@ export class Deck {
       anchorS: this.grid?.anchorS ?? null,
       loopInS: this.loop.inS,
       loopOutS: this.loop.outS,
+      keyCamelot: this.musicalKey?.camelot ?? null,
+      keyName: this.musicalKey?.name ?? null,
       updatedAt: Date.now(),
     });
   }
