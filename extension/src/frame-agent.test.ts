@@ -7,10 +7,11 @@ function makeVideo(): VideoLike {
   return { playbackRate: 1, preservesPitch: true, muted: false };
 }
 
-function makeGraph(): EqGraph & { bands: Record<string, number>; gain: number } {
+function makeGraph(): EqGraph & { bands: Record<string, number>; gain: number; running: boolean } {
   const g = {
     bands: {} as Record<string, number>,
     gain: 1,
+    running: true,
     setBandGain(band: string, db: number) {
       g.bands[band] = db;
     },
@@ -18,19 +19,23 @@ function makeGraph(): EqGraph & { bands: Record<string, number>; gain: number } 
       g.gain = v;
     },
     getLevel: () => 0.42,
+    resume() {
+      // no-op : le resume réel peut échouer tant qu'il n'y a pas de geste utilisateur
+    },
+    isRunning: () => g.running,
   };
   return g;
 }
 
-function makeAgent() {
+function makeAgent(withVideo = true) {
   const video = makeVideo();
   const graph = makeGraph();
   const posted: unknown[] = [];
   const agent = new FrameAgent({
-    video,
     createGraph: vi.fn(() => graph),
     postToParent: (m) => posted.push(m),
   });
+  if (withVideo) agent.attachVideo(video);
   return { agent, video, graph, posted };
 }
 
@@ -49,10 +54,11 @@ describe('FrameAgent — handshake', () => {
     ]);
   });
 
-  it('construit le graphe audio et mute la vidéo au premier HELLO seulement', () => {
+  it('construit le graphe au premier HELLO seulement, sans jamais muter la vidéo (MediaElementSource reroute la sortie)', () => {
     const { agent, video } = makeAgent();
     agent.handleMessage(createMessage('HELLO', {}));
-    expect(video.muted).toBe(true);
+    expect(agent.graphCreated).toBe(true);
+    expect(video.muted).toBe(false);
     const before = agent.graphCreated;
     agent.handleMessage(createMessage('HELLO', {}));
     expect(agent.graphCreated).toBe(before); // pas de second graphe
@@ -63,6 +69,39 @@ describe('FrameAgent — handshake', () => {
     agent.handleMessage({ event: 'infoDelivery' });
     agent.handleMessage('string');
     expect(posted).toEqual([]);
+  });
+
+  it('répond à HELLO même quand le <video> n’existe pas encore (embed jamais joué)', () => {
+    const { agent, posted } = makeAgent(false);
+    agent.handleMessage(createMessage('HELLO', {}));
+    expect(posted).toEqual([
+      createMessage('HELLO_ACK', {
+        capabilities: { eq: true, continuousRate: true, tempoModes: true },
+      }),
+    ]);
+    expect(agent.graphCreated).toBe(false);
+  });
+
+  it('mémorise les commandes reçues avant la vidéo et les applique à son apparition', () => {
+    const { agent, video, graph } = makeAgent(false);
+    agent.handleMessage(createMessage('HELLO', {}));
+    agent.handleMessage(createMessage('SET_RATE', { rate: 1.1 }));
+    agent.handleMessage(createMessage('SET_TEMPO_MODE', { mode: 'vinyl' }));
+    agent.handleMessage(createMessage('SET_EQ', { band: 'low', gainDb: -6 }));
+    agent.attachVideo(video);
+    expect(agent.graphCreated).toBe(true);
+    expect(video.playbackRate).toBe(1.1);
+    expect(video.preservesPitch).toBe(false);
+    expect(graph.bands['low']).toBe(-6);
+  });
+
+  it('tente un resume() du graphe à chaque message et à chaque tick (autoplay policy)', () => {
+    const { agent, graph } = makeAgent();
+    const spy = vi.spyOn(graph, 'resume');
+    agent.handleMessage(createMessage('HELLO', {}));
+    agent.handleMessage(createMessage('SET_RATE', { rate: 1 }));
+    agent.meterTick();
+    expect(spy.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -4,13 +4,14 @@ import type { EqGraph } from './frame-agent.js';
 
 /**
  * Graphe Web Audio réel, construit sur le <video> de la frame :
- * captureStream → low-shelf → peaking → high-shelf → gain → analyser → destination.
+ * MediaElementSource → low-shelf → peaking → high-shelf → gain → analyser → destination.
+ * MediaElementSource reroute toute la sortie de l'élément (pas de double son,
+ * pas de mute nécessaire) et fonctionne avec le MSE de YouTube.
  * Couche mince volontairement non testée unitairement (adaptateur I/O).
  */
 export function createEqGraph(video: HTMLVideoElement): EqGraph {
   const ctx = new AudioContext();
-  const stream = (video as HTMLVideoElement & { captureStream(): MediaStream }).captureStream();
-  const source = ctx.createMediaStreamSource(stream);
+  const source = ctx.createMediaElementSource(video);
 
   const filters = {} as Record<EqBand, BiquadFilterNode>;
   let node: AudioNode = source;
@@ -35,12 +36,21 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
 
   const buffer = new Uint8Array(analyser.frequencyBinCount);
 
+  // l'autoplay policy peut suspendre le contexte : on retente au play
+  video.addEventListener('playing', () => void ctx.resume());
+
   return {
     setBandGain(band, gainDb) {
       filters[band].gain.setTargetAtTime(gainDb, ctx.currentTime, 0.02);
     },
     setGain(v) {
       gain.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
+    },
+    resume() {
+      if (ctx.state === 'suspended') void ctx.resume();
+    },
+    isRunning() {
+      return ctx.state === 'running';
     },
     getLevel() {
       analyser.getByteTimeDomainData(buffer);
