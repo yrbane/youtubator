@@ -55,6 +55,33 @@ export async function fetchLikedPlaylistId(token: string): Promise<string> {
   return likes;
 }
 
+export type VideoRating = 'like' | 'none';
+
+/** Requête videos.rate (pure, testable). */
+export function buildRateRequest(
+  token: string,
+  videoId: string,
+  rating: VideoRating,
+): { url: string; init: RequestInit } {
+  return {
+    url: `${API}/videos/rate?id=${encodeURIComponent(videoId)}&rating=${rating}`,
+    init: { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
+  };
+}
+
+/**
+ * Note une vidéo sur le compte connecté (miroir favori ↔ « J'aime »).
+ * Nécessite le scope youtube.force-ssl : un vieux token readonly renverra 403.
+ */
+export async function rateVideo(token: string, videoId: string, rating: VideoRating): Promise<void> {
+  const { url, init } = buildRateRequest(token, videoId, rating);
+  const res = await fetch(url, init);
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Reconnecte le compte pour synchroniser les « J\'aime » (nouvelle autorisation requise).');
+  }
+  if (!res.ok) throw new Error(`Impossible de noter la vidéo (${res.status})`);
+}
+
 /** Identité du compte : chaîne YouTube + userinfo Google (email, avatar). */
 export async function fetchAccountIdentity(token: string): Promise<{ channels: any; userinfo: any }> {
   const [channels, userinfoRes] = await Promise.all([

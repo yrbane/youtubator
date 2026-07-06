@@ -40,7 +40,12 @@
         →{deck.id}
       </button>
     {/each}
-    <button class="btn star" class:on={favorite} onclick={() => onToggleFavorite(track)} title="Favori">
+    <button
+      class="btn star"
+      class:on={favorite}
+      onclick={() => onToggleFavorite(track)}
+      title="Favori — synchronisé avec les « J'aime » du compte YouTube actif"
+    >
       {favorite ? '★' : '☆'}
     </button>
   </div>

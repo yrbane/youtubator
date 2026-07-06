@@ -19,6 +19,7 @@
     type SearchEntry,
   } from '../lib/library.js';
   import { session } from '../lib/session.svelte.js';
+  import { rateVideo } from '../lib/youtube-account.js';
   import type { Track } from '../lib/tracks.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
@@ -97,8 +98,17 @@
   }
 
   async function handleToggleFavorite(track: Track): Promise<void> {
-    await toggleFavorite(track, session.attribution);
+    const added = await toggleFavorite(track, session.attribution);
     await refreshLists();
+    // miroir vers les « J'aime » du compte YouTube actif (si connecté)
+    const token = session.activeToken;
+    if (token) {
+      try {
+        await rateVideo(token, track.videoId, added ? 'like' : 'none');
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+    }
   }
 
   function route(track: Track, deckId: string): void {

@@ -3,8 +3,11 @@
 const TOKEN_PREFIX = 'youtubator.ytToken.';
 const ACTIVE_KEY = 'youtubator.activeAccountId';
 const CLIENT_ID_KEY = 'youtubator.ytClientId';
-/** youtube.readonly pour les données, openid/email/profile pour identifier le compte (multi-utilisateurs). */
-const SCOPE = 'https://www.googleapis.com/auth/youtube.readonly openid email profile';
+/**
+ * youtube.force-ssl : lecture ET écriture (miroir favori ↔ « J'aime » via videos.rate) ;
+ * openid/email/profile pour identifier le compte (multi-utilisateurs).
+ */
+const SCOPE = 'https://www.googleapis.com/auth/youtube.force-ssl openid email profile';
 /** Marge avant expiration réelle du token. */
 const EXPIRY_MARGIN_S = 60;
 
