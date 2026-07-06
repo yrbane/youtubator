@@ -4,6 +4,9 @@
   "type": "module",
   "description": "Contrôles UI style Ableton (knobs, faders, VU-mètres) en Web Components, zéro dépendance",
   "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "echo 'M1 : build tsup/vite à venir' && exit 0",
     "test": "echo 'M1 : Vitest à venir' && exit 0"
