@@ -21,6 +21,8 @@ export interface ProtocolPayloads {
   SET_TEMPO_MODE: { mode: TempoMode };
   SET_EQ: { band: EqBand; gainDb: number };
   SET_GAIN: { gain: number };
+  /** Filtre bipolaire : -1 (lowpass à fond) … 0 (neutre) … 1 (highpass à fond). */
+  SET_FILTER: { value: number };
   METER: { level: number };
   /** Enveloppe d'énergie du ring buffer (détection de BPM côté page). */
   GET_ENVELOPE: Record<string, never>;
@@ -49,6 +51,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set([
   'SET_TEMPO_MODE',
   'SET_EQ',
   'SET_GAIN',
+  'SET_FILTER',
   'METER',
   'GET_ENVELOPE',
   'ENVELOPE',

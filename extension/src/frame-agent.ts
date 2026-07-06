@@ -1,10 +1,11 @@
 import {
   clampEqGain,
   createMessage,
+  filterFromValue,
   KILL_GAIN_DB,
   parseMessage,
 } from '@youtubator/audio-engine';
-import type { EqBand, TempoMode } from '@youtubator/audio-engine';
+import type { EqBand, FilterSetting, TempoMode } from '@youtubator/audio-engine';
 
 /** Surface du <video> YouTube utilisée par l'agent. */
 export interface VideoLike {
@@ -37,6 +38,8 @@ export interface EqGraph {
   exitLoop(): number | null;
   /** Aligne la vitesse de la boucle sur celle de la vidéo (optionnel). */
   setLoopRate?(rate: number): void;
+  /** Filtre bipolaire (null = neutre). */
+  setFilter?(setting: FilterSetting | null): void;
 }
 
 interface FrameAgentDeps {
@@ -61,6 +64,7 @@ export class FrameAgent {
   #pendingMode: TempoMode | null = null;
   #pendingEq = new Map<EqBand, number>();
   #pendingGain: number | null = null;
+  #pendingFilter: number | null = null;
 
   constructor(deps: FrameAgentDeps) {
     this.#deps = deps;
@@ -137,6 +141,10 @@ export class FrameAgent {
         this.#pendingGain = msg.gain;
         this.#graph?.setGain(msg.gain);
         break;
+      case 'SET_FILTER':
+        this.#pendingFilter = msg.value;
+        this.#graph?.setFilter?.(filterFromValue(msg.value));
+        break;
     }
   }
 
@@ -162,5 +170,6 @@ export class FrameAgent {
     if (this.#pendingMode !== null) video.preservesPitch = this.#pendingMode === 'master-tempo';
     for (const [band, gain] of this.#pendingEq) this.#graph.setBandGain(band, gain);
     if (this.#pendingGain !== null) this.#graph.setGain(this.#pendingGain);
+    if (this.#pendingFilter !== null) this.#graph.setFilter?.(filterFromValue(this.#pendingFilter));
   }
 }

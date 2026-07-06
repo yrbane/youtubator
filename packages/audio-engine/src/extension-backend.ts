@@ -140,6 +140,13 @@ export class ExtensionBackend implements DeckAudioBackend {
     return true;
   }
 
+  /** Filtre bipolaire LP/HP (-1..1, 0 = neutre). */
+  setFilter(value: number): boolean {
+    if (!this.#connected) return false;
+    this.#channel.send(createMessage('SET_FILTER', { value }));
+    return true;
+  }
+
   async setPlaybackRate(rate: number): Promise<number> {
     if (!this.#connected) return this.#inner.setPlaybackRate(rate);
     this.#channel.send(createMessage('SET_RATE', { rate }));

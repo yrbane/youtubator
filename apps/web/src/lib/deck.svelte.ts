@@ -435,6 +435,14 @@ export class Deck {
     this.#backend?.setTempoMode(mode);
   }
 
+  filterValue = $state(0);
+
+  /** Filtre bipolaire LP/HP (extension requise). */
+  setFilter(value: number): void {
+    this.filterValue = value;
+    this.#extension?.setFilter(value);
+  }
+
   setEqGain(band: EqBand, gainDb: number): void {
     this.eqGains[band] = gainDb;
     this.#pushEq(band);

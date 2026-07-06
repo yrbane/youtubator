@@ -40,6 +40,19 @@
     {/each}
   </div>
 
+  <div class="band filter" class:disabled={!deck.hasExtension} title={deck.hasExtension ? 'Filtre : gauche LP, droite HP, double-clic neutre' : 'Filtre : installe l’extension Youtubator'}>
+    <pt-knob
+      min="-1"
+      max="1"
+      value={deck.filterValue}
+      default="0"
+      label="FILTER"
+      oninput={(e: CustomEvent<number>) => deck.setFilter(e.detail)}
+      aria-label="Filtre deck {deck.id}"
+      style="--ctl-accent: var(--yt-deck-d)"
+    ></pt-knob>
+  </div>
+
   <div class="fader-row">
     <pt-fader
       min="0"
@@ -95,6 +108,19 @@
   pt-knob {
     width: 40px;
     height: 40px;
+  }
+
+  .filter {
+    margin-top: 2px;
+  }
+
+  .filter pt-knob {
+    height: 52px;
+  }
+
+  .filter.disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
 
   .kill {

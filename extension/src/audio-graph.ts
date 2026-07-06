@@ -33,10 +33,17 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
     filters[band] = filter;
   }
 
+  // filtre bipolaire LP/HP — neutre = peaking gain 0 (réponse plate)
+  const bipolarFilter = ctx.createBiquadFilter();
+  bipolarFilter.type = 'peaking';
+  bipolarFilter.gain.value = 0;
+  bipolarFilter.frequency.value = 1000;
+  node.connect(bipolarFilter);
+
   const gain = ctx.createGain();
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 256;
-  node.connect(gain);
+  bipolarFilter.connect(gain);
   gain.connect(analyser);
   analyser.connect(ctx.destination);
 
@@ -208,6 +215,18 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
     setLoopRate(rate) {
       currentRate = rate;
       if (loopSource && captureRate > 0) loopSource.playbackRate.value = rate / captureRate;
+    },
+
+    setFilter(setting) {
+      if (setting === null) {
+        bipolarFilter.type = 'peaking';
+        bipolarFilter.gain.value = 0;
+        bipolarFilter.frequency.value = 1000;
+      } else {
+        bipolarFilter.type = setting.type;
+        bipolarFilter.Q.value = 1.1; // légère résonance, façon filtre DJ
+        bipolarFilter.frequency.setTargetAtTime(setting.frequency, ctx.currentTime, 0.02);
+      }
     },
   };
 }
