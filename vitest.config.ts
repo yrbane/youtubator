@@ -23,6 +23,7 @@ export default defineConfig({
           name: 'web',
           root: 'apps/web',
           environment: 'happy-dom',
+          setupFiles: ['./src/test-setup.ts'],
         },
       },
     ],

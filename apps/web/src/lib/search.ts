@@ -1,13 +1,13 @@
 import { isoDurationToSeconds } from './iso-duration.js';
 import { parseYoutubeInput } from './youtube-url.js';
-import { getValidToken } from './youtube-auth.js';
+import { getActiveToken } from './youtube-auth.js';
 import { trackFromId, type Track } from './tracks.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
 /** Authentification : token OAuth (compte connecté) prioritaire sur la clé API. */
 function authQueryAndHeaders(apiKey: string | null): { qs: string; init: RequestInit } {
-  const token = getValidToken();
+  const token = getActiveToken();
   if (token) return { qs: '', init: { headers: { Authorization: `Bearer ${token}` } } };
   return { qs: `&key=${apiKey}`, init: {} };
 }
@@ -20,7 +20,7 @@ export async function searchYoutube(query: string, apiKey: string | null): Promi
   const videoId = parseYoutubeInput(query);
   if (videoId) return [await fetchTrackMeta(videoId)];
 
-  if (!apiKey && !getValidToken()) {
+  if (!apiKey && !getActiveToken()) {
     throw new Error(
       'Colle une URL/ID YouTube, connecte ton compte (onglet ▶ YOUTUBE), ou ajoute une clé API dans ⚙ Réglages.',
     );

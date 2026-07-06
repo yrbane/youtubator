@@ -5,6 +5,7 @@
   import Settings from './components/Settings.svelte';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { recordHistory } from './lib/library.js';
+  import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
   import type { Track } from './lib/tracks.js';
 
@@ -15,6 +16,7 @@
   let browser = $state<ReturnType<typeof Browser>>();
 
   $effect(() => {
+    void session.init();
     void loadYouTubeApi().then(() => {
       apiReady = true;
       mixer.addDeck();
@@ -30,7 +32,7 @@
     if (!deck) return;
     if (deck.isPlaying && !confirm(`Remplacer le morceau en cours sur le deck ${deckId} ?`)) return;
     await deck.loadTrack(track);
-    await recordHistory(track, deckId);
+    await recordHistory(track, deckId, session.attribution);
     mixer.refresh();
   }
 
@@ -97,6 +99,12 @@
   <span class="ext" class:on={anyExtension} title={anyExtension ? 'Extension active : EQ et tempo continus' : 'Mode dégradé : installe l’extension pour l’EQ et les modes tempo'}>
     {anyExtension ? '● EXT' : '○ EXT'}
   </span>
+  {#if session.active}
+    <span class="user" title="Compte YouTube actif — les actions lui sont attribuées">
+      {#if session.active.avatarUrl}<img src={session.active.avatarUrl} alt="" />{/if}
+      {session.active.title}
+    </span>
+  {/if}
   <span class="spacer"></span>
   <span class="hint mono">espace/Q : play · S/L : sync · ←→ : crossfader · / : recherche</span>
   <button class="btn" onclick={() => (showSettings = true)} title="Réglages">⚙</button>
@@ -165,6 +173,23 @@
 
   .ext.on {
     color: var(--yt-deck-c);
+  }
+
+  .user {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--yt-deck-c);
+    border: 1px solid var(--yt-border);
+    border-radius: 14px;
+    padding: 2px 10px 2px 4px;
+  }
+
+  .user img {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
   }
 
   .spacer {

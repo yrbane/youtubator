@@ -5,15 +5,20 @@
   import {
     clearHistory,
     deletePlaylist,
+    deleteSearch,
     listFavorites,
     listHistory,
     listPlaylists,
+    listSearches,
+    recordSearch,
     savePlaylist,
     toggleFavorite,
     type Favorite,
     type HistoryEntry,
     type Playlist,
+    type SearchEntry,
   } from '../lib/library.js';
+  import { session } from '../lib/session.svelte.js';
   import type { Track } from '../lib/tracks.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
@@ -37,8 +42,19 @@
   let favorites = $state<Favorite[]>([]);
   let playlists = $state<Playlist[]>([]);
   let openPlaylist = $state<Playlist | null>(null);
+  let recentSearches = $state<SearchEntry[]>([]);
+  let userFilter = $state<string | null>(null); // filtre « par utilisateur » (historique/favoris)
 
   const favoriteIds = $derived(new Set(favorites.map((f) => f.videoId)));
+  const knownUsers = $derived([
+    ...new Set([...history, ...favorites].map((e) => e.by).filter((b) => b !== '')),
+  ]);
+  const filteredHistory = $derived(
+    userFilter === null ? history : history.filter((e) => e.by === userFilter),
+  );
+  const filteredFavorites = $derived(
+    userFilter === null ? favorites : favorites.filter((f) => f.by === userFilter),
+  );
 
   export function focusSearch(): void {
     tab = 'search';
@@ -46,10 +62,11 @@
   }
 
   async function refreshLists(): Promise<void> {
-    [history, favorites, playlists] = await Promise.all([
+    [history, favorites, playlists, recentSearches] = await Promise.all([
       listHistory(),
       listFavorites(),
       listPlaylists(),
+      listSearches(),
     ]);
   }
 
@@ -61,6 +78,9 @@
     if (query.trim() === '') return;
     searching = true;
     error = null;
+    void recordSearch(query, session.attribution).then(async () => {
+      recentSearches = await listSearches();
+    });
     try {
       results = await searchYoutube(query, getApiKey());
     } catch (e) {
@@ -71,8 +91,13 @@
     }
   }
 
+  function rerunSearch(entry: SearchEntry): void {
+    query = entry.query;
+    void runSearch();
+  }
+
   async function handleToggleFavorite(track: Track): Promise<void> {
-    await toggleFavorite(track);
+    await toggleFavorite(track, session.attribution);
     await refreshLists();
   }
 
@@ -115,6 +140,27 @@
         />
         <button class="btn" type="submit" disabled={searching}>{searching ? '…' : '🔍'}</button>
       </form>
+      {#if recentSearches.length > 0}
+        <div class="recent">
+          {#each recentSearches as s (s.id)}
+            <span class="chip search-chip" title={s.by ? `Cherché par ${s.by}` : ''}>
+              <button class="chip-name" onclick={() => rerunSearch(s)}>
+                🔍 {s.query}{#if s.by}<em> · {s.by}</em>{/if}
+              </button>
+              <button
+                class="chip-del"
+                title="Retirer de l'historique des recherches"
+                onclick={async () => {
+                  await deleteSearch(s.id!);
+                  recentSearches = await listSearches();
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          {/each}
+        </div>
+      {/if}
       {#if error}
         <p class="error">{error}</p>
       {/if}
@@ -141,7 +187,15 @@
       />
     {:else if tab === 'history'}
       <div class="list-head">
-        <span>{history.length} morceaux chargés</span>
+        <div class="filters">
+          <span>{filteredHistory.length} morceaux</span>
+          {#if knownUsers.length > 0}
+            <button class="chip" class:on={userFilter === null} onclick={() => (userFilter = null)}>Tous</button>
+            {#each knownUsers as user (user)}
+              <button class="chip" class:on={userFilter === user} onclick={() => (userFilter = user)}>{user}</button>
+            {/each}
+          {/if}
+        </div>
         <button
           class="btn"
           onclick={async () => {
@@ -154,11 +208,12 @@
           Vider
         </button>
       </div>
-      {#each history as entry (entry.id)}
+      {#each filteredHistory as entry (entry.id)}
         <TrackRow
           track={entry.track}
           {mixer}
           favorite={favoriteIds.has(entry.track.videoId)}
+          by={entry.by}
           onRoute={route}
           onToggleFavorite={handleToggleFavorite}
         />
@@ -193,6 +248,14 @@
           Sauver les favoris en playlist
         </button>
       </div>
+      {#if knownUsers.length > 0 && !openPlaylist}
+        <div class="filters pad">
+          <button class="chip" class:on={userFilter === null} onclick={() => (userFilter = null)}>Tous</button>
+          {#each knownUsers as user (user)}
+            <button class="chip" class:on={userFilter === user} onclick={() => (userFilter = user)}>{user}</button>
+          {/each}
+        </div>
+      {/if}
       {#if openPlaylist}
         <p class="hint">Playlist « {openPlaylist.name} »</p>
         {#each openPlaylist.tracks as track (track.videoId)}
@@ -205,8 +268,15 @@
           />
         {/each}
       {:else}
-        {#each favorites as fav (fav.videoId)}
-          <TrackRow track={fav.track} {mixer} favorite onRoute={route} onToggleFavorite={handleToggleFavorite} />
+        {#each filteredFavorites as fav (fav.videoId)}
+          <TrackRow
+            track={fav.track}
+            {mixer}
+            favorite
+            by={fav.by}
+            onRoute={route}
+            onToggleFavorite={handleToggleFavorite}
+          />
         {:else}
           <p class="hint">Ajoute des favoris avec ☆ depuis la recherche ou l’historique.</p>
         {/each}
@@ -325,5 +395,44 @@
 
   .chip-del:hover {
     color: var(--yt-danger);
+  }
+
+  .recent {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 0 8px 8px;
+  }
+
+  .search-chip em {
+    color: var(--yt-deck-c);
+    font-style: normal;
+    font-size: 10px;
+  }
+
+  button.chip {
+    background: var(--yt-panel-deep);
+    border: 1px solid var(--yt-border);
+    border-radius: 12px;
+    color: var(--yt-text);
+    padding: 2px 10px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  button.chip.on {
+    border-color: var(--yt-deck-a);
+    color: var(--yt-deck-a);
+  }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filters.pad {
+    padding: 8px 10px 0;
   }
 </style>

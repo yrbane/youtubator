@@ -6,12 +6,14 @@
     track,
     mixer,
     favorite = false,
+    by = '',
     onRoute,
     onToggleFavorite,
   }: {
     track: Track;
     mixer: Mixer;
     favorite?: boolean;
+    by?: string;
     onRoute: (track: Track, deckId: string) => void;
     onToggleFavorite: (track: Track) => void;
   } = $props();
@@ -21,7 +23,10 @@
   <img src={track.thumbnailUrl} alt="" loading="lazy" />
   <div class="meta">
     <span class="title" title={track.title}>{track.title}</span>
-    <span class="channel">{track.channel}</span>
+    <span class="channel">
+      {track.channel}
+      {#if by}<span class="by" title="Ajouté par {by}">· {by}</span>{/if}
+    </span>
   </div>
   <span class="mono duration">{formatDuration(track.durationS)}</span>
   <div class="actions">
@@ -78,6 +83,10 @@
   .channel {
     color: var(--yt-text-dim);
     font-size: 11px;
+  }
+
+  .by {
+    color: var(--yt-deck-c);
   }
 
   .duration {

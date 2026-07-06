@@ -55,6 +55,18 @@ export async function fetchLikedPlaylistId(token: string): Promise<string> {
   return likes;
 }
 
+/** Identité du compte : chaîne YouTube + userinfo Google (email, avatar). */
+export async function fetchAccountIdentity(token: string): Promise<{ channels: any; userinfo: any }> {
+  const [channels, userinfoRes] = await Promise.all([
+    apiGet(token, 'channels?part=snippet,contentDetails&mine=true'),
+    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  ]);
+  const userinfo = userinfoRes.ok ? await userinfoRes.json() : {};
+  return { channels, userinfo };
+}
+
 /** Playlists du compte connecté. */
 export async function fetchMyPlaylists(token: string): Promise<YtPlaylist[]> {
   const json = await apiGet(token, 'playlists?part=snippet,contentDetails&mine=true&maxResults=50');
