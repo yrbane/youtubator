@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatDuration, type Track } from '../lib/tracks.js';
+  import { ghost } from '../lib/ghost.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -40,6 +41,13 @@
         →{deck.id}
       </button>
     {/each}
+    <button
+      class="btn zap"
+      onclick={() => ghost.enqueue(track)}
+      title="Pré-analyser (waveform, BPM, tonalité) en silence, sans occuper un deck"
+    >
+      ⚡
+    </button>
     <button
       class="btn star"
       class:on={favorite}

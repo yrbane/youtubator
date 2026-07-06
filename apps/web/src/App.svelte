@@ -6,6 +6,7 @@
   import Avatar from './components/Avatar.svelte';
   import WaveformStrip from './components/WaveformStrip.svelte';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
+  import { ghost } from './lib/ghost.svelte.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
@@ -16,8 +17,10 @@
   let apiReady = $state(false);
   let showSettings = $state(false);
   let browser = $state<ReturnType<typeof Browser>>();
+  let ghostContainer: HTMLDivElement;
 
   $effect(() => {
+    ghost.attach(ghostContainer);
     void session.init();
     void loadYouTubeApi().then(() => {
       apiReady = true;
@@ -109,6 +112,11 @@
   <span class="ext" class:on={anyExtension} title={anyExtension ? 'Extension active : EQ et tempo continus' : 'Mode dégradé : installe l’extension pour l’EQ et les modes tempo'}>
     {anyExtension ? '● EXT' : '○ EXT'}
   </span>
+  {#if ghost.current}
+    <span class="ghost-badge" title="Analyse fantôme : {ghost.current.title}{ghost.queue.length ? ` (+${ghost.queue.length} en file)` : ''}">
+      ⚡ {ghost.queue.length + 1}
+    </span>
+  {/if}
   {#if session.active}
     <span class="user" title="Compte YouTube actif — les actions lui sont attribuées">
       <Avatar name={session.active.title} url={session.active.avatarUrl} size={26} />
@@ -139,6 +147,8 @@
 {/if}
 
 <WaveformStrip {mixer} />
+
+<div class="ghost-hole" bind:this={ghostContainer}></div>
 
 <Browser
   bind:this={browser}
@@ -181,6 +191,23 @@
 
   .ext.on {
     color: var(--yt-deck-c);
+  }
+
+  .ghost-badge {
+    font-size: 11px;
+    color: var(--yt-deck-d);
+    font-weight: 700;
+  }
+
+  :global(.ghost-hole) {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    left: -10px;
+    bottom: 0;
+    overflow: hidden;
+    opacity: 0.01;
+    pointer-events: none;
   }
 
   .user {

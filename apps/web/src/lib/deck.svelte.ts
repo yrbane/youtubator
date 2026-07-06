@@ -201,7 +201,8 @@ export class Deck {
         this.#capsTimer = null;
         this.#pushAllEq();
         this.#backend?.setTempoMode(this.tempoMode);
-        if (this.autoGain !== 1) this.#extension?.setGain(this.autoGain); // auto-gain restauré du cache
+        if (this.silentMode) this.#extension?.setGain(0);
+        else if (this.autoGain !== 1) this.#extension?.setGain(this.autoGain); // auto-gain restauré du cache
       }
     }, 500);
   }
@@ -356,7 +357,7 @@ export class Deck {
       };
       // auto-gain : même enveloppe que le BPM
       this.autoGain = computeAutoGain(envelope.data);
-      this.#extension.setGain(this.autoGain);
+      if (!this.silentMode) this.#extension.setGain(this.autoGain);
       // la tonalité s'appuie sur le chromagramme accumulé pendant la même lecture
       const chroma = await this.#extension.getChroma();
       if (chroma) {
@@ -449,6 +450,8 @@ export class Deck {
   delayBeats = $state('1/2');
   /** Gain de normalisation du niveau perçu (±6 dB), appliqué via le graphe. */
   autoGain = $state(1);
+  /** Deck fantôme : sortie coupée au GainNode (la capture, en amont, continue). */
+  silentMode = false;
 
   /** Filtre bipolaire LP/HP (extension requise). */
   setFilter(value: number): void {
