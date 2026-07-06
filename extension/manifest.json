@@ -12,6 +12,14 @@
       }
     }
   },
+  "action": {
+    "default_title": "Youtubator — enregistrer le mix (clic : start/stop)"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "permissions": ["tabCapture", "offscreen", "downloads"],
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/embed/*", "https://www.youtube-nocookie.com/embed/*"],

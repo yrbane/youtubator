@@ -3,12 +3,17 @@ import { build } from 'esbuild';
 import { cpSync, mkdirSync } from 'node:fs';
 
 await build({
-  entryPoints: ['src/main.ts'],
+  entryPoints: [
+    { in: 'src/main.ts', out: 'frame-agent' },
+    { in: 'src/background.ts', out: 'background' },
+    { in: 'src/offscreen.ts', out: 'offscreen' },
+  ],
   bundle: true,
   format: 'iife',
   target: 'chrome120',
-  outfile: 'dist/frame-agent.js',
+  outdir: 'dist',
 });
 mkdirSync('dist', { recursive: true });
 cpSync('manifest.json', 'dist/manifest.json');
+cpSync('offscreen.html', 'dist/offscreen.html');
 console.log('extension construite dans dist/');
