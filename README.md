@@ -3,6 +3,8 @@
 > **Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube.**
 > Interface inspirée de Traktor : decks vidéo, mixer central (volume, EQ 3 bandes, tempo), sync, recherche/historique/favoris, playlists.
 
+**🕹️ App en ligne : [yrbane.github.io/youtubator](https://yrbane.github.io/youtubator/)** — l'EQ, les modes tempo, les waveforms réelles et les boucles exactes nécessitent l'[extension](#16-démarrage-rapide) (zip dans les artefacts CI).
+
 Ce document est **la spécification de référence et le prompt de développement structuré** du projet. Il est exhaustif volontairement : chaque section est directement actionnable pour implémenter le produit.
 
 ---
@@ -218,6 +220,22 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-BEAT-01 — grille de beats** : l'extension expose l'**enveloppe d'énergie** du ring (RMS par bloc de 1024, ~43 Hz) ; la page détecte le BPM par **autocorrélation du flux d'attaques** (plage 60–180, anti-octave, interpolation parabolique) + phase par peigne — en JS pur, pas besoin de WASM. Analyse automatique après ~12 s de lecture, grille (BPM + ancre) **persistée avec la waveform**. Affichage : BPM effectif sur la waveform + graduations de beats (mesures 4/4 marquées).
 - **F-BEAT-02 — boucles de N beats exacts** : boutons **1 / 2 / 4 / 8 / 16 / 32 beats** par deck — sortie calée sur le beat courant (floor), entrée N périodes plus tôt, sample-accurate via F-LOOP-02 (vérifié : 4 beats à 112,7 BPM = 2,130 s pile).
 - **F-BEAT-03 — beatmatch** : quand les deux grilles sont connues, SYNC égalise les **BPM effectifs** (rate esclave = rate maître × BPM maître / BPM esclave) et **recale la phase de beat** de l'esclave (seek du plus court chemin, seuil 40 ms) à chaque refresh.
+
+### 6.4 ter Performance & bibliothèque (lot « améliorations »)
+
+- **F-ROLL** : bouton ROLL — à la sortie de boucle, saut à la **position fantôme** (comme si on n'avait jamais bouclé).
+- **F-KEY** : tonalité par **Krumhansl-Schmuckler** sur chromagramme accumulé in-frame, code **Camelot** affiché/persisté ; compatibilité harmonique (`camelotCompatible`).
+- **F-FILT** : **filtre bipolaire** LP/HP par deck (un knob, zone morte au centre, Q 1,1).
+- **F-DLY** : **delay synchronisé au BPM** (¼ ½ ¾ 1 beat, wet + feedback, temps réel = fraction × période ÷ rate).
+- **F-AG** : **auto-gain** ±6 dB (cible RMS 0,25, hors silences), persisté.
+- **F-GHOST** : **analyse fantôme** ⚡ — deck caché silencieux (gain 0 au graphe, capture intacte) qui pré-analyse la file à ×2.
+- **F-TAP** : **tap tempo** (8 derniers taps, l'ancre se cale sur le dernier) + **Alt+clic** pour déplacer l'ancre.
+- **F-META** : badges **BPM · tonalité** sur toutes les listes de morceaux.
+- **F-CRATE** : **export/import JSON** du crate (dossiers, favoris, playlists) avec fusion.
+- **F-SUGG** : bandeau 💡 **« à mixer ensuite »** — bibliothèque filtrée à ±6 % de tempo (octave près), tonalités compatibles d'abord.
+- **F-MIDI** : **Web MIDI** avec **learn** — 23 actions mappables, mappings persistés.
+- **F-PERF** : mode **performance** ⛶ (plein écran, browser masqué, waveforms ×2).
+- **F-REC** : **enregistrement du mix** via l'icône d'extension (tabCapture + offscreen + MediaRecorder → webm ; Chrome uniquement, usage personnel).
 
 ### 6.5 Réglages
 
