@@ -1,0 +1,11 @@
+{
+  "name": "@youtubator/audio-engine",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Moteur audio Youtubator : backends DeckAudioBackend (IFrame API, extension MV3), logique de sync",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo 'M2 : build à venir' && exit 0",
+    "test": "echo 'M2 : Vitest à venir' && exit 0"
+  }
+}

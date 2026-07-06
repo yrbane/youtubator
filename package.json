@@ -1,0 +1,23 @@
+{
+  "name": "youtubator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube",
+  "license": "MIT",
+  "author": "yrbane",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yrbane/youtubator.git"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@11.2.2",
+  "scripts": {
+    "dev": "pnpm --filter @youtubator/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  }
+}

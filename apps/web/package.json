@@ -1,0 +1,12 @@
+{
+  "name": "@youtubator/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Application principale Youtubator (Svelte 5 + Vite)",
+  "scripts": {
+    "dev": "echo 'M0 : scaffolding Vite/Svelte à venir' && exit 0",
+    "build": "echo 'M0 : scaffolding Vite/Svelte à venir' && exit 0",
+    "test": "echo 'M0 : Vitest à venir' && exit 0"
+  }
+}
