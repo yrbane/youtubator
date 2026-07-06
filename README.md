@@ -425,7 +425,7 @@ pnpm build        # build de production (app + extension)
 **Activer l'EQ et les modes tempo (extension)** :
 
 1. `pnpm --filter @youtubator/extension build`
-2. Chrome → `chrome://extensions` → « Mode développeur » → « Charger l'extension non empaquetée » → dossier `extension/dist/`
+2. Chrome → `chrome://extensions` → « Mode développeur » → « Charger l'extension non empaquetée » → dossier **`extension/dist/`** (⚠️ bien `dist/`, pas `extension/` — le dossier source n'est pas chargeable)
 3. Recharger Youtubator : le badge **● EXT** passe au vert, l'EQ et MT/VINYL se déverrouillent.
 
 ---

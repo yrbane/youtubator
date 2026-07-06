@@ -15,6 +15,6 @@ await build({
   outdir: 'dist',
 });
 mkdirSync('dist', { recursive: true });
-cpSync('manifest.json', 'dist/manifest.json');
+cpSync('manifest.src.json', 'dist/manifest.json');
 cpSync('offscreen.html', 'dist/offscreen.html');
 console.log('extension construite dans dist/');
