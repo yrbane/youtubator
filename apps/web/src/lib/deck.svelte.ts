@@ -12,6 +12,7 @@ import {
 import { iframeChannel } from './deck-channel.js';
 import { createPlayerFactory } from './yt-iframe.js';
 import { loadWaveform, saveWaveform } from './library.js';
+import { emptyLoop, pressIn, pressOut, shouldJump, toggleActive, type LoopState } from './loop.js';
 import { bucketCount, mergeSample, pseudoWaveform, toggleCue } from './waveform.js';
 import type { Track } from './tracks.js';
 
@@ -41,6 +42,7 @@ export class Deck {
   waveBuckets = $state<number[]>([]);
   cues = $state<number[]>([]);
   waveIsReal = $state(false);
+  loop = $state<LoopState>(emptyLoop());
 
   #core: DeckCore;
   #backend: DeckAudioBackend | null = null;
@@ -51,6 +53,7 @@ export class Deck {
   #capsTimer: ReturnType<typeof setInterval> | null = null;
   #waveDirty = false;
   #waveSaveTimer: ReturnType<typeof setInterval> | null = null;
+  #loopTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(id: string, index: number) {
     this.id = id;
@@ -81,6 +84,7 @@ export class Deck {
     this.waveBuckets = [];
     this.cues = [];
     this.waveIsReal = false;
+    this.loop = emptyLoop();
     this.#waveDirty = false;
     this.#core.load(track.videoId);
     void this.#restoreWaveform(track.videoId);
@@ -136,6 +140,12 @@ export class Deck {
       }
     });
     this.#waveSaveTimer = setInterval(() => void this.#flushWaveform(), 8000);
+    // garde de boucle : re-saute au point IN dès que la sortie est franchie
+    this.#loopTimer = setInterval(() => {
+      if (!this.isPlaying) return;
+      const target = shouldJump(this.loop, this.displayTimeS());
+      if (target !== null) this.seekToS(target);
+    }, 80);
     // VU approximatif tant que l'extension n'est pas là (F-MIX-04 dégradé)
     this.#meterTimer = setInterval(() => {
       if (!this.hasExtension) {
@@ -192,6 +202,31 @@ export class Deck {
     this.cues = toggleCue(this.cues, timeS, 0.5);
     this.#waveDirty = true;
     void this.#flushWaveform();
+  }
+
+  /** Saute au n-ième point de cue (hot cue). */
+  jumpToCue(index: number): void {
+    const cue = this.cues[index];
+    if (cue !== undefined) this.seekToS(cue);
+  }
+
+  /** Position interpolée entre deux timeupdates (affichage et garde de boucle). */
+  displayTimeS(): number {
+    if (!this.isPlaying) return this.currentTimeS;
+    return this.currentTimeS + ((performance.now() - this.timeUpdatedAt) / 1000) * this.effectiveRate;
+  }
+
+  loopIn(): void {
+    this.loop = pressIn(this.loop, this.displayTimeS());
+  }
+
+  loopOut(): void {
+    this.loop = pressOut(this.loop, this.displayTimeS());
+  }
+
+  /** Coupe / relance la boucle (reloop) en gardant les points. */
+  toggleLoop(): void {
+    this.loop = toggleActive(this.loop);
   }
 
   /** Waveform en cache → restaurée telle quelle ; sinon pseudo dès que la durée est connue. */
@@ -268,6 +303,7 @@ export class Deck {
     if (this.#meterTimer !== null) clearInterval(this.#meterTimer);
     if (this.#capsTimer !== null) clearInterval(this.#capsTimer);
     if (this.#waveSaveTimer !== null) clearInterval(this.#waveSaveTimer);
+    if (this.#loopTimer !== null) clearInterval(this.#loopTimer);
     void this.#flushWaveform();
     this.#backend?.destroy();
     this.#backend = null;

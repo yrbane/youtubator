@@ -13,11 +13,7 @@
 
   const loadedDecks = $derived(mixer.decks.filter((d) => d.track !== null));
 
-  /** Position de lecture interpolée entre deux timeupdates (défilement fluide). */
-  function displayTime(deck: Deck): number {
-    if (!deck.isPlaying) return deck.currentTimeS;
-    return deck.currentTimeS + ((performance.now() - deck.timeUpdatedAt) / 1000) * deck.effectiveRate;
-  }
+  const displayTime = (deck: Deck): number => deck.displayTimeS();
 
   function accentOf(deck: Deck): string {
     return getComputedStyle(document.documentElement).getPropertyValue(deck.colorVar).trim() || '#19c2ff';
@@ -53,6 +49,17 @@
       const bh = Math.max(1, level * (h - 10));
       ctx.fillStyle = t <= center ? accent : `${accent}66`; // joué : plein, à venir : translucide
       ctx.fillRect(x, mid - bh / 2, barW, bh);
+    }
+
+    // zone de boucle
+    if (deck.loop.inS !== null) {
+      const x1 = w / 2 + (deck.loop.inS - center) * PX_PER_S;
+      const x2 = deck.loop.outS !== null ? w / 2 + (deck.loop.outS - center) * PX_PER_S : x1 + 2;
+      ctx.fillStyle = deck.loop.active ? 'rgba(61,220,132,0.18)' : 'rgba(215,220,226,0.10)';
+      ctx.fillRect(x1, 0, Math.max(2, x2 - x1), h);
+      ctx.fillStyle = deck.loop.active ? '#3ddc84' : '#8b93a0';
+      ctx.fillRect(x1 - 1, 0, 2, h);
+      if (deck.loop.outS !== null) ctx.fillRect(x2 - 1, 0, 2, h);
     }
 
     // points de cue
@@ -114,11 +121,50 @@
 {#if loadedDecks.length > 0}
   <section class="strip" title="Clic : seek (aimanté sur les cues) · Shift+clic : poser/retirer un point de cue">
     {#each loadedDecks as deck (deck.id)}
-      <canvas
-        bind:this={canvases[deck.id]}
-        style="height: {ROW_H}px"
-        onclick={(e) => onClick(deck, e)}
-      ></canvas>
+      <div class="row" style="--accent: var({deck.colorVar})">
+        <canvas
+          bind:this={canvases[deck.id]}
+          style="height: {ROW_H}px"
+          onclick={(e) => onClick(deck, e)}
+        ></canvas>
+        <div class="controls">
+          <div class="cues">
+            {#each Array.from({ length: 8 }) as _, i (i)}
+              <button
+                class="hotcue"
+                class:set={deck.cues[i] !== undefined}
+                disabled={deck.cues[i] === undefined}
+                onclick={() => deck.jumpToCue(i)}
+                title={deck.cues[i] !== undefined
+                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s)`
+                  : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
+              >
+                {i + 1}
+              </button>
+            {/each}
+          </div>
+          <div class="loop">
+            <button class="lp" onclick={() => deck.loopIn()} title="Point d'entrée de boucle (au temps courant)">IN</button>
+            <button
+              class="lp"
+              disabled={deck.loop.inS === null}
+              onclick={() => deck.loopOut()}
+              title="Point de sortie — active la boucle"
+            >
+              OUT
+            </button>
+            <button
+              class="lp toggle"
+              class:on={deck.loop.active}
+              disabled={deck.loop.outS === null}
+              onclick={() => deck.toggleLoop()}
+              title="Couper / relancer la boucle (reloop)"
+            >
+              ∞
+            </button>
+          </div>
+        </div>
+      </div>
     {/each}
   </section>
 {/if}
@@ -134,11 +180,83 @@
     border-bottom: 1px solid var(--yt-border);
   }
 
+  .row {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+  }
+
   canvas {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     display: block;
     cursor: crosshair;
     border-radius: 4px;
     background: #14171b;
+  }
+
+  .controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .cues {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+  }
+
+  .hotcue {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--yt-panel);
+    border: 1px solid var(--yt-border);
+    border-radius: 3px;
+    color: var(--yt-text-dim);
+    cursor: pointer;
+  }
+
+  .hotcue.set {
+    background: #ffcc33;
+    border-color: transparent;
+    color: #101318;
+  }
+
+  .hotcue:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .loop {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .lp {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    background: var(--yt-panel);
+    border: 1px solid var(--yt-border);
+    border-radius: 3px;
+    color: var(--yt-text);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+  }
+
+  .lp:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .lp.toggle.on {
+    background: var(--yt-deck-c);
+    border-color: transparent;
+    color: #101318;
   }
 </style>

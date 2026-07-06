@@ -212,6 +212,8 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-WAV-01** : un bandeau par deck chargé, style Serato : **tête de lecture fixe au centre**, la waveform défile (30 px/s, interpolation entre timeupdates), partie jouée pleine / à venir translucide, couleur du deck.
 - **F-WAV-02 — capture progressive** : avec l'extension, les niveaux réels (METER) remplissent des buckets de 250 ms (max par bucket) pendant la lecture — la waveform se complète au fil des lectures et n'est **jamais recalculée** (cache IndexedDB par vidéo, sauvegarde périodique + au changement de morceau). Sans extension : pseudo-waveform déterministe (graine = videoId), marquée « ~ ».
 - **F-WAV-03 — points de cue** : **Shift+clic** pose/retire un cue (max 8, persistés par vidéo), **clic** = seek aimanté sur le cue le plus proche (±0,5 s), marqueurs jaunes numérotés sur la waveform.
+- **F-WAV-04 — hot cues** : boutons **1–8** à droite de chaque waveform (allumés quand le cue existe) → saut instantané ; au clavier : touches **1–8** (deck A) et **Maj+1–8** (deck B), via `e.code` donc indépendant du layout AZERTY.
+- **F-LOOP-01 — boucles manuelles** : boutons **IN** (pose l'entrée au temps courant), **OUT** (pose la sortie et active), **∞** (coupe/relance en gardant les points — reloop). Garde temporelle à 80 ms sur temps interpolé : au franchissement du OUT, re-saut au IN. Zone surlignée sur la waveform (verte si active). Précision liée au seek YouTube (~100–300 ms) : adaptée aux boucles de phrase (≥ 1 s), pas au beat-juggling.
 
 ### 6.5 Réglages
 

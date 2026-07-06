@@ -42,6 +42,15 @@
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
     const deckA = mixer.decks[0];
     const deckB = mixer.decks[1];
+    // hot cues : 1-8 = deck A, Maj+1-8 = deck B (e.code → indépendant du layout AZERTY)
+    if (e.code.startsWith('Digit')) {
+      const n = Number(e.code.slice(5));
+      if (n >= 1 && n <= 8) {
+        e.preventDefault();
+        (e.shiftKey ? deckB : deckA)?.jumpToCue(n - 1);
+        return;
+      }
+    }
     switch (e.key) {
       case ' ':
         e.preventDefault();
@@ -107,7 +116,7 @@
     </span>
   {/if}
   <span class="spacer"></span>
-  <span class="hint mono">espace/Q : play · S/L : sync · ←→ : crossfader · / : recherche</span>
+  <span class="hint mono">espace/Q : play · S/L : sync · 1-8 : cues (Maj = deck B) · ←→ : crossfader · / : recherche</span>
   <button class="btn" onclick={() => (showSettings = true)} title="Réglages">⚙</button>
 </header>
 
