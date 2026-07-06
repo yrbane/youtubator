@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatDuration, type Track } from '../lib/tracks.js';
   import { ghost } from '../lib/ghost.svelte.js';
+  import { loadWaveform } from '../lib/library.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -18,6 +19,15 @@
     onRoute: (track: Track, deckId: string) => void;
     onToggleFavorite: (track: Track) => void;
   } = $props();
+
+  // dossier connu du morceau (BPM/tonalité pré-analysés)
+  let meta = $state<{ bpm: number | null; key: string | null } | null>(null);
+
+  $effect(() => {
+    void loadWaveform(track.videoId).then((record) => {
+      meta = record ? { bpm: record.bpm ?? null, key: record.keyCamelot ?? null } : null;
+    });
+  });
 </script>
 
 <div class="row">
@@ -29,6 +39,11 @@
       {#if by}<span class="by" title="Ajouté par {by}">· {by}</span>{/if}
     </span>
   </div>
+  {#if meta?.bpm || meta?.key}
+    <span class="mono analyzed" title="Déjà analysé : BPM{meta.key ? ' · tonalité' : ''}">
+      {meta.bpm ? meta.bpm.toFixed(0) : '–'}{meta.key ? ` · ${meta.key}` : ''}
+    </span>
+  {/if}
   <span class="mono duration">{formatDuration(track.durationS)}</span>
   <div class="actions">
     {#each mixer.decks as deck (deck.id)}
@@ -105,6 +120,12 @@
   .duration {
     color: var(--yt-text-dim);
     font-size: 11px;
+  }
+
+  .analyzed {
+    color: var(--yt-deck-c);
+    font-size: 11px;
+    white-space: nowrap;
   }
 
   .actions {
