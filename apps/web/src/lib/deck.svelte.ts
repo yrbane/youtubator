@@ -328,6 +328,19 @@ export class Deck {
     }
   }
 
+  /** Grille posée à la main : le tap sur le beat donne BPM + ancre. */
+  setGridManually(bpm: number, anchorS: number = this.displayTimeS()): void {
+    this.grid = { bpm, anchorS };
+    this.#waveDirty = true;
+    void this.#flushWaveform();
+  }
+
+  /** Déplace l'ancre de grille (Alt+clic sur la waveform), BPM conservé. */
+  setAnchor(anchorS: number): void {
+    if (!this.grid) return;
+    this.setGridManually(this.grid.bpm, anchorS);
+  }
+
   /** Correction manuelle d'octave du BPM détecté (×½ ou ×2), persistée. */
   scaleBpm(factor: 0.5 | 2): void {
     if (!this.grid) return;

@@ -89,6 +89,20 @@ export function beatsToPhrase(grid: BeatGrid, timeS: number, phraseBeats = 16): 
   return phraseBeats - (Math.floor(beatsIn + 1e-9) % phraseBeats);
 }
 
+/**
+ * Tap tempo : BPM depuis les horodatages (ms) des taps — moyenne des
+ * intervalles des 8 derniers, null si < 3 taps ou hors plage 40–250.
+ */
+export function tapTempo(tapsMs: readonly number[]): number | null {
+  const taps = tapsMs.slice(-8);
+  if (taps.length < 3) return null;
+  let sum = 0;
+  for (let i = 1; i < taps.length; i++) sum += taps[i]! - taps[i - 1]!;
+  const meanMs = sum / (taps.length - 1);
+  const bpm = 60000 / meanMs;
+  return bpm >= 40 && bpm <= 250 ? bpm : null;
+}
+
 /** Bend maximal du verrouillage de phase (±2 % : inaudible). */
 const MAX_PHASE_BEND = 0.02;
 

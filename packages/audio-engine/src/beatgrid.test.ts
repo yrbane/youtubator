@@ -77,6 +77,26 @@ describe('alignPhaseDelta — recalage esclave sur maître', () => {
   });
 });
 
+describe('tapTempo — BPM tapé à la main', () => {
+  it('moyenne des intervalles : 4 taps à 500 ms → 120 BPM', async () => {
+    const { tapTempo } = await import('./beatgrid.js');
+    expect(tapTempo([0, 500, 1000, 1500])).toBeCloseTo(120, 5);
+  });
+
+  it('n’utilise que les 8 derniers taps', async () => {
+    const { tapTempo } = await import('./beatgrid.js');
+    const taps = [0, 5000, ...Array.from({ length: 8 }, (_, i) => 6000 + i * 400)];
+    expect(tapTempo(taps)).toBeCloseTo(150, 5); // les vieux taps aberrants sont ignorés
+  });
+
+  it('null si moins de 3 taps ou tempo hors plage 40–250', async () => {
+    const { tapTempo } = await import('./beatgrid.js');
+    expect(tapTempo([0, 500])).toBeNull();
+    expect(tapTempo([0, 5000, 10000])).toBeNull(); // 12 BPM
+    expect(tapTempo([0, 100, 200])).toBeNull(); // 600 BPM
+  });
+});
+
 describe('beatsToPhrase — compte à rebours avant la prochaine phrase', () => {
   it('16 pile sur une frontière de phrase, puis décompte', async () => {
     const { beatsToPhrase } = await import('./beatgrid.js');

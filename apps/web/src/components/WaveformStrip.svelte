@@ -6,6 +6,7 @@
     floorBeat,
     measurePhase,
     periodS,
+    tapTempo,
   } from '@youtubator/audio-engine';
   import { BUCKET_S, nearestCue } from '../lib/waveform.js';
   import type { Deck } from '../lib/deck.svelte.js';
@@ -171,12 +172,27 @@
   function onClick(deck: Deck, e: MouseEvent): void {
     const canvas = e.currentTarget as HTMLCanvasElement;
     const t = timeAt(deck, canvas, e.clientX);
+    if (e.altKey) {
+      deck.setAnchor(t); // Alt+clic : recaler l'ancre de la grille
+      return;
+    }
     if (e.shiftKey) {
       deck.toggleCueAt(t); // Shift+clic : pose/retire un cue
       return;
     }
     const cue = nearestCue(deck.cues, t, CUE_SNAP_S);
     deck.seekToS(cue ?? t); // clic : seek (aimanté sur un cue proche)
+  }
+
+  // tap tempo : horodatages par deck (réinitialisés après 3 s sans tap)
+  const taps: Record<string, number[]> = {};
+
+  function onTap(deck: Deck): void {
+    const now = performance.now();
+    const list = taps[deck.id] ?? [];
+    taps[deck.id] = now - (list.at(-1) ?? 0) > 3000 ? [now] : [...list, now];
+    const bpm = tapTempo(taps[deck.id]!);
+    if (bpm !== null) deck.setGridManually(bpm);
   }
 
   // boucle de rendu
@@ -235,7 +251,8 @@
               </button>
             {/each}
           </div>
-          <div class="octave" title="Corriger l'octave du BPM détecté">
+          <div class="octave" title="Corriger l'octave du BPM détecté · TAP : taper le tempo sur les beats (l'ancre se cale sur le dernier tap) · Alt+clic sur la waveform : déplacer l'ancre">
+            <button class="lp tap" onclick={() => onTap(deck)}>TAP</button>
             <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
             <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
           </div>
