@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Track } from './tracks.js';
+import { toPlainTrack, type Track } from './tracks.js';
 
 export interface HistoryEntry {
   id?: number;
@@ -45,7 +45,7 @@ export const db = new YoutubatorDb();
 export const sessionId = crypto.randomUUID();
 
 export async function recordHistory(track: Track, deckId: string): Promise<void> {
-  await db.history.add({ track, loadedAt: Date.now(), deckId, sessionId });
+  await db.history.add({ track: toPlainTrack(track), loadedAt: Date.now(), deckId, sessionId });
 }
 
 export async function listHistory(limit = 200): Promise<HistoryEntry[]> {
@@ -67,7 +67,12 @@ export async function toggleFavorite(track: Track): Promise<boolean> {
     return false;
   }
   const count = await db.favorites.count();
-  await db.favorites.add({ videoId: track.videoId, track, addedAt: Date.now(), order: count });
+  await db.favorites.add({
+    videoId: track.videoId,
+    track: toPlainTrack(track),
+    addedAt: Date.now(),
+    order: count,
+  });
   return true;
 }
 
@@ -77,7 +82,13 @@ export async function listFavorites(): Promise<Favorite[]> {
 
 export async function savePlaylist(name: string, tracks: Track[]): Promise<Playlist> {
   const now = Date.now();
-  const playlist: Playlist = { id: crypto.randomUUID(), name, tracks, createdAt: now, updatedAt: now };
+  const playlist: Playlist = {
+    id: crypto.randomUUID(),
+    name,
+    tracks: tracks.map(toPlainTrack),
+    createdAt: now,
+    updatedAt: now,
+  };
   await db.playlists.add(playlist);
   return playlist;
 }

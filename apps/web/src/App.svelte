@@ -9,6 +9,7 @@
   import type { Track } from './lib/tracks.js';
 
   const mixer = new Mixer();
+  if (import.meta.env.DEV) (window as unknown as { __mixer: Mixer }).__mixer = mixer;
   let apiReady = $state(false);
   let showSettings = $state(false);
   let browser = $state<ReturnType<typeof Browser>>();

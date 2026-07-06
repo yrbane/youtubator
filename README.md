@@ -383,10 +383,16 @@ youtubator/
 
 ```bash
 pnpm install
-pnpm dev          # lance apps/web
+pnpm dev          # lance apps/web sur http://localhost:5199
 pnpm test         # Vitest sur tout le monorepo
-pnpm build        # build de production
+pnpm build        # build de production (app + extension)
 ```
+
+**Activer l'EQ et les modes tempo (extension)** :
+
+1. `pnpm --filter @youtubator/extension build`
+2. Chrome → `chrome://extensions` → « Mode développeur » → « Charger l'extension non empaquetée » → dossier `extension/dist/`
+3. Recharger Youtubator : le badge **● EXT** passe au vert, l'EQ et MT/VINYL se déverrouillent.
 
 ---
 

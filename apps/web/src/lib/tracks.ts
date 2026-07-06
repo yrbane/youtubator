@@ -7,6 +7,17 @@ export interface Track {
   thumbnailUrl: string;
 }
 
+/** Copie plane d'une piste — indispensable avant IndexedDB (les $state Svelte sont des Proxies non clonables). */
+export function toPlainTrack(t: Track): Track {
+  return {
+    videoId: t.videoId,
+    title: t.title,
+    channel: t.channel,
+    durationS: t.durationS,
+    thumbnailUrl: t.thumbnailUrl,
+  };
+}
+
 export function trackFromId(videoId: string): Track {
   return {
     videoId,
