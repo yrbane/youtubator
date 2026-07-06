@@ -207,6 +207,12 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-BRW-07 — Miroir favoris ↔ « J'aime » YouTube** : quand un compte est actif et connecté, mettre un morceau en favori dans Youtubator pose aussi un **« J'aime » sur YouTube** (`videos.rate`, scope `youtube.force-ssl`) ; retirer le favori retire le « J'aime ». Sans compte connecté : favori local uniquement, sans erreur. Un token trop ancien (scope readonly) déclenche un message invitant à se reconnecter.
 - **F-BRW-06 — Attribution multi-utilisateurs** : chaque entrée d'**historique**, chaque **favori** et chaque **recherche** porte l'utilisateur actif au moment de l'action (badge « · Nom » sur les lignes). Historique et favoris se **filtrent par utilisateur** (chips Tous / Nom). L'onglet Recherche garde les **20 dernières recherches** (dédoublonnées, cliquables pour relancer, supprimables) — le tout persistant d'une session à l'autre.
 
+### 6.4 bis Bandeau waveforms (entre les decks et le browser)
+
+- **F-WAV-01** : un bandeau par deck chargé, style Serato : **tête de lecture fixe au centre**, la waveform défile (30 px/s, interpolation entre timeupdates), partie jouée pleine / à venir translucide, couleur du deck.
+- **F-WAV-02 — capture progressive** : avec l'extension, les niveaux réels (METER) remplissent des buckets de 250 ms (max par bucket) pendant la lecture — la waveform se complète au fil des lectures et n'est **jamais recalculée** (cache IndexedDB par vidéo, sauvegarde périodique + au changement de morceau). Sans extension : pseudo-waveform déterministe (graine = videoId), marquée « ~ ».
+- **F-WAV-03 — points de cue** : **Shift+clic** pose/retire un cue (max 8, persistés par vidéo), **clic** = seek aimanté sur le cue le plus proche (±0,5 s), marqueurs jaunes numérotés sur la waveform.
+
 ### 6.5 Réglages
 
 - **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide) et **Client ID OAuth Google** (connexion compte, origine autorisée = URL de l'app).

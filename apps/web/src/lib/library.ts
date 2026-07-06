@@ -51,12 +51,25 @@ export interface StoredAccount extends AccountProfile {
   lastUsedAt: number;
 }
 
+/** Waveform capturée progressivement + points de cue, par vidéo. */
+export interface WaveformRecord {
+  videoId: string;
+  durationS: number;
+  /** Niveaux 0..1 par bucket de 250 ms (vide si seule la pose de cues a eu lieu). */
+  buckets: number[];
+  /** true si les buckets viennent de la capture réelle (extension). */
+  real: boolean;
+  cues: number[];
+  updatedAt: number;
+}
+
 class YoutubatorDb extends Dexie {
   history!: Table<HistoryEntry, number>;
   favorites!: Table<Favorite, string>;
   playlists!: Table<Playlist, string>;
   searches!: Table<SearchEntry, number>;
   accounts!: Table<StoredAccount, string>;
+  waveforms!: Table<WaveformRecord, string>;
 
   constructor() {
     super('youtubator');
@@ -84,6 +97,14 @@ class YoutubatorDb extends Dexie {
           e.byId ??= null;
         });
       });
+    this.version(3).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+    });
   }
 }
 
@@ -194,6 +215,24 @@ export async function listSearches(limit = 10): Promise<SearchEntry[]> {
 
 export async function deleteSearch(id: number): Promise<void> {
   await db.searches.delete(id);
+}
+
+// --- Waveforms (cache : jamais recalculées pour un morceau déjà joué) ---
+
+export async function loadWaveform(videoId: string): Promise<WaveformRecord | undefined> {
+  return db.waveforms.get(videoId);
+}
+
+export async function saveWaveform(record: WaveformRecord): Promise<void> {
+  // copies planes obligatoires : les $state Svelte sont des Proxies non clonables
+  await db.waveforms.put({
+    videoId: record.videoId,
+    durationS: record.durationS,
+    buckets: record.buckets.map((v) => Math.round(v * 100) / 100),
+    real: record.real,
+    cues: [...record.cues],
+    updatedAt: Date.now(),
+  });
 }
 
 // --- Comptes YouTube mémorisés ---

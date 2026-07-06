@@ -11,6 +11,8 @@ import {
 } from '@youtubator/audio-engine';
 import { iframeChannel } from './deck-channel.js';
 import { createPlayerFactory } from './yt-iframe.js';
+import { loadWaveform, saveWaveform } from './library.js';
+import { bucketCount, mergeSample, pseudoWaveform, toggleCue } from './waveform.js';
 import type { Track } from './tracks.js';
 
 const DECK_COLOR_VARS = ['--yt-deck-a', '--yt-deck-b', '--yt-deck-c', '--yt-deck-d'];
@@ -33,6 +35,12 @@ export class Deck {
   currentTimeS = $state(0);
   durationS = $state(0);
   hasExtension = $state(false);
+  /** Horodatage du dernier timeupdate (interpolation d'affichage). */
+  timeUpdatedAt = $state(0);
+  /** Waveform (0..1 par bucket de 250 ms) et points de cue du morceau. */
+  waveBuckets = $state<number[]>([]);
+  cues = $state<number[]>([]);
+  waveIsReal = $state(false);
 
   #core: DeckCore;
   #backend: DeckAudioBackend | null = null;
@@ -41,6 +49,8 @@ export class Deck {
   #xfGain = 1;
   #meterTimer: ReturnType<typeof setInterval> | null = null;
   #capsTimer: ReturnType<typeof setInterval> | null = null;
+  #waveDirty = false;
+  #waveSaveTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(id: string, index: number) {
     this.id = id;
@@ -66,8 +76,14 @@ export class Deck {
 
   async loadTrack(track: Track): Promise<void> {
     if (!this.#container) return;
+    await this.#flushWaveform(); // sauve la waveform du morceau précédent
     this.track = track;
+    this.waveBuckets = [];
+    this.cues = [];
+    this.waveIsReal = false;
+    this.#waveDirty = false;
     this.#core.load(track.videoId);
+    void this.#restoreWaveform(track.videoId);
 
     if (!this.#backend) {
       const factory = createPlayerFactory(this.#container);
@@ -105,10 +121,21 @@ export class Deck {
     backend.onTimeUpdate((t) => {
       this.currentTimeS = t.currentTimeS;
       this.durationS = t.durationS;
+      this.timeUpdatedAt = performance.now();
+      this.#ensureWaveBuckets();
     });
     this.#extension?.onMeter((level) => {
       this.meterLevel = level;
+      // capture progressive : la waveform réelle se construit pendant la lecture
+      if (this.isPlaying && this.durationS > 0) {
+        if (!this.waveIsReal) {
+          this.waveBuckets = new Array(bucketCount(this.durationS)).fill(0);
+          this.waveIsReal = true;
+        }
+        if (mergeSample(this.waveBuckets, this.currentTimeS, level)) this.#waveDirty = true;
+      }
     });
+    this.#waveSaveTimer = setInterval(() => void this.#flushWaveform(), 8000);
     // VU approximatif tant que l'extension n'est pas là (F-MIX-04 dégradé)
     this.#meterTimer = setInterval(() => {
       if (!this.hasExtension) {
@@ -150,9 +177,55 @@ export class Deck {
 
   seekFraction(f: number): void {
     if (this.durationS <= 0) return;
-    const t = f * this.durationS;
+    this.seekToS(f * this.durationS);
+  }
+
+  seekToS(timeS: number): void {
+    const t = Math.min(Math.max(0, timeS), this.durationS || timeS);
     this.#backend?.seekTo(t);
     this.currentTimeS = t;
+    this.timeUpdatedAt = performance.now();
+  }
+
+  /** Pose ou retire un point de cue sur la waveform (persisté). */
+  toggleCueAt(timeS: number): void {
+    this.cues = toggleCue(this.cues, timeS, 0.5);
+    this.#waveDirty = true;
+    void this.#flushWaveform();
+  }
+
+  /** Waveform en cache → restaurée telle quelle ; sinon pseudo dès que la durée est connue. */
+  async #restoreWaveform(videoId: string): Promise<void> {
+    const record = await loadWaveform(videoId);
+    if (this.track?.videoId !== videoId) return; // le deck a déjà changé de morceau
+    if (record) {
+      this.cues = record.cues;
+      if (record.real && record.buckets.length > 0) {
+        this.waveBuckets = record.buckets;
+        this.waveIsReal = true;
+        if (this.durationS === 0) this.durationS = record.durationS;
+        return;
+      }
+    }
+    this.#ensureWaveBuckets();
+  }
+
+  #ensureWaveBuckets(): void {
+    if (this.waveBuckets.length > 0 || this.durationS <= 0 || !this.track) return;
+    this.waveBuckets = pseudoWaveform(this.track.videoId, this.durationS);
+  }
+
+  async #flushWaveform(): Promise<void> {
+    if (!this.#waveDirty || !this.track || this.durationS <= 0) return;
+    this.#waveDirty = false;
+    await saveWaveform({
+      videoId: this.track.videoId,
+      durationS: this.durationS,
+      buckets: this.waveIsReal ? this.waveBuckets : [],
+      real: this.waveIsReal,
+      cues: this.cues,
+      updatedAt: Date.now(),
+    });
   }
 
   /** Applique un rate (demandé par l'utilisateur ou par la sync). */
@@ -194,6 +267,8 @@ export class Deck {
   destroy(): void {
     if (this.#meterTimer !== null) clearInterval(this.#meterTimer);
     if (this.#capsTimer !== null) clearInterval(this.#capsTimer);
+    if (this.#waveSaveTimer !== null) clearInterval(this.#waveSaveTimer);
+    void this.#flushWaveform();
     this.#backend?.destroy();
     this.#backend = null;
   }

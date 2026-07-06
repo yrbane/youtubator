@@ -4,6 +4,7 @@
   import Browser from './components/Browser.svelte';
   import Settings from './components/Settings.svelte';
   import Avatar from './components/Avatar.svelte';
+  import WaveformStrip from './components/WaveformStrip.svelte';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
@@ -26,7 +27,6 @@
   });
 
   const anyExtension = $derived(mixer.decks.some((d) => d.hasExtension));
-  const anyLoaded = $derived(mixer.decks.some((d) => d.track !== null));
 
   async function routeTrack(track: Track, deckId: string): Promise<void> {
     const deck = mixer.decks.find((d) => d.id === deckId);
@@ -129,9 +129,7 @@
   <main class="loading">Chargement de l’API YouTube…</main>
 {/if}
 
-{#if !anyLoaded && apiReady}
-  <p class="onboarding">👇 Cherche un morceau (ou colle une URL YouTube) puis route-le vers un deck avec →A / →B</p>
-{/if}
+<WaveformStrip {mixer} />
 
 <Browser
   bind:this={browser}
@@ -219,10 +217,4 @@
     padding: 40px;
   }
 
-  .onboarding {
-    margin: 0;
-    padding: 4px 14px 8px;
-    color: var(--yt-text-dim);
-    text-align: center;
-  }
 </style>
