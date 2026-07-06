@@ -77,6 +77,20 @@ describe('alignPhaseDelta — recalage esclave sur maître', () => {
   });
 });
 
+describe('phaseBend — verrouillage de phase par micro-rate (sans seek)', () => {
+  it('corrige l’écart sur ~2 s (bend = delta/2)', async () => {
+    const { phaseBend } = await import('./beatgrid.js');
+    expect(phaseBend(0.01)).toBeCloseTo(0.005, 10);
+    expect(phaseBend(-0.03)).toBeCloseTo(-0.015, 10);
+  });
+
+  it('borne le bend à ±2 % (inaudible)', async () => {
+    const { phaseBend } = await import('./beatgrid.js');
+    expect(phaseBend(0.2)).toBe(0.02);
+    expect(phaseBend(-0.5)).toBe(-0.02);
+  });
+});
+
 describe('detectBpm — autocorrélation sur enveloppe', () => {
   function syntheticEnvelope(bpm: number, rate: number, durationS: number, offsetS: number): Float32Array {
     const n = Math.floor(durationS * rate);

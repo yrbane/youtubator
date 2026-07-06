@@ -1,4 +1,11 @@
-import { alignPhaseDelta, applySync, electMaster, DEFAULT_TEMPO_RANGE } from '@youtubator/audio-engine';
+import {
+  alignPhaseDelta,
+  applySync,
+  electMaster,
+  periodS,
+  phaseBend,
+  DEFAULT_TEMPO_RANGE,
+} from '@youtubator/audio-engine';
 import { crossfadeGains, type CrossfadeCurve } from 'potard';
 import { Deck } from './deck.svelte.js';
 
@@ -15,8 +22,8 @@ export class Mixer {
   tempoRange = $state(DEFAULT_TEMPO_RANGE);
 
   constructor() {
-    // gardien de phase : recale doucement les esclaves en continu (beatmatch)
-    setInterval(() => this.#alignSlavePhases(), 3000);
+    // verrouillage de phase continu (beatmatch) : micro-bends, pas de seeks
+    setInterval(() => this.#alignSlavePhases(), 700);
   }
 
   addDeck(): Deck | null {
@@ -61,15 +68,27 @@ export class Mixer {
     this.applyVolumes();
   }
 
-  /** Beatmatch : recale la phase des esclaves synchronisés sur celle du maître. */
+  /**
+   * Beatmatch : verrouille la phase des esclaves sur le maître.
+   * Écart léger → micro-bend de rate (inaudible, sans seek — la latence du
+   * seek YouTube réinjecterait de l'erreur). Gros écart ou mode dégradé
+   * (rate à paliers) → seek ponctuel.
+   */
   #alignSlavePhases(): void {
     const master = this.decks.find((d) => d.id === this.masterId);
     if (!master?.grid || !master.isPlaying) return;
     for (const slave of this.decks) {
       if (slave === master || !slave.synced || !slave.grid || !slave.isPlaying || slave.sampleLoop) continue;
       const delta = alignPhaseDelta(master.grid, master.displayTimeS(), slave.grid, slave.displayTimeS());
-      // seuil : on ne corrige que les dérives audibles (> 40 ms), pas le jitter
-      if (Math.abs(delta) > 0.04) slave.seekToS(slave.displayTimeS() + delta);
+      if (slave.hasExtension) {
+        if (Math.abs(delta) > 0.35 * periodS(slave.grid)) {
+          slave.seekToS(slave.displayTimeS() + delta); // rattrapage grossier, rare
+        } else {
+          void slave.applyPhaseBend(phaseBend(delta));
+        }
+      } else if (Math.abs(delta) > 0.04) {
+        slave.seekToS(slave.displayTimeS() + delta);
+      }
     }
   }
 

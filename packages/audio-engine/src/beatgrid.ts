@@ -77,6 +77,17 @@ export function alignPhaseDelta(
   return diff * periodS(slave);
 }
 
+/** Bend maximal du verrouillage de phase (±2 % : inaudible). */
+const MAX_PHASE_BEND = 0.02;
+
+/**
+ * Micro-ajustement de rate pour résorber un écart de phase sans seek
+ * (façon PLL / pitch-bend DJ) : l'écart est corrigé sur ~2 s, borné à ±2 %.
+ */
+export function phaseBend(deltaS: number): number {
+  return Math.min(MAX_PHASE_BEND, Math.max(-MAX_PHASE_BEND, deltaS / 2));
+}
+
 /**
  * Détection de BPM par autocorrélation de la nouveauté d'énergie
  * (flux d'attaques), puis recherche de phase par peigne. Pure et rapide :

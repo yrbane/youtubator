@@ -347,6 +347,16 @@ export class Deck {
     this.effectiveRate = applied ?? this.rate;
   }
 
+  /**
+   * Micro-ajustement de rate pour le verrouillage de phase (beatmatch) :
+   * ne touche pas au rate du fader, seulement au rate appliqué.
+   */
+  async applyPhaseBend(bend: number): Promise<void> {
+    const target = this.rate * (1 + bend);
+    const applied = await this.#backend?.setPlaybackRate(target);
+    this.effectiveRate = applied ?? target;
+  }
+
   setTempoMode(mode: TempoMode): void {
     this.tempoMode = mode;
     this.#backend?.setTempoMode(mode);
