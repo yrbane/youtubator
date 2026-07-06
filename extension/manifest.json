@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Youtubator",
+  "version": "0.1.0",
+  "description": "Accès audio in-frame pour la table de mixage Youtubator : EQ 3 bandes, modes tempo, VU-mètres",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/embed/*", "https://www.youtube-nocookie.com/embed/*"],
+      "all_frames": true,
+      "js": ["frame-agent.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@youtubator/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Extension Chrome MV3 : accès in-frame au player YouTube (EQ, modes tempo, VU)",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=iife --outfile=dist/frame-agent.js && cp manifest.json dist/"
+  },
+  "dependencies": {
+    "@youtubator/audio-engine": "workspace:*"
+  }
+}

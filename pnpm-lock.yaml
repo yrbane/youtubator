@@ -20,6 +20,12 @@ importers:
 
   apps/web: {}
 
+  extension:
+    dependencies:
+      '@youtubator/audio-engine':
+        specifier: workspace:*
+        version: link:../packages/audio-engine
+
   packages/audio-engine: {}
 
   packages/controls: {}
