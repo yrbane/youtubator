@@ -47,6 +47,18 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
   gain.connect(analyser);
   analyser.connect(ctx.destination);
 
+  // delay synchronisé au BPM : dérivation post-filtre, réinjection avec feedback
+  const delayNode = ctx.createDelay(2);
+  const delayFeedback = ctx.createGain();
+  const delayWet = ctx.createGain();
+  delayFeedback.gain.value = 0.45;
+  delayWet.gain.value = 0;
+  bipolarFilter.connect(delayNode);
+  delayNode.connect(delayFeedback);
+  delayFeedback.connect(delayNode);
+  delayNode.connect(delayWet);
+  delayWet.connect(gain);
+
   const buffer = new Uint8Array(analyser.frequencyBinCount);
 
   // analyseur dédié au chromagramme (résolution fine, branché avant l'EQ)
@@ -215,6 +227,12 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
     setLoopRate(rate) {
       currentRate = rate;
       if (loopSource && captureRate > 0) loopSource.playbackRate.value = rate / captureRate;
+    },
+
+    setDelay(timeS, wet, feedback) {
+      delayNode.delayTime.setTargetAtTime(Math.min(2, Math.max(0.01, timeS)), ctx.currentTime, 0.05);
+      delayWet.gain.setTargetAtTime(Math.min(1, Math.max(0, wet)), ctx.currentTime, 0.05);
+      delayFeedback.gain.setTargetAtTime(Math.min(0.9, Math.max(0, feedback)), ctx.currentTime, 0.05);
     },
 
     setFilter(setting) {

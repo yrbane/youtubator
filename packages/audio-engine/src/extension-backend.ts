@@ -147,6 +147,13 @@ export class ExtensionBackend implements DeckAudioBackend {
     return true;
   }
 
+  /** Delay synchronisé (temps réel en secondes). */
+  setDelay(timeS: number, wet: number, feedback = 0.45): boolean {
+    if (!this.#connected) return false;
+    this.#channel.send(createMessage('SET_DELAY', { timeS, wet, feedback }));
+    return true;
+  }
+
   async setPlaybackRate(rate: number): Promise<number> {
     if (!this.#connected) return this.#inner.setPlaybackRate(rate);
     this.#channel.send(createMessage('SET_RATE', { rate }));

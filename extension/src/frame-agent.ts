@@ -40,6 +40,8 @@ export interface EqGraph {
   setLoopRate?(rate: number): void;
   /** Filtre bipolaire (null = neutre). */
   setFilter?(setting: FilterSetting | null): void;
+  /** Delay synchronisé au BPM. */
+  setDelay?(timeS: number, wet: number, feedback: number): void;
 }
 
 interface FrameAgentDeps {
@@ -144,6 +146,9 @@ export class FrameAgent {
       case 'SET_FILTER':
         this.#pendingFilter = msg.value;
         this.#graph?.setFilter?.(filterFromValue(msg.value));
+        break;
+      case 'SET_DELAY':
+        this.#graph?.setDelay?.(msg.timeS, msg.wet, msg.feedback);
         break;
     }
   }

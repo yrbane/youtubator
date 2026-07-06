@@ -4,9 +4,11 @@ import {
   IframeApiBackend,
   beatLoopBounds,
   clampRate,
+  delayTimeForBeats,
   detectBpm,
   detectKey,
   effectiveEqGain,
+  parseBeatFraction,
   type BeatGrid,
   type DeckAudioBackend,
   type DeckState,
@@ -436,11 +438,24 @@ export class Deck {
   }
 
   filterValue = $state(0);
+  delayWet = $state(0);
+  delayBeats = $state('1/2');
 
   /** Filtre bipolaire LP/HP (extension requise). */
   setFilter(value: number): void {
     this.filterValue = value;
     this.#extension?.setFilter(value);
+  }
+
+  /** Delay synchronisé au BPM : fraction de beat + dosage wet. */
+  applyDelay(): void {
+    if (!this.grid) return;
+    const beats = parseBeatFraction(this.delayBeats);
+    if (beats === null) return;
+    this.#extension?.setDelay(
+      delayTimeForBeats(this.grid.bpm, this.effectiveRate || 1, beats),
+      this.delayWet,
+    );
   }
 
   setEqGain(band: EqBand, gainDb: number): void {

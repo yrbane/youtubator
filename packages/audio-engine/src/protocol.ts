@@ -23,6 +23,8 @@ export interface ProtocolPayloads {
   SET_GAIN: { gain: number };
   /** Filtre bipolaire : -1 (lowpass à fond) … 0 (neutre) … 1 (highpass à fond). */
   SET_FILTER: { value: number };
+  /** Delay synchronisé au BPM (temps réel en secondes, wet 0..1). */
+  SET_DELAY: { timeS: number; wet: number; feedback: number };
   METER: { level: number };
   /** Enveloppe d'énergie du ring buffer (détection de BPM côté page). */
   GET_ENVELOPE: Record<string, never>;
@@ -52,6 +54,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set([
   'SET_EQ',
   'SET_GAIN',
   'SET_FILTER',
+  'SET_DELAY',
   'METER',
   'GET_ENVELOPE',
   'ENVELOPE',

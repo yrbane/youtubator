@@ -53,6 +53,31 @@
     ></pt-knob>
   </div>
 
+  <div class="band echo" class:disabled={!deck.hasExtension || !deck.grid} title={deck.grid ? 'Delay calé sur le BPM' : 'Delay : BPM requis (extension + ~15 s de lecture)'}>
+    <pt-knob
+      min="0"
+      max="1"
+      value={deck.delayWet}
+      default="0"
+      label="ECHO"
+      oninput={(e: CustomEvent<number>) => {
+        deck.delayWet = e.detail;
+        deck.applyDelay();
+      }}
+      aria-label="Delay deck {deck.id}"
+      style="--ctl-accent: var(--yt-deck-b)"
+    ></pt-knob>
+    <pt-stepper
+      options="1/4,1/2,3/4,1"
+      value={deck.delayBeats}
+      onchange={(e: CustomEvent<string>) => {
+        deck.delayBeats = e.detail;
+        deck.applyDelay();
+      }}
+      aria-label="Fraction du delay deck {deck.id}"
+    ></pt-stepper>
+  </div>
+
   <div class="fader-row">
     <pt-fader
       min="0"
@@ -118,9 +143,18 @@
     height: 52px;
   }
 
-  .filter.disabled {
+  .filter.disabled,
+  .echo.disabled {
     opacity: 0.35;
     pointer-events: none;
+  }
+
+  .echo pt-knob {
+    height: 52px;
+  }
+
+  .echo pt-stepper {
+    font-size: 9px;
   }
 
   .kill {
