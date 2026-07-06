@@ -128,6 +128,55 @@ describe('phaseBend — verrouillage de phase par micro-rate (sans seek)', () =>
   });
 });
 
+describe('refineBpm — affinage par dérive de phase entre deux moitiés', () => {
+  function clickEnvelope(bpm: number, rate: number, durationS: number, offsetS: number): Float32Array {
+    const n = Math.floor(durationS * rate);
+    const env = new Float32Array(n);
+    let seed = 5;
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0), seed / 4294967296);
+    for (let i = 0; i < n; i++) env[i] = 0.04 * rand();
+    for (let t = offsetS; t < durationS; t += 60 / bpm) {
+      const i = Math.round(t * rate);
+      for (let k = 0; k < 3 && i + k < n; k++) env[i + k]! += 0.8 * Math.exp(-k * 1.2);
+    }
+    return env;
+  }
+
+  it('corrige une estimation grossière à ±0,05 BPM près', async () => {
+    const { refineBpm } = await import('./beatgrid.js');
+    const rate = 43;
+    const env = clickEnvelope(140, rate, 40, 0.3);
+    const refined = refineBpm(env, rate, 140.6); // estimation 0,4 % trop haute
+    expect(refined).not.toBeNull();
+    expect(Math.abs(refined!.bpm - 140)).toBeLessThan(0.05);
+  });
+
+  it('l’ancre tombe sur un click à ±15 ms', async () => {
+    const { refineBpm } = await import('./beatgrid.js');
+    const rate = 43;
+    const env = clickEnvelope(132, rate, 40, 0.5);
+    const refined = refineBpm(env, rate, 132.4)!;
+    const period = 60 / refined.bpm;
+    // 0,5 s est un instant de click : sa phase dans la grille affinée doit être ≈ 0
+    let phase = ((0.5 - refined.anchorS) / period) % 1;
+    if (phase < 0) phase += 1;
+    const distS = Math.min(phase, 1 - phase) * period;
+    expect(distS).toBeLessThan(0.015);
+  });
+
+  it('la grille affinée ne dérive pas : un click 30 s plus loin reste calé à ±15 ms', async () => {
+    const { refineBpm } = await import('./beatgrid.js');
+    const rate = 43;
+    const env = clickEnvelope(140, rate, 40, 0.3);
+    const refined = refineBpm(env, rate, 140.6)!;
+    const period = 60 / refined.bpm;
+    const clickFar = 0.3 + Math.round(30 / (60 / 140)) * (60 / 140); // un vrai click vers 30 s
+    let phase = ((clickFar - refined.anchorS) / period) % 1;
+    if (phase < 0) phase += 1;
+    expect(Math.min(phase, 1 - phase) * period).toBeLessThan(0.015);
+  });
+});
+
 describe('detectBpm — autocorrélation sur enveloppe', () => {
   function syntheticEnvelope(bpm: number, rate: number, durationS: number, offsetS: number): Float32Array {
     const n = Math.floor(durationS * rate);

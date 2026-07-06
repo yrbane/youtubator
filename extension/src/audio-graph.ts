@@ -1,5 +1,6 @@
 import { EQ_BANDS } from '@youtubator/audio-engine';
 import type { EqBand } from '@youtubator/audio-engine';
+import { lastContiguousStart } from './contiguous.js';
 import type { EqGraph } from './frame-agent.js';
 
 /** Durée du ring buffer PCM (mémoire ~16 Mo stéréo à 44,1 kHz). */
@@ -78,14 +79,19 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
   const blockEnergy = new Float32Array(ringBlocks);
   let blockCount = 0; // compteur absolu de blocs écrits
 
-  /** Écrit un bloc capturé dans le ring (appelé par le worklet ou le fallback). */
-  function writeBlock(l: Float32Array, r: Float32Array, energy: number): void {
+  /**
+   * Écrit un bloc capturé dans le ring. `emittedAtCtxTime` (horloge audio à
+   * l'émission worklet) corrige la latence de livraison du message pour un
+   * horodatage vidéo précis (calage de la grille de beats).
+   */
+  function writeBlock(l: Float32Array, r: Float32Array, energy: number, emittedAtCtxTime?: number): void {
     if (video.paused) return; // on ne capture que la lecture réelle
     const slot = blockCount % ringBlocks;
     ringL.set(l, slot * BLOCK);
     ringR.set(r, slot * BLOCK);
     blockEnergy[slot] = energy;
-    blockVideoTime[slot] = video.currentTime;
+    const lag = emittedAtCtxTime !== undefined ? Math.max(0, ctx.currentTime - emittedAtCtxTime) : 0;
+    blockVideoTime[slot] = video.currentTime - lag * (video.playbackRate || 1);
     blockCount++;
   }
 
@@ -107,8 +113,8 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
         channelCount: 2,
         channelCountMode: 'explicit',
       });
-      tap.port.onmessage = (e: MessageEvent<{ l: ArrayBuffer; r: ArrayBuffer; energy: number }>) => {
-        writeBlock(new Float32Array(e.data.l), new Float32Array(e.data.r), e.data.energy);
+      tap.port.onmessage = (e: MessageEvent<{ l: ArrayBuffer; r: ArrayBuffer; energy: number; t: number }>) => {
+        writeBlock(new Float32Array(e.data.l), new Float32Array(e.data.r), e.data.energy, e.data.t);
       };
       source.connect(tap);
       tap.connect(sink);
@@ -204,10 +210,18 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
     getEnvelope() {
       const available = Math.min(blockCount, ringBlocks);
       if (available < 64) return null;
-      const data = new Array<number>(available);
+      // seul le dernier segment continu est exploitable : un seek ou une
+      // pause casse la correspondance enveloppe ↔ temps (grille de beats)
+      const times = new Array<number>(available);
       for (let k = 0; k < available; k++) {
-        const abs = blockCount - available + k;
-        data[k] = blockEnergy[abs % ringBlocks]!;
+        times[k] = blockVideoTime[(blockCount - available + k) % ringBlocks]!;
+      }
+      const start = lastContiguousStart(times);
+      const usable = available - start;
+      if (usable < 64) return null;
+      const data = new Array<number>(usable);
+      for (let k = 0; k < usable; k++) {
+        data[k] = blockEnergy[(blockCount - usable + k) % ringBlocks]!;
       }
       const newest = blockVideoTime[(blockCount - 1) % ringBlocks]!;
       return { rate: sr / BLOCK, data, endTimeS: newest, mode: captureMode };

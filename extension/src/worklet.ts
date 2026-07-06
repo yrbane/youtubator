@@ -11,6 +11,8 @@ declare const AudioWorkletProcessor: {
   prototype: { port: MessagePort };
 };
 declare function registerProcessor(name: string, ctor: unknown): void;
+/** Horloge du contexte audio, disponible dans la portée du worklet. */
+declare const currentTime: number;
 
 const BLOCK = 1024;
 
@@ -24,8 +26,10 @@ class TapProcessor extends AudioWorkletProcessor {
     const r = input[1] ?? input[0];
     const block = this.#acc.push(l, r);
     if (block) {
+      // t : horloge audio à l'émission — le main thread s'en sert pour
+      // corriger la latence de livraison du message (calage de la grille)
       this.port.postMessage(
-        { l: block.l.buffer, r: block.r.buffer, energy: block.energy },
+        { l: block.l.buffer, r: block.r.buffer, energy: block.energy, t: currentTime },
         [block.l.buffer, block.r.buffer],
       );
     }

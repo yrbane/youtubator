@@ -63,6 +63,8 @@ export interface WaveformRecord {
   /** Grille de beats détectée (null tant que l'analyse n'a pas abouti). */
   bpm?: number | null;
   anchorS?: number | null;
+  /** Version de l'algorithme de grille (v2 = affinage anti-dérive). */
+  gridV?: number;
   /** Dernière boucle posée (restaurée désactivée : ∞ pour relancer). */
   loopInS?: number | null;
   loopOutS?: number | null;
@@ -244,6 +246,8 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     cues: [...record.cues],
     bpm: record.bpm ?? null,
     anchorS: record.anchorS ?? null,
+    // toute grille écrite par l'algorithme courant est v2 (affinage anti-dérive)
+    gridV: record.gridV ?? (record.bpm ? 2 : undefined),
     loopInS: record.loopInS ?? null,
     loopOutS: record.loopOutS ?? null,
     keyCamelot: record.keyCamelot ?? null,

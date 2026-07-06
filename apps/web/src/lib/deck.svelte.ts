@@ -395,7 +395,9 @@ export class Deck {
     if (this.track?.videoId !== videoId) return; // le deck a déjà changé de morceau
     if (record) {
       this.cues = record.cues;
-      if (record.bpm && record.anchorS !== null && record.anchorS !== undefined) {
+      // les grilles v1 (avant l'affinage anti-dérive) sont imprécises : on
+      // les ignore, l'analyse auto reconstruira une grille calée
+      if (record.bpm && record.anchorS !== null && record.anchorS !== undefined && record.gridV === 2) {
         this.grid = { bpm: record.bpm, anchorS: record.anchorS };
       }
       if (record.autoGain) this.autoGain = record.autoGain;

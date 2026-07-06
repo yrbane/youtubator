@@ -114,6 +114,76 @@ export function phaseBend(deltaS: number): number {
   return Math.min(MAX_PHASE_BEND, Math.max(-MAX_PHASE_BEND, deltaS / 2));
 }
 
+/** Flux de nouveauté (attaques) : dérivée positive, centrée. */
+function noveltyOf(envelope: Float32Array): Float32Array | null {
+  const n = envelope.length;
+  const novelty = new Float32Array(n);
+  for (let i = 1; i < n; i++) novelty[i] = Math.max(0, envelope[i]! - envelope[i - 1]!);
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += novelty[i]!;
+  mean /= n;
+  if (mean < 1e-6) return null;
+  for (let i = 0; i < n; i++) novelty[i]! -= mean;
+  return novelty;
+}
+
+/** Offset (échantillons, sub-échantillon) du peigne qui capte le plus d'attaques. */
+function combOffset(novelty: Float32Array, from: number, to: number, periodSamples: number): number {
+  const steps = Math.max(32, Math.ceil(periodSamples * 4)); // résolution ≤ P/32
+  let best = 0;
+  let bestSum = -Infinity;
+  for (let s = 0; s < steps; s++) {
+    const offset = (s / steps) * periodSamples;
+    let sum = 0;
+    for (let t = from + offset; t < to; t += periodSamples) sum += novelty[Math.round(t)] ?? 0;
+    if (sum > bestSum) {
+      bestSum = sum;
+      best = offset;
+    }
+  }
+  return best;
+}
+
+/**
+ * Affinage du BPM par dérive de phase : le peigne est calé indépendamment
+ * sur chaque moitié de l'enveloppe ; le glissement d'offset entre les deux
+ * donne la correction de période (précision ~±0,05 BPM, indispensable pour
+ * que la grille ne dérive pas loin du point de détection).
+ */
+export function refineBpm(
+  envelope: Float32Array,
+  envelopeRate: number,
+  roughBpm: number,
+): { bpm: number; anchorS: number } | null {
+  const novelty = noveltyOf(envelope);
+  if (!novelty) return null;
+  const n = novelty.length;
+  const period = (60 / roughBpm) * envelopeRate;
+  if (n < period * 8) return null;
+
+  const half = Math.floor(n / 2);
+  const periodsSpanned = Math.round(half / period);
+  if (periodsSpanned < 4) return null;
+
+  // itératif : chaque passe réduit la dérive résiduelle, le peigne se
+  // resserre et l'estimation de phase gagne en précision
+  let refinedPeriod = period;
+  for (let pass = 0; pass < 3; pass++) {
+    const o1 = combOffset(novelty, 0, half, refinedPeriod);
+    const o2 = combOffset(novelty, half, n, refinedPeriod); // offset relatif à `half`
+    // offset attendu de la moitié 2 si la période était exacte
+    const expected = (((o1 - half) % refinedPeriod) + refinedPeriod) % refinedPeriod;
+    let drift = o2 - expected;
+    if (drift > refinedPeriod / 2) drift -= refinedPeriod;
+    if (drift < -refinedPeriod / 2) drift += refinedPeriod;
+    refinedPeriod += drift / Math.round(half / refinedPeriod);
+    if (Math.abs(drift) < 0.02) break; // convergé
+  }
+
+  const anchor = combOffset(novelty, 0, n, refinedPeriod);
+  return { bpm: (60 * envelopeRate) / refinedPeriod, anchorS: anchor / envelopeRate };
+}
+
 /**
  * Détection de BPM par autocorrélation de la nouveauté d'énergie
  * (flux d'attaques), puis recherche de phase par peigne. Pure et rapide :
@@ -186,20 +256,11 @@ export function detectBpm(envelope: Float32Array, envelopeRate: number): BpmDete
   const confidence = Math.min(1, avg > 0 ? s1 / (avg * 4) : 0);
   if (confidence < 0.1) return null;
 
-  // phase : offset du peigne qui capte le plus de nouveauté
-  const period = (60 / bpm) * envelopeRate; // en échantillons
-  let bestOffset = 0;
-  let bestComb = -Infinity;
-  const steps = Math.max(8, Math.floor(period));
-  for (let s = 0; s < steps; s++) {
-    const offset = (s / steps) * period;
-    let sum = 0;
-    for (let t = offset; t < n; t += period) sum += novelty[Math.round(t)] ?? 0;
-    if (sum > bestComb) {
-      bestComb = sum;
-      bestOffset = offset;
-    }
-  }
+  // affinage par dérive de phase (précision de période) puis phase fine
+  const refined = refineBpm(envelope, envelopeRate, bpm);
+  if (refined) return { bpm: refined.bpm, anchorS: refined.anchorS, confidence };
 
-  return { bpm, anchorS: bestOffset / envelopeRate, confidence };
+  const period = (60 / bpm) * envelopeRate;
+  const offset = combOffset(novelty, 0, n, period);
+  return { bpm, anchorS: offset / envelopeRate, confidence };
 }
