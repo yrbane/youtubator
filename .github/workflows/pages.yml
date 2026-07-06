@@ -1,0 +1,44 @@
+# Déploiement de l'app sur GitHub Pages + zip de l'extension en artefact
+name: Pages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install
+      - run: pnpm --filter @youtubator/web exec vite build --base=/youtubator/
+      - run: pnpm --filter @youtubator/extension build
+      - run: pnpm --filter @youtubator/extension exec web-ext build --source-dir dist --artifacts-dir web-ext-artifacts --overwrite-dest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: youtubator-extension
+          path: extension/web-ext-artifacts/*.zip
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
