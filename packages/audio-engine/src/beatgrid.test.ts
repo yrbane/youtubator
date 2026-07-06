@@ -29,6 +29,22 @@ describe('géométrie de la grille', () => {
   });
 });
 
+describe('phase de mesure (4/4)', () => {
+  it('measurePhase est la position 0..1 dans la mesure de 4 beats', async () => {
+    const { measurePhase } = await import('./beatgrid.js');
+    expect(measurePhase(GRID, 0.2)).toBeCloseTo(0, 10);
+    expect(measurePhase(GRID, 1.95)).toBeCloseTo(0.875, 10); // 3,5 beats après l'ancre
+  });
+
+  it('beatIndexInMeasure retourne le beat courant 0..3, y compris avant l’ancre', async () => {
+    const { beatIndexInMeasure } = await import('./beatgrid.js');
+    expect(beatIndexInMeasure(GRID, 0.2)).toBe(0);
+    expect(beatIndexInMeasure(GRID, 0.7)).toBe(1);
+    expect(beatIndexInMeasure(GRID, 1.95)).toBe(3);
+    expect(beatIndexInMeasure(GRID, 0.1)).toBe(3); // 0,2 beat avant l'ancre → fin de la mesure précédente
+  });
+});
+
 describe('beatLoopBounds — boucle des N derniers beats', () => {
   it('cale la sortie sur le beat courant et remonte de N périodes', () => {
     const bounds = beatLoopBounds(GRID, 10.3, 4);

@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { beatPhase, floorBeat, periodS } from '@youtubator/audio-engine';
+  import {
+    alignPhaseDelta,
+    beatIndexInMeasure,
+    floorBeat,
+    measurePhase,
+    periodS,
+  } from '@youtubator/audio-engine';
   import { BUCKET_S, nearestCue } from '../lib/waveform.js';
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
@@ -90,6 +96,43 @@
     // tête de lecture (fixe, centrée)
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(w / 2 - 1, 0, 2, h);
+
+    // jauge de phase façon Traktor : 4 cases (beats de la mesure) + curseur,
+    // et pour un esclave synchronisé, l'écart de phase vs le maître
+    if (deck.grid) {
+      const cellW = 14;
+      const cellH = 6;
+      const gap = 2;
+      const x0 = 6;
+      const y0 = h - cellH - 4;
+      const now = center;
+      const beat = beatIndexInMeasure(deck.grid, now);
+      const phase = measurePhase(deck.grid, now);
+      const totalW = 4 * cellW + 3 * gap;
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = i === beat ? accent : '#2a2f36';
+        ctx.fillRect(x0 + i * (cellW + gap), y0, cellW, cellH);
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x0 + phase * totalW - 1, y0 - 2, 2, cellH + 4);
+
+      const master = mixer.decks.find((d) => d.id === mixer.masterId);
+      if (master && master !== deck && deck.synced && master.grid && master.isPlaying && deck.isPlaying) {
+        const deltaS = alignPhaseDelta(master.grid, master.displayTimeS(), deck.grid, now);
+        const frac = Math.max(-0.5, Math.min(0.5, deltaS / periodS(deck.grid)));
+        const gx = x0 + totalW + 14;
+        const gw = 46;
+        ctx.fillStyle = '#2a2f36';
+        ctx.fillRect(gx, y0 + cellH / 2 - 1, gw, 2);
+        ctx.fillStyle = '#8b93a0';
+        ctx.fillRect(gx + gw / 2 - 1, y0 - 2, 2, cellH + 4); // repère central
+        const absMs = Math.abs(deltaS) * 1000;
+        ctx.fillStyle = absMs < 20 ? '#3ddc84' : absMs < 60 ? '#ffcc33' : '#ff4d5e';
+        ctx.fillRect(gx + gw / 2 + frac * gw - 1.5, y0 - 3, 3, cellH + 6); // aiguille
+        ctx.font = '9px ui-monospace, monospace';
+        ctx.fillText(`${deltaS >= 0 ? '+' : '−'}${Math.round(absMs)} ms`, gx + gw + 6, y0 + cellH);
+      }
+    }
 
     // libellé deck + mode waveform + BPM effectif
     ctx.font = 'bold 10px ui-monospace, monospace';

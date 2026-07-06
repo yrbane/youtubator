@@ -26,6 +26,18 @@ export function beatPhase(grid: BeatGrid, timeS: number): number {
   return phase < 0 ? phase + 1 : phase;
 }
 
+/** Position normalisée 0..1 dans la mesure (4 beats par défaut). */
+export function measurePhase(grid: BeatGrid, timeS: number, beatsPerMeasure = 4): number {
+  const p = periodS(grid) * beatsPerMeasure;
+  const phase = ((timeS - grid.anchorS) / p) % 1;
+  return phase < 0 ? phase + 1 : phase;
+}
+
+/** Index du beat courant dans la mesure (0..beatsPerMeasure-1). */
+export function beatIndexInMeasure(grid: BeatGrid, timeS: number, beatsPerMeasure = 4): number {
+  return Math.floor(measurePhase(grid, timeS, beatsPerMeasure) * beatsPerMeasure + 1e-9) % beatsPerMeasure;
+}
+
 /** Beat précédent ou égal à l'instant donné. */
 export function floorBeat(grid: BeatGrid, timeS: number): number {
   const p = periodS(grid);
