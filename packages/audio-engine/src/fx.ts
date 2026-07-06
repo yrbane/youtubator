@@ -8,6 +8,29 @@ export function parseBeatFraction(label: string): number | null {
   return num / den;
 }
 
+/** Niveau RMS cible de l'auto-gain. */
+const AUTO_GAIN_TARGET = 0.25;
+/** Seuil sous lequel un bucket est considéré silencieux (intro, break). */
+const SILENCE_LEVEL = 0.02;
+
+/**
+ * Gain de normalisation du niveau perçu, borné à ±6 dB (0,5..2).
+ * Moyenne des niveaux hors silences → gain = cible / niveau moyen.
+ */
+export function computeAutoGain(envelope: readonly number[]): number {
+  let sum = 0;
+  let count = 0;
+  for (const v of envelope) {
+    if (v > SILENCE_LEVEL) {
+      sum += v;
+      count++;
+    }
+  }
+  if (count < 20) return 1; // pas assez de signal pour juger
+  const mean = sum / count;
+  return Math.min(2, Math.max(0.5, AUTO_GAIN_TARGET / mean));
+}
+
 /**
  * Temps réel (secondes) d'un delay de N beats : la période musicale est en
  * temps média, le delay vit en temps réel → division par le rate effectif.

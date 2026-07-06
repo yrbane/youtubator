@@ -147,6 +147,13 @@ export class ExtensionBackend implements DeckAudioBackend {
     return true;
   }
 
+  /** Gain du graphe (peut amplifier > 1, ex. auto-gain). */
+  setGain(gain: number): boolean {
+    if (!this.#connected) return false;
+    this.#channel.send(createMessage('SET_GAIN', { gain }));
+    return true;
+  }
+
   /** Delay synchronisé (temps réel en secondes). */
   setDelay(timeS: number, wet: number, feedback = 0.45): boolean {
     if (!this.#connected) return false;

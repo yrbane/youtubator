@@ -69,6 +69,8 @@ export interface WaveformRecord {
   /** Tonalité détectée (mix harmonique). */
   keyCamelot?: string | null;
   keyName?: string | null;
+  /** Gain de normalisation du niveau perçu (auto-gain, 0,5..2). */
+  autoGain?: number | null;
   updatedAt: number;
 }
 
@@ -246,6 +248,7 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     loopOutS: record.loopOutS ?? null,
     keyCamelot: record.keyCamelot ?? null,
     keyName: record.keyName ?? null,
+    autoGain: record.autoGain ?? null,
     updatedAt: Date.now(),
   });
 }

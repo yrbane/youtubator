@@ -4,6 +4,7 @@ import {
   IframeApiBackend,
   beatLoopBounds,
   clampRate,
+  computeAutoGain,
   delayTimeForBeats,
   detectBpm,
   detectKey,
@@ -200,6 +201,7 @@ export class Deck {
         this.#capsTimer = null;
         this.#pushAllEq();
         this.#backend?.setTempoMode(this.tempoMode);
+        if (this.autoGain !== 1) this.#extension?.setGain(this.autoGain); // auto-gain restauré du cache
       }
     }, 500);
   }
@@ -352,6 +354,9 @@ export class Deck {
         bpm: detection.bpm / r,
         anchorS: envStartVideoS + detection.anchorS * r,
       };
+      // auto-gain : même enveloppe que le BPM
+      this.autoGain = computeAutoGain(envelope.data);
+      this.#extension.setGain(this.autoGain);
       // la tonalité s'appuie sur le chromagramme accumulé pendant la même lecture
       const chroma = await this.#extension.getChroma();
       if (chroma) {
@@ -374,6 +379,7 @@ export class Deck {
       if (record.bpm && record.anchorS !== null && record.anchorS !== undefined) {
         this.grid = { bpm: record.bpm, anchorS: record.anchorS };
       }
+      if (record.autoGain) this.autoGain = record.autoGain;
       if (record.keyCamelot) {
         this.musicalKey = { camelot: record.keyCamelot, name: record.keyName ?? '' };
       }
@@ -411,6 +417,7 @@ export class Deck {
       loopOutS: this.loop.outS,
       keyCamelot: this.musicalKey?.camelot ?? null,
       keyName: this.musicalKey?.name ?? null,
+      autoGain: this.autoGain,
       updatedAt: Date.now(),
     });
   }
@@ -440,6 +447,8 @@ export class Deck {
   filterValue = $state(0);
   delayWet = $state(0);
   delayBeats = $state('1/2');
+  /** Gain de normalisation du niveau perçu (±6 dB), appliqué via le graphe. */
+  autoGain = $state(1);
 
   /** Filtre bipolaire LP/HP (extension requise). */
   setFilter(value: number): void {
