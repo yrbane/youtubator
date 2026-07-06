@@ -77,6 +77,23 @@ describe('alignPhaseDelta — recalage esclave sur maître', () => {
   });
 });
 
+describe('beatsToPhrase — compte à rebours avant la prochaine phrase', () => {
+  it('16 pile sur une frontière de phrase, puis décompte', async () => {
+    const { beatsToPhrase } = await import('./beatgrid.js');
+    expect(beatsToPhrase(GRID, 0.2)).toBe(16); // ancre = début de phrase
+    expect(beatsToPhrase(GRID, 0.7)).toBe(15); // 1 beat entamé
+    expect(beatsToPhrase(GRID, 7.95)).toBe(1); // dernier beat avant la phrase
+    expect(beatsToPhrase(GRID, 8.2)).toBe(16); // frontière suivante (16 × 0,5 s)
+  });
+
+  it('gère les instants avant l’ancre et les phrases de 32', async () => {
+    const { beatsToPhrase } = await import('./beatgrid.js');
+    expect(beatsToPhrase(GRID, 0.1)).toBe(1); // 0,2 beat avant l'ancre
+    expect(beatsToPhrase(GRID, 0.2, 32)).toBe(32);
+    expect(beatsToPhrase(GRID, 8.2, 32)).toBe(16);
+  });
+});
+
 describe('phaseBend — verrouillage de phase par micro-rate (sans seek)', () => {
   it('corrige l’écart sur ~2 s (bend = delta/2)', async () => {
     const { phaseBend } = await import('./beatgrid.js');

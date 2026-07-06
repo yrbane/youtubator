@@ -77,6 +77,18 @@ export function alignPhaseDelta(
   return diff * periodS(slave);
 }
 
+/**
+ * Beats restants avant la prochaine frontière de phrase (16 beats par défaut,
+ * phrases ancrées sur la grille) : 16 pile sur une frontière, puis 15…1.
+ */
+export function beatsToPhrase(grid: BeatGrid, timeS: number, phraseBeats = 16): number {
+  const p = periodS(grid);
+  let beatsIn = ((timeS - grid.anchorS) / p) % phraseBeats;
+  if (beatsIn < 0) beatsIn += phraseBeats;
+  // le modulo final absorbe le cas « juste sous la frontière » que l'epsilon arrondit à la phrase pleine
+  return phraseBeats - (Math.floor(beatsIn + 1e-9) % phraseBeats);
+}
+
 /** Bend maximal du verrouillage de phase (±2 % : inaudible). */
 const MAX_PHASE_BEND = 0.02;
 

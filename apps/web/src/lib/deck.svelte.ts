@@ -285,6 +285,16 @@ export class Deck {
     }
   }
 
+  /** Correction manuelle d'octave du BPM détecté (×½ ou ×2), persistée. */
+  scaleBpm(factor: 0.5 | 2): void {
+    if (!this.grid) return;
+    const bpm = this.grid.bpm * factor;
+    if (bpm < 40 || bpm > 400) return;
+    this.grid = { bpm, anchorS: this.grid.anchorS };
+    this.#waveDirty = true;
+    void this.#flushWaveform();
+  }
+
   /** Détecte la grille de beats depuis l'enveloppe capturée par l'extension. */
   async analyzeBpm(): Promise<void> {
     if (!this.#extension || this.#analyzingBpm) return;

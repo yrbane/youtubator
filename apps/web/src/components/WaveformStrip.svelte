@@ -2,6 +2,7 @@
   import {
     alignPhaseDelta,
     beatIndexInMeasure,
+    beatsToPhrase,
     floorBeat,
     measurePhase,
     periodS,
@@ -65,9 +66,14 @@
       while (t <= center + half) {
         const x = w / 2 + (t - center) * PX_PER_S;
         const beatIndex = Math.round((t - deck.grid.anchorS) / p);
+        const isPhrase = ((beatIndex % 16) + 16) % 16 === 0;
         const isMeasure = ((beatIndex % 4) + 4) % 4 === 0;
-        ctx.fillStyle = isMeasure ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.12)';
-        ctx.fillRect(x, 0, 1, isMeasure ? h : h * 0.55);
+        ctx.fillStyle = isPhrase
+          ? 'rgba(61,220,132,0.55)' // frontière de phrase (16 beats)
+          : isMeasure
+            ? 'rgba(255,255,255,0.30)'
+            : 'rgba(255,255,255,0.12)';
+        ctx.fillRect(x, 0, isPhrase ? 2 : 1, isPhrase || isMeasure ? h : h * 0.55);
         t += p;
       }
     }
@@ -146,6 +152,12 @@
       const label = `${(deck.grid.bpm * deck.effectiveRate).toFixed(1)} BPM`;
       ctx.fillStyle = '#d7dce2';
       ctx.fillText(label, w - ctx.measureText(label).width - 6, 13);
+      // compte à rebours avant la prochaine phrase (préparation des transitions)
+      const remaining = beatsToPhrase(deck.grid, center);
+      const countdown = `−${remaining}`;
+      ctx.font = remaining <= 4 ? 'bold 13px ui-monospace, monospace' : 'bold 10px ui-monospace, monospace';
+      ctx.fillStyle = remaining <= 4 ? '#ff4d5e' : remaining <= 8 ? '#ffcc33' : '#8b93a0';
+      ctx.fillText(countdown, w - ctx.measureText(countdown).width - 6, remaining <= 4 ? 30 : 27);
     }
   }
 
@@ -221,6 +233,10 @@
                 {n}
               </button>
             {/each}
+          </div>
+          <div class="octave" title="Corriger l'octave du BPM détecté">
+            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
+            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
           </div>
           <div class="loop">
             <button class="lp" onclick={() => deck.loopIn()} title="Point d'entrée de boucle (au temps courant)">IN</button>
@@ -341,6 +357,7 @@
     cursor: default;
   }
 
+  .octave,
   .loop {
     display: flex;
     flex-direction: column;
