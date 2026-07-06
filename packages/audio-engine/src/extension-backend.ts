@@ -22,12 +22,22 @@ export class ExtensionBackend implements DeckAudioBackend {
   #capabilities: DeckCapabilities | null = null;
   #meterListeners = new Set<(level: number) => void>();
   #unsubChannel: Unsubscribe;
+  #helloTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(inner: DeckAudioBackend, channel: MessageChannelLike) {
     this.#inner = inner;
     this.#channel = channel;
     this.#unsubChannel = channel.onMessage((data) => this.#handleMessage(data));
     channel.send(createMessage('HELLO', {}));
+    // le content script peut charger après nous : on relance jusqu'à réponse
+    this.#helloTimer = setInterval(() => this.#channel.send(createMessage('HELLO', {})), 1000);
+  }
+
+  #stopHelloRetry(): void {
+    if (this.#helloTimer !== null) {
+      clearInterval(this.#helloTimer);
+      this.#helloTimer = null;
+    }
   }
 
   get capabilities(): DeckCapabilities {
@@ -41,6 +51,7 @@ export class ExtensionBackend implements DeckAudioBackend {
       case 'HELLO_ACK':
         this.#connected = true;
         this.#capabilities = msg.capabilities;
+        this.#stopHelloRetry();
         break;
       case 'METER':
         for (const l of this.#meterListeners) l(msg.level);
@@ -107,6 +118,7 @@ export class ExtensionBackend implements DeckAudioBackend {
   }
 
   destroy(): void {
+    this.#stopHelloRetry();
     this.#unsubChannel();
     this.#meterListeners.clear();
     this.#inner.destroy();

@@ -46,6 +46,19 @@ function makeConnected() {
 }
 
 describe('ExtensionBackend — handshake', () => {
+  it('renvoie HELLO périodiquement tant que l’extension n’a pas répondu, puis s’arrête', () => {
+    vi.useFakeTimers();
+    const { channel, sent, receive } = makeChannel();
+    new ExtensionBackend(makeInner(), channel);
+    vi.advanceTimersByTime(2500); // 2 relances à 1 s d'intervalle
+    const hellos = sent.filter((m) => parseMessage(m)?.type === 'HELLO');
+    expect(hellos.length).toBe(3);
+    receive(createMessage('HELLO_ACK', { capabilities: { eq: true, continuousRate: true, tempoModes: true } }));
+    vi.advanceTimersByTime(5000);
+    expect(sent.filter((m) => parseMessage(m)?.type === 'HELLO').length).toBe(3);
+    vi.useRealTimers();
+  });
+
   it('envoie HELLO à la construction', () => {
     const { channel, sent } = makeChannel();
     new ExtensionBackend(makeInner(), channel);
