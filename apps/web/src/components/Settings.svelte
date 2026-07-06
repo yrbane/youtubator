@@ -6,8 +6,35 @@
 
   let { mixer, onClose }: { mixer: Mixer; onClose: () => void } = $props();
 
+  import { exportCrate, importCrate } from '../lib/crate.js';
+
   let apiKey = $state(getApiKey() ?? '');
   let clientId = $state(getClientId() ?? '');
+  let crateStatus = $state<string | null>(null);
+
+  async function doExport(): Promise<void> {
+    const crate = await exportCrate();
+    const blob = new Blob([JSON.stringify(crate)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `youtubator-crate-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    crateStatus = `Exporté : ${crate.waveforms.length} morceaux analysés, ${crate.favorites.length} favoris, ${crate.playlists.length} playlists.`;
+  }
+
+  async function doImport(e: Event): Promise<void> {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const counts = await importCrate(JSON.parse(await file.text()));
+      crateStatus = counts
+        ? `Importé : ${counts.waveforms} dossiers mis à jour, ${counts.favorites} favoris, ${counts.playlists} playlists.`
+        : 'Fichier invalide (pas un crate Youtubator).';
+    } catch {
+      crateStatus = 'Fichier illisible.';
+    }
+  }
 </script>
 
 <div class="backdrop" onclick={onClose} role="presentation">
@@ -69,6 +96,17 @@
       </select>
     </label>
 
+    <div class="crate">
+      <span>Crate (waveforms, BPM, tonalités, cues, favoris, playlists)</span>
+      <div class="crate-actions">
+        <button class="btn" onclick={() => void doExport()}>Exporter</button>
+        <label class="btn">
+          Importer<input type="file" accept="application/json" hidden onchange={(e) => void doImport(e)} />
+        </label>
+      </div>
+      {#if crateStatus}<small>{crateStatus}</small>{/if}
+    </div>
+
     <button class="btn" onclick={onClose}>Fermer</button>
   </div>
 </div>
@@ -106,6 +144,21 @@
 
   small a {
     color: var(--yt-deck-a);
+  }
+
+  .crate {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--yt-text-dim);
+    font-size: 12px;
+    border-top: 1px solid var(--yt-border);
+    padding-top: 12px;
+  }
+
+  .crate-actions {
+    display: flex;
+    gap: 8px;
   }
 
   input,
