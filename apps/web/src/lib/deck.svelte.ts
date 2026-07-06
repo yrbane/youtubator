@@ -6,8 +6,6 @@ import {
   clampRate,
   computeAutoGain,
   delayTimeForBeats,
-  detectBpm,
-  detectKey,
   effectiveEqGain,
   parseBeatFraction,
   type BeatGrid,
@@ -16,6 +14,7 @@ import {
   type EqBand,
   type TempoMode,
 } from '@youtubator/audio-engine';
+import { analyze } from './analysis.js';
 import { iframeChannel } from './deck-channel.js';
 import { createPlayerFactory } from './yt-iframe.js';
 import { loadWaveform, saveWaveform } from './library.js';
@@ -254,6 +253,11 @@ export class Deck {
     if (cue !== undefined) this.seekToS(cue);
   }
 
+  /** Diagnostic : enveloppe brute de l'extension (mode de capture inclus). */
+  async debugEnvelope(): Promise<unknown> {
+    return (await this.#extension?.getEnvelope()) ?? null;
+  }
+
   /** Position interpolée entre deux timeupdates (affichage et garde de boucle). */
   displayTimeS(): number {
     if (!this.isPlaying) return this.currentTimeS;
@@ -358,7 +362,13 @@ export class Deck {
     try {
       const envelope = await this.#extension.getEnvelope();
       if (!envelope || envelope.data.length === 0) return;
-      const detection = detectBpm(Float32Array.from(envelope.data), envelope.rate);
+      const chroma = await this.#extension.getChroma();
+      // BPM + tonalité calculés dans le worker d'analyse (hors main thread)
+      const { bpm: detection, key } = await analyze(
+        Float32Array.from(envelope.data),
+        envelope.rate,
+        chroma?.bins ?? null,
+      );
       if (!detection || detection.confidence < 0.12) return;
       // l'enveloppe vit en temps de contexte audio : conversion en temps média
       const r = this.effectiveRate || 1;
@@ -371,12 +381,7 @@ export class Deck {
       // auto-gain : même enveloppe que le BPM
       this.autoGain = computeAutoGain(envelope.data);
       if (!this.silentMode) this.#extension.setGain(this.autoGain);
-      // la tonalité s'appuie sur le chromagramme accumulé pendant la même lecture
-      const chroma = await this.#extension.getChroma();
-      if (chroma) {
-        const key = detectKey(chroma.bins);
-        if (key) this.musicalKey = { camelot: key.camelot, name: key.name };
-      }
+      if (key) this.musicalKey = { camelot: key.camelot, name: key.name };
       this.#waveDirty = true;
       void this.#flushWaveform();
     } finally {

@@ -28,7 +28,7 @@ export interface ProtocolPayloads {
   METER: { level: number };
   /** Enveloppe d'énergie du ring buffer (détection de BPM côté page). */
   GET_ENVELOPE: Record<string, never>;
-  ENVELOPE: { rate: number; data: number[]; endTimeS: number };
+  ENVELOPE: { rate: number; data: number[]; endTimeS: number; mode?: 'worklet' | 'script' };
   /** Chromagramme accumulé (détection de tonalité côté page). */
   GET_CHROMA: Record<string, never>;
   CHROMA: { bins: number[]; samples: number };

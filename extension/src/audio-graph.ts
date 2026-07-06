@@ -78,26 +78,55 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
   const blockEnergy = new Float32Array(ringBlocks);
   let blockCount = 0; // compteur absolu de blocs écrits
 
-  const tap = ctx.createScriptProcessor(BLOCK, 2, 1);
-  source.connect(tap);
-  const sink = ctx.createGain();
-  sink.gain.value = 0; // le tap doit être connecté à la destination pour tourner
-  tap.connect(sink);
-  sink.connect(ctx.destination);
-
-  tap.onaudioprocess = (e) => {
+  /** Écrit un bloc capturé dans le ring (appelé par le worklet ou le fallback). */
+  function writeBlock(l: Float32Array, r: Float32Array, energy: number): void {
     if (video.paused) return; // on ne capture que la lecture réelle
-    const inL = e.inputBuffer.getChannelData(0);
-    const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
     const slot = blockCount % ringBlocks;
-    ringL.set(inL, slot * BLOCK);
-    ringR.set(inR, slot * BLOCK);
-    let sum = 0;
-    for (let i = 0; i < inL.length; i++) sum += inL[i]! * inL[i]!;
-    blockEnergy[slot] = Math.sqrt(sum / inL.length);
+    ringL.set(l, slot * BLOCK);
+    ringR.set(r, slot * BLOCK);
+    blockEnergy[slot] = energy;
     blockVideoTime[slot] = video.currentTime;
     blockCount++;
-  };
+  }
+
+  // capture : AudioWorklet (thread audio temps réel) avec repli ScriptProcessor
+  let captureMode: 'worklet' | 'script' = 'script';
+  const sink = ctx.createGain();
+  sink.gain.value = 0; // le tap doit être connecté à la destination pour tourner
+  sink.connect(ctx.destination);
+
+  void (async () => {
+    try {
+      const runtime = (globalThis as any).chrome?.runtime ?? (globalThis as any).browser?.runtime;
+      const workletUrl: string = runtime.getURL('worklet.js');
+      await ctx.audioWorklet.addModule(workletUrl);
+      const tap = new AudioWorkletNode(ctx, 'youtubator-tap', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 2,
+        channelCountMode: 'explicit',
+      });
+      tap.port.onmessage = (e: MessageEvent<{ l: ArrayBuffer; r: ArrayBuffer; energy: number }>) => {
+        writeBlock(new Float32Array(e.data.l), new Float32Array(e.data.r), e.data.energy);
+      };
+      source.connect(tap);
+      tap.connect(sink);
+      captureMode = 'worklet';
+    } catch {
+      // repli : ScriptProcessor (main thread) si le worklet est indisponible
+      const tap = ctx.createScriptProcessor(BLOCK, 2, 1);
+      source.connect(tap);
+      tap.connect(sink);
+      tap.onaudioprocess = (e) => {
+        const inL = e.inputBuffer.getChannelData(0);
+        const inR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inL;
+        let sum = 0;
+        for (let i = 0; i < inL.length; i++) sum += inL[i]! * inL[i]!;
+        writeBlock(inL, inR, Math.sqrt(sum / inL.length));
+      };
+    }
+  })();
 
   /** Index absolu du bloc le plus proche d'un temps vidéo (recherche arrière). */
   function findBlock(videoTimeS: number): number | null {
@@ -181,7 +210,7 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
         data[k] = blockEnergy[abs % ringBlocks]!;
       }
       const newest = blockVideoTime[(blockCount - 1) % ringBlocks]!;
-      return { rate: sr / BLOCK, data, endTimeS: newest };
+      return { rate: sr / BLOCK, data, endTimeS: newest, mode: captureMode };
     },
 
     engageLoop(inS, outS) {

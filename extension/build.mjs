@@ -7,6 +7,7 @@ await build({
     { in: 'src/main.ts', out: 'frame-agent' },
     { in: 'src/background.ts', out: 'background' },
     { in: 'src/offscreen.ts', out: 'offscreen' },
+    { in: 'src/worklet.ts', out: 'worklet' },
   ],
   bundle: true,
   format: 'iife',

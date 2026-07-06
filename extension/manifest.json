@@ -20,6 +20,12 @@
     "scripts": ["background.js"]
   },
   "permissions": ["tabCapture", "offscreen", "downloads"],
+  "web_accessible_resources": [
+    {
+      "resources": ["worklet.js"],
+      "matches": ["https://www.youtube.com/*", "https://www.youtube-nocookie.com/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/embed/*", "https://www.youtube-nocookie.com/embed/*"],

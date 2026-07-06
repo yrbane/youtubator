@@ -22,7 +22,7 @@ export class ExtensionBackend implements DeckAudioBackend {
   #capabilities: DeckCapabilities | null = null;
   #meterListeners = new Set<(level: number) => void>();
   #loopStateListeners = new Set<(s: { engaged: boolean; resumeAtS: number | null }) => void>();
-  #envelopeWaiters: Array<(e: { rate: number; data: number[]; endTimeS: number }) => void> = [];
+  #envelopeWaiters: Array<(e: { rate: number; data: number[]; endTimeS: number; mode?: string }) => void> = [];
   #chromaWaiters: Array<(c: { bins: number[]; samples: number }) => void> = [];
   #unsubChannel: Unsubscribe;
   #helloTimer: ReturnType<typeof setInterval> | null = null;
@@ -61,7 +61,7 @@ export class ExtensionBackend implements DeckAudioBackend {
         break;
       case 'ENVELOPE': {
         const waiter = this.#envelopeWaiters.shift();
-        waiter?.({ rate: msg.rate, data: msg.data, endTimeS: msg.endTimeS });
+        waiter?.({ rate: msg.rate, data: msg.data, endTimeS: msg.endTimeS, mode: msg.mode });
         break;
       }
       case 'CHROMA': {
@@ -76,7 +76,7 @@ export class ExtensionBackend implements DeckAudioBackend {
   }
 
   /** Enveloppe d'énergie du ring buffer (pour la détection de BPM). */
-  async getEnvelope(): Promise<{ rate: number; data: number[]; endTimeS: number } | null> {
+  async getEnvelope(): Promise<{ rate: number; data: number[]; endTimeS: number; mode?: string } | null> {
     if (!this.#connected) return null;
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -84,7 +84,7 @@ export class ExtensionBackend implements DeckAudioBackend {
         if (i >= 0) this.#envelopeWaiters.splice(i, 1);
         resolve(null);
       }, 3000);
-      const waiter = (e: { rate: number; data: number[]; endTimeS: number }): void => {
+      const waiter = (e: { rate: number; data: number[]; endTimeS: number; mode?: string }): void => {
         clearTimeout(timeout);
         resolve(e);
       };
