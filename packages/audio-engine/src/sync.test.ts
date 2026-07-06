@@ -82,6 +82,16 @@ describe('applySync', () => {
     expect(updates[0]!.rate).toBeCloseTo((0.95 * 128) / 120, 10);
   });
 
+  it('beatmatch : corrige une erreur d’octave (BPM esclave détecté à la moitié)', () => {
+    const decks = [
+      deck({ id: 'A', isPlaying: true, rate: 1, bpm: 140 }),
+      deck({ id: 'B', synced: true, rate: 1, bpm: 66 }), // vrai tempo ~132, détecté à l'octave basse
+    ];
+    const updates = applySync(decks, 'A');
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.rate).toBeCloseTo(140 / 132, 10); // utilise 66×2, pas 66
+  });
+
   it('sans BPM des deux côtés, retombe sur la copie de rate', () => {
     const decks = [
       deck({ id: 'A', isPlaying: true, rate: 1.08, bpm: 128 }),

@@ -14,6 +14,11 @@ export class Mixer {
   masterId = $state<string | null>(null);
   tempoRange = $state(DEFAULT_TEMPO_RANGE);
 
+  constructor() {
+    // gardien de phase : recale doucement les esclaves en continu (beatmatch)
+    setInterval(() => this.#alignSlavePhases(), 3000);
+  }
+
   addDeck(): Deck | null {
     if (this.decks.length >= MAX_DECKS) return null;
     const index = this.decks.length;

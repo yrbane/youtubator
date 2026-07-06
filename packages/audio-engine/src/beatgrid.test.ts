@@ -111,6 +111,32 @@ describe('detectBpm — autocorrélation sur enveloppe', () => {
     expect(Math.abs(result!.bpm - 98.5)).toBeLessThan(1.5);
   });
 
+  it('résiste au piège 3:2 des grooves syncopés (préférence pour la subdivision)', () => {
+    const rate = 50;
+    const bpm = 132;
+    const period = 60 / bpm;
+    const n = Math.floor(30 * rate);
+    const env = new Float32Array(n);
+    let seed = 7;
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0), seed / 4294967296);
+    for (let i = 0; i < n; i++) env[i] = 0.05 * rand();
+    for (let t = 0; t < 30; t += period) {
+      const i = Math.round(t * rate);
+      for (let k = 0; k < 3 && i + k < n; k++) env[i + k]! += 0.7 * Math.exp(-k); // kicks
+    }
+    for (let t = period / 2; t < 30; t += period) {
+      const i = Math.round(t * rate);
+      if (i < n) env[i]! += 0.25; // croches (hi-hats)
+    }
+    for (let t = 0; t < 30; t += period * 1.5) {
+      const i = Math.round(t * rate);
+      if (i < n) env[i]! += 0.95; // accents syncopés massifs qui appâtent le 3:2 (88 BPM)
+    }
+    const result = detectBpm(env, rate);
+    expect(result).not.toBeNull();
+    expect(Math.abs(result!.bpm - 132)).toBeLessThan(3);
+  });
+
   it('retourne null sur une enveloppe plate ou trop courte', () => {
     expect(detectBpm(new Float32Array(2000).fill(0.3), 50)).toBeNull();
     expect(detectBpm(new Float32Array(100), 50)).toBeNull();

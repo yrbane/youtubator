@@ -106,10 +106,19 @@ export function detectBpm(envelope: Float32Array, envelopeRate: number): BpmDete
     for (let i = lag; i < n; i++) s += novelty[i]! * novelty[i - lag]!;
     scores[lag] = s / (n - lag);
   }
+  const corrAt = (lag: number): number => {
+    if (lag < 2 || lag >= n) return 0;
+    let s = 0;
+    for (let i = lag; i < n; i++) s += novelty[i]! * novelty[i - lag]!;
+    return s / (n - lag);
+  };
   for (let lag = lagMin; lag <= lagMax; lag++) {
-    // bonus si le double du lag corrèle aussi (évite l'octave double tempo)
+    // bonus harmonique : le double du lag doit corréler (anti-octave)
     const harmonic = lag * 2 <= lagMax ? 0.4 * scores[lag * 2]! : 0;
-    const s = scores[lag]! + harmonic;
+    // pénalité sesquialtère : si lag×2/3 corrèle fort, ce candidat est
+    // l'erreur 3:2 d'un groove syncopé (le vrai beat est à 2/3 de ce lag)
+    const sesquialtera = 0.6 * Math.max(0, corrAt(Math.round((lag * 2) / 3)));
+    const s = scores[lag]! + harmonic - sesquialtera;
     if (s > bestScore) {
       bestScore = s;
       bestLag = lag;

@@ -35,10 +35,24 @@ export function applySync(decks: readonly SyncDeck[], masterId: string | null): 
     .filter((d) => d.id !== master.id && d.synced)
     .map((d) => ({
       id: d.id,
-      rate: master.bpm && d.bpm ? (master.rate * master.bpm) / d.bpm : master.rate,
+      rate: master.bpm && d.bpm ? beatmatchRate(master.rate * master.bpm, d.bpm) : master.rate,
     }))
     .filter((u) => {
       const deck = decks.find((d) => d.id === u.id)!;
       return Math.abs(deck.rate - u.rate) > 1e-9;
     });
+}
+
+/**
+ * Rate esclave égalisant les BPM effectifs, avec appariement d'octave :
+ * le BPM esclave détecté peut être à la moitié ou au double du vrai tempo,
+ * on choisit le candidat (×½, ×1, ×2) donnant le rate le plus proche de 1.
+ */
+function beatmatchRate(masterEffectiveBpm: number, slaveBpm: number): number {
+  let best = masterEffectiveBpm / slaveBpm;
+  for (const factor of [0.5, 2]) {
+    const rate = masterEffectiveBpm / (slaveBpm * factor);
+    if (Math.abs(Math.log(rate)) < Math.abs(Math.log(best))) best = rate;
+  }
+  return best;
 }
