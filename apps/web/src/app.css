@@ -71,7 +71,7 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-yt-button {
+pt-button {
   display: inline-block;
   background: var(--yt-panel-deep);
   border: 1px solid var(--yt-border);
@@ -85,7 +85,7 @@ yt-button {
   text-align: center;
 }
 
-yt-button.active {
+pt-button.active {
   background: var(--ctl-accent, var(--yt-deck-a));
   color: #101318;
   border-color: transparent;

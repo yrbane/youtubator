@@ -72,8 +72,8 @@
       </div>
 
       <div class="transport" style="--ctl-accent: {accent}">
-        <yt-button onpress={() => deck.cue()} title="Retour au point de cue">CUE</yt-button>
-        <yt-button
+        <pt-button onpress={() => deck.cue()} title="Retour au point de cue">CUE</pt-button>
+        <pt-button
           class:active={deck.isPlaying}
           onpress={() => {
             deck.togglePlay();
@@ -81,8 +81,8 @@
           }}
         >
           {deck.isPlaying ? '❚❚' : '▶'}
-        </yt-button>
-        <yt-button
+        </pt-button>
+        <pt-button
           toggle
           active={deck.synced}
           onchange={(e: CustomEvent<boolean>) => {
@@ -91,7 +91,7 @@
           }}
         >
           SYNC
-        </yt-button>
+        </pt-button>
         <div class="mode" title={deck.hasExtension ? '' : 'Nécessite l’extension Youtubator'}>
           <button
             class="btn"
@@ -136,14 +136,14 @@
     </div>
 
     <div class="tempo" style="--ctl-accent: {accent}">
-      <yt-fader
+      <pt-fader
         min={1 - mixer.tempoRange}
         max={1 + mixer.tempoRange}
         value={deck.rate}
         default="1"
         oninput={onTempoInput}
         title="Tempo (double-clic : ×1.00)"
-      ></yt-fader>
+      ></pt-fader>
       <span class="mono label">TEMPO</span>
     </div>
   </div>
@@ -284,7 +284,7 @@
     gap: 4px;
   }
 
-  .tempo yt-fader {
+  .tempo pt-fader {
     width: 36px;
     flex: 1;
     min-height: 120px;

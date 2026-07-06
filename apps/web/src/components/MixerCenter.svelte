@@ -13,7 +13,7 @@
   </div>
   <div class="xfader">
     <span class="mono side">A</span>
-    <yt-crossfader
+    <pt-crossfader
       value={mixer.crossfader}
       oninput={(e: CustomEvent<number>) => {
         mixer.crossfader = e.detail;
@@ -21,7 +21,7 @@
       }}
       title="Crossfader (double-clic : centre)"
       aria-label="Crossfader"
-    ></yt-crossfader>
+    ></pt-crossfader>
     <span class="mono side">B</span>
   </div>
 </div>
@@ -47,7 +47,7 @@
     gap: 8px;
   }
 
-  yt-crossfader {
+  pt-crossfader {
     width: 180px;
     height: 34px;
     --ctl-accent: var(--yt-text);

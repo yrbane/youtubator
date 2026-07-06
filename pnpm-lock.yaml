@@ -30,8 +30,8 @@ importers:
         specifier: ^4.4.4
         version: 4.4.4
       potard:
-        specifier: github:yrbane/potard
-        version: https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d
+        specifier: github:yrbane/potard#v0.2.0
+        version: https://codeload.github.com/yrbane/potard/tar.gz/f7b3d303d7452b07f8499b1ef314136a6d256746
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.1.2
@@ -609,9 +609,9 @@ packages:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  potard@https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d:
-    resolution: {gitHosted: true, integrity: sha512-p2dcjRiWcb1zqQJFSsrfKX0VHBPyi4pw3SKIUNM4Mfqg8WCBCxmmzqhVBgOLwtY7XNbWsfhv/5N86/B5kgeN7A==, tarball: https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d}
-    version: 0.1.0
+  potard@https://codeload.github.com/yrbane/potard/tar.gz/f7b3d303d7452b07f8499b1ef314136a6d256746:
+    resolution: {gitHosted: true, integrity: sha512-zIV99Og2GZyfV5vYWGzjktElTtm5xaeeUKaTMUh/bW4TtHuYlUL52v9ZH1FOA/aRmt0OseLiDs/vhCwzwGcPWw==, tarball: https://codeload.github.com/yrbane/potard/tar.gz/f7b3d303d7452b07f8499b1ef314136a6d256746}
+    version: 0.2.0
 
   rolldown@1.1.4:
     resolution: {integrity: sha512-IjZYiLxZwpnhwhdBH2ugdTGVSdhCQUmLxLoqyjiL0JxYjyRst+5a0P3xfrTxJ5F638j4Mvvw5FAX5XE6eHpXbA==}
@@ -1200,7 +1200,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  potard@https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d: {}
+  potard@https://codeload.github.com/yrbane/potard/tar.gz/f7b3d303d7452b07f8499b1ef314136a6d256746: {}
 
   rolldown@1.1.4:
     dependencies:

@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@youtubator/audio-engine": "workspace:*",
-    "potard": "github:yrbane/potard",
-    "dexie": "^4.4.4"
+    "dexie": "^4.4.4",
+    "potard": "github:yrbane/potard#v0.2.0"
   }
 }

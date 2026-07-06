@@ -19,14 +19,14 @@
   <div class="eq" class:disabled={!deck.hasExtension} title={deck.hasExtension ? '' : 'EQ : installe l’extension Youtubator'}>
     {#each BANDS as { band, label } (band)}
       <div class="band">
-        <yt-knob
+        <pt-knob
           min="-12"
           max="12"
           value={deck.eqGains[band]}
           default="0"
           oninput={(e: CustomEvent<number>) => deck.setEqGain(band, e.detail)}
           aria-label="EQ {label} deck {deck.id}"
-        ></yt-knob>
+        ></pt-knob>
         <button
           class="kill mono"
           class:on={deck.kills[band]}
@@ -41,7 +41,7 @@
   </div>
 
   <div class="fader-row">
-    <yt-fader
+    <pt-fader
       min="0"
       max="1"
       value={deck.volume}
@@ -51,8 +51,8 @@
         mixer.applyVolumes();
       }}
       aria-label="Volume deck {deck.id}"
-    ></yt-fader>
-    <yt-vumeter level={deck.meterLevel}></yt-vumeter>
+    ></pt-fader>
+    <pt-vumeter level={deck.meterLevel}></pt-vumeter>
   </div>
 </div>
 
@@ -92,7 +92,7 @@
     gap: 2px;
   }
 
-  yt-knob {
+  pt-knob {
     width: 40px;
     height: 40px;
   }
@@ -121,12 +121,12 @@
     align-items: stretch;
   }
 
-  yt-fader {
+  pt-fader {
     width: 34px;
     height: 140px;
   }
 
-  yt-vumeter {
+  pt-vumeter {
     width: 8px;
     height: 140px;
   }

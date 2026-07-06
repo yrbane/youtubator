@@ -269,12 +269,15 @@ Lib **externalisée dans son propre repo** : **[github.com/yrbane/potard](https:
 
 | Composant | Tag | Attributs/props principaux |
 |---|---|---|
-| Potentiomètre | `<yt-knob>` | `min max value default step curve="lin|log" arc bipolar label unit` |
-| Fader | `<yt-fader>` | `min max value default orientation="v|h" curve detents` |
-| Crossfader | `<yt-crossfader>` | `value curve="constant-power|sharp"` |
-| VU-mètre | `<yt-vumeter>` | `value peak segments` |
-| Bouton | `<yt-button>` | `toggle latching led-color` |
-| Sélecteur cranté | `<yt-stepper>` | `options value` |
+| Potentiomètre | `<pt-knob>` | `min max value default step curve="lin|log" label unit sensitivity disabled` |
+| Fader | `<pt-fader>` | `min max value default curve label unit sensitivity disabled` |
+| Crossfader | `<pt-crossfader>` | `value default label` |
+| Surface XY | `<pt-xy>` | `min-x max-x value-x default-x` (idem `-y`) `label disabled` |
+| Interrupteur | `<pt-switch>` | `checked label disabled` |
+| Sélecteur cranté | `<pt-stepper>` | `options value label disabled` |
+| VU-mètre | `<pt-vumeter>` | propriétés `level peak` ; attrs `segments orientation="v|h"` |
+| LED | `<pt-led>` | `on color blink` |
+| Bouton | `<pt-button>` | `toggle` ; propriété `active` |
 
 - **Rendu** : Canvas 2D dans shadow DOM, `devicePixelRatio`-aware, redraw uniquement sur changement (dirty flag) via `requestAnimationFrame`.
 - **Événements** : `input` (continu), `change` (relâchement), `CustomEvent<number>` typés.
