@@ -13,13 +13,6 @@ export default defineConfig({
       },
       {
         test: {
-          name: 'controls',
-          root: 'packages/controls',
-          environment: 'happy-dom',
-        },
-      },
-      {
-        test: {
           name: 'extension',
           root: 'extension',
           environment: 'happy-dom',

@@ -1,5 +1,5 @@
 import { mount } from 'svelte';
-import { defineControls } from '@youtubator/controls';
+import { defineControls } from 'potard';
 import App from './App.svelte';
 import './app.css';
 

@@ -26,12 +26,12 @@ importers:
       '@youtubator/audio-engine':
         specifier: workspace:*
         version: link:../../packages/audio-engine
-      '@youtubator/controls':
-        specifier: workspace:*
-        version: link:../../packages/controls
       dexie:
         specifier: ^4.4.4
         version: 4.4.4
+      potard:
+        specifier: github:yrbane/potard
+        version: https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.1.2
@@ -50,8 +50,6 @@ importers:
         version: link:../packages/audio-engine
 
   packages/audio-engine: {}
-
-  packages/controls: {}
 
 packages:
 
@@ -610,6 +608,10 @@ packages:
   postcss@8.5.16:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
+
+  potard@https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d:
+    resolution: {gitHosted: true, integrity: sha512-p2dcjRiWcb1zqQJFSsrfKX0VHBPyi4pw3SKIUNM4Mfqg8WCBCxmmzqhVBgOLwtY7XNbWsfhv/5N86/B5kgeN7A==, tarball: https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d}
+    version: 0.1.0
 
   rolldown@1.1.4:
     resolution: {integrity: sha512-IjZYiLxZwpnhwhdBH2ugdTGVSdhCQUmLxLoqyjiL0JxYjyRst+5a0P3xfrTxJ5F638j4Mvvw5FAX5XE6eHpXbA==}
@@ -1197,6 +1199,8 @@ snapshots:
       nanoid: 3.3.15
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  potard@https://codeload.github.com/yrbane/potard/tar.gz/e6d5ed47783a4c2f2d48554cb6cd7375e7848b6d: {}
 
   rolldown@1.1.4:
     dependencies:

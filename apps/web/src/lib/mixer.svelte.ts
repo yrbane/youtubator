@@ -1,5 +1,5 @@
 import { applySync, electMaster, DEFAULT_TEMPO_RANGE } from '@youtubator/audio-engine';
-import { crossfadeGains, type CrossfadeCurve } from '@youtubator/controls';
+import { crossfadeGains, type CrossfadeCurve } from 'potard';
 import { Deck } from './deck.svelte.js';
 
 const DECK_IDS = ['A', 'B', 'C', 'D'];

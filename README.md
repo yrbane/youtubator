@@ -16,7 +16,7 @@ Ce document est **la spécification de référence et le prompt de développemen
 5. [Architecture générale](#5-architecture-générale)
 6. [Spécifications fonctionnelles détaillées](#6-spécifications-fonctionnelles-détaillées)
 7. [Spécification UI/UX (layout Traktor-like)](#7-spécification-uiux-layout-traktor-like)
-8. [`@youtubator/controls` — lib de contrôles style Ableton](#8-youtubatorcontrols--lib-de-contrôles-style-ableton)
+8. [`potard` — lib de contrôles style Ableton (repo externe)](#8-potard--lib-de-contrôles-style-ableton-repo-externe)
 9. [`@youtubator/audio-engine` — moteur audio](#9-youtubatoraudio-engine--moteur-audio)
 10. [Modèle de données & persistance](#10-modèle-de-données--persistance)
 11. [Exigences de performance](#11-exigences-de-performance)
@@ -116,7 +116,7 @@ Le time-stretch de Chrome (WSOLA) est de qualité correcte jusqu'à environ ±15
 | Persistance | **IndexedDB** via **Dexie** | Historique, favoris, playlists, cache de recherche. `localStorage` pour les réglages simples. |
 | Tests | **Vitest** (unitaires, TDD), **Playwright** (E2E Chrome) | TDD obligatoire, cf. § 12. |
 | Lint/format | **ESLint + Prettier** | Convention unique. |
-| Monorepo | **pnpm workspaces** | 3 paquets : `apps/web`, `packages/controls`, `packages/audio-engine`. |
+| Monorepo | **pnpm workspaces** | `apps/web`, `packages/audio-engine`, `extension` ; contrôles UI externalisés dans [potard](https://github.com/yrbane/potard). |
 | CI | **GitHub Actions** | lint + tests + build sur chaque PR. |
 
 ## 5. Architecture générale
@@ -145,7 +145,7 @@ Le time-stretch de Chrome (WSOLA) est de qualité correcte jusqu'à environ ±15
 │  │ (MVP)          │ (V2, MV3)     │                        │
 │  └───────────────┴───────────────┘                         │
 └────────────────────────────────────────────────────────────┘
-     packages/controls (Web Components)   packages/audio-engine
+     potard (Web Components, repo externe)   packages/audio-engine
 ```
 
 ### Contrat central : `DeckAudioBackend`
@@ -263,9 +263,9 @@ Palette sombre type Traktor : fond `#1a1d21`, panneaux `#24282e`, accents deck A
 | `1..4` | Focus deck n |
 | `/` | Focus recherche |
 
-## 8. `@youtubator/controls` — lib de contrôles style Ableton
+## 8. `potard` — lib de contrôles style Ableton (repo externe)
 
-Paquet **autonome, publiable sur npm**, zéro dépendance runtime, Custom Elements :
+Lib **externalisée dans son propre repo** : **[github.com/yrbane/potard](https://github.com/yrbane/potard)** (« potard » = potentiomètre en argot sondier). Zéro dépendance runtime, Custom Elements, consommée ici via `"potard": "github:yrbane/potard"` :
 
 | Composant | Tag | Attributs/props principaux |
 |---|---|---|
@@ -335,7 +335,7 @@ interface Settings     { ytApiKey?: string; xfaderCurve: 'constant-power' | 'sha
 | Jalon | Contenu | Definition of Done |
 |---|---|---|
 | **M0 — Socle** | Monorepo pnpm, TS strict, Vite, Vitest, ESLint/Prettier, CI GitHub Actions | `pnpm test` et `pnpm build` verts en CI |
-| **M1 — Controls** | `@youtubator/controls` complet + démo HTML | Tous composants testés, démo interactive |
+| **M1 — Controls** | [potard](https://github.com/yrbane/potard) complet + démo HTML | Tous composants testés, démo interactive |
 | **M2 — Extension & Decks** | Extension MV3 minimale, `ExtensionBackend`, `DeckCore`, 2 decks avec vidéo, transport, volume, **tempo continu + modes MT/Vinyle** | Ralentir un morceau à −8 % en Master Tempo (tonalité stable) puis en Vinyle (pitch qui baisse) |
 | **M3 — Mixer & Sync** | Channel strips, **EQ 3 bandes réel + kills**, VU réels, crossfader, SYNC maître/esclave, nudge, raccourcis clavier | Scénario E2E Playwright « mix de 2 titres avec kill des basses » vert |
 | **M4 — Browser** | Recherche (Data API + URL), historique, favoris, playlists, Dexie | Routage → deck fonctionnel, données persistées |
@@ -356,9 +356,6 @@ youtubator/
 │       │   └── main.ts
 │       └── ...
 ├── packages/
-│   ├── controls/               # @youtubator/controls (Web Components, 0 dép.)
-│   │   ├── src/
-│   │   └── demo/index.html
 │   └── audio-engine/           # @youtubator/audio-engine (backends, sync, types)
 │       └── src/
 │           ├── backends/       # iframe-api/, extension/
