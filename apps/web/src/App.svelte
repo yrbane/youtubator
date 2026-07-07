@@ -9,6 +9,7 @@
   import { ghost } from './lib/ghost.svelte.js';
   import { midi } from './lib/midi.svelte.js';
   import { ui } from './lib/ui.svelte.js';
+  import { isBrowserHidden } from './lib/ui-prefs.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
@@ -112,11 +113,18 @@
     if (deck.isPlaying && !confirm(`Remplacer le morceau en cours sur le deck ${deckId} ?`)) return;
     await deck.loadTrack(track);
     await recordHistory(track, deckId, session.attribution);
+    ui.setBrowserMax(false); // morceau trouvé et chargé : retour à la vue mix
     mixer.refresh();
   }
 
   function onKeydown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
+    // Échap quitte le plein écran browser, même depuis le champ de recherche
+    if (e.key === 'Escape' && ui.browserMax) {
+      ui.setBrowserMax(false);
+      (target as HTMLElement & { blur?: () => void }).blur?.();
+      return;
+    }
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
     const deckA = mixer.decks[0];
     const deckB = mixer.decks[1];
@@ -164,7 +172,10 @@
         break;
       case '/':
         e.preventDefault();
-        browser?.focusSearch();
+        // browser masqué (☰ off ou mode performance) : plein écran momentané
+        if (isBrowserHidden({ perfMode, visible: ui.browserVisible, maximized: ui.browserMax }))
+          ui.setBrowserMax(true);
+        setTimeout(() => browser?.focusSearch());
         break;
     }
   }
@@ -199,7 +210,7 @@
     </span>
   {/if}
   <span class="spacer"></span>
-  <span class="hint mono">espace/Q : play · S/L : sync · 1-8 : cues (Maj = deck B) · ←→ : crossfader · / : recherche</span>
+  <span class="hint mono">espace/Q : play · S/L : sync · 1-8 : cues (Maj = deck B) · ←→ : crossfader · / : recherche (plein écran si masqué) · Échap : réduire</span>
   <div class="toggles" role="group" aria-label="Affichage">
     <button class="btn" class:on={ui.showVideo} onclick={() => ui.toggleVideo()} title="Afficher / masquer les vidéos (la lecture continue, seul l'affichage est replié)">🎞</button>
     <button class="btn" class:on={ui.showWaves} onclick={() => ui.toggleWaves()} title="Afficher / masquer les waveforms (les blocs cues et loops restent)">〰</button>
@@ -237,8 +248,9 @@
 
 <div
   class="browser-zone"
-  class:hidden={perfMode || !ui.browserVisible}
-  style="height: {ui.browserHeight}px; --track-scale: {ui.fontScale}"
+  class:hidden={isBrowserHidden({ perfMode, visible: ui.browserVisible, maximized: ui.browserMax })}
+  class:max={ui.browserMax}
+  style="height: {ui.browserMax ? 'auto' : `${ui.browserHeight}px`}; --track-scale: {ui.fontScale}"
 >
   <div
     class="splitter"
@@ -349,6 +361,21 @@
   }
 
   .browser-zone.hidden {
+    display: none;
+  }
+
+  /* plein écran momentané : recouvre les decks, la lecture continue dessous */
+  .browser-zone.max {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    min-height: 0;
+    margin: 0;
+    padding-top: 6px;
+    background: var(--yt-bg);
+  }
+
+  .browser-zone.max .splitter {
     display: none;
   }
 

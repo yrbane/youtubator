@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clampBrowserHeight, clampFontScale, parsePrefs, serializePrefs, UI_DEFAULTS } from './ui-prefs.js';
+import {
+  clampBrowserHeight,
+  clampFontScale,
+  isBrowserHidden,
+  parsePrefs,
+  serializePrefs,
+  UI_DEFAULTS,
+} from './ui-prefs.js';
 
 describe('préférences UI — bornes', () => {
   it('la police reste lisible : 0,8 à 1,4', () => {
@@ -12,6 +19,19 @@ describe('préférences UI — bornes', () => {
     expect(clampBrowserHeight(300)).toBe(300);
     expect(clampBrowserHeight(10)).toBe(140);
     expect(clampBrowserHeight(5000)).toBe(700);
+  });
+});
+
+describe('browser plein écran momentané', () => {
+  it('visible en temps normal, masqué si préférence ☰ off ou mode performance', () => {
+    expect(isBrowserHidden({ perfMode: false, visible: true, maximized: false })).toBe(false);
+    expect(isBrowserHidden({ perfMode: false, visible: false, maximized: false })).toBe(true);
+    expect(isBrowserHidden({ perfMode: true, visible: true, maximized: false })).toBe(true);
+  });
+
+  it('le plein écran momentané prime sur tout : browser masqué ou mode performance', () => {
+    expect(isBrowserHidden({ perfMode: false, visible: false, maximized: true })).toBe(false);
+    expect(isBrowserHidden({ perfMode: true, visible: false, maximized: true })).toBe(false);
   });
 });
 

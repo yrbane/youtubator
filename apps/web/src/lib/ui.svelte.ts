@@ -12,6 +12,21 @@ const STORAGE_KEY = 'youtubator.ui';
 class UiStore {
   #prefs = $state<UiPrefs>(parsePrefs(localStorage.getItem(STORAGE_KEY)));
 
+  // plein écran momentané du browser : transitoire, jamais persisté
+  #browserMax = $state(false);
+
+  get browserMax(): boolean {
+    return this.#browserMax;
+  }
+
+  setBrowserMax(on: boolean): void {
+    this.#browserMax = on;
+  }
+
+  toggleBrowserMax(): void {
+    this.#browserMax = !this.#browserMax;
+  }
+
   get browserVisible(): boolean {
     return this.#prefs.browserVisible;
   }

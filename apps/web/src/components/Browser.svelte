@@ -19,6 +19,7 @@
     type SearchEntry,
   } from '../lib/library.js';
   import { session } from '../lib/session.svelte.js';
+  import { ui } from '../lib/ui.svelte.js';
   import { rateVideo } from '../lib/youtube-account.js';
   import { suggestNext } from '../lib/suggest.js';
   import { db } from '../lib/library.js';
@@ -86,6 +87,12 @@
   export function focusSearch(): void {
     tab = 'search';
     document.getElementById('search-input')?.focus();
+  }
+
+  function toggleMax(): void {
+    ui.toggleBrowserMax();
+    // on maximise pour chercher : le champ de recherche prend le focus
+    if (ui.browserMax) setTimeout(() => focusSearch());
   }
 
   async function refreshLists(): Promise<void> {
@@ -168,6 +175,17 @@
     <button class="tab" class:on={tab === 'history'} onclick={() => (tab = 'history')}>HISTORIQUE</button>
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
     <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
+    <span class="nav-spacer"></span>
+    <button
+      class="tab max-btn"
+      class:on={ui.browserMax}
+      onclick={toggleMax}
+      title={ui.browserMax
+        ? 'Réduire le browser (Échap) — se referme aussi en chargeant un morceau sur un deck'
+        : 'Browser en plein écran le temps de chercher un morceau (Échap ou chargement sur un deck pour revenir au mix)'}
+    >
+      {ui.browserMax ? '🗕' : '⛶'}
+    </button>
   </nav>
 
   {#if suggestions.length > 0}
@@ -385,6 +403,19 @@
 
   .tab.yt.on {
     border-bottom-color: #ff0033;
+  }
+
+  .nav-spacer {
+    flex: 1;
+  }
+
+  .max-btn {
+    font-size: 13px;
+    padding: 4px 12px;
+  }
+
+  .max-btn.on {
+    color: var(--yt-deck-a);
   }
 
   .content {

@@ -23,6 +23,16 @@ export function clampBrowserHeight(v: number): number {
   return Math.min(700, Math.max(140, v));
 }
 
+/** Le plein écran momentané du browser prime sur la préférence ☰ et le mode performance. */
+export function isBrowserHidden(state: {
+  perfMode: boolean;
+  visible: boolean;
+  maximized: boolean;
+}): boolean {
+  if (state.maximized) return false;
+  return state.perfMode || !state.visible;
+}
+
 export function serializePrefs(prefs: UiPrefs): string {
   return JSON.stringify(prefs);
 }
