@@ -1,6 +1,6 @@
 {
   "name": "youtubator",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube",
   "license": "MIT",

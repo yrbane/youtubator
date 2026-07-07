@@ -29,6 +29,9 @@
   let canvases: Record<string, HTMLCanvasElement> = $state({});
 
   const loadedDecks = $derived(mixer.decks.filter((d) => d.track !== null));
+  // colonnes de contrôles pleine hauteur : A/C à gauche, B/D à droite
+  const leftDecks = $derived(loadedDecks.filter((d) => mixer.decks.indexOf(d) % 2 === 0));
+  const rightDecks = $derived(loadedDecks.filter((d) => mixer.decks.indexOf(d) % 2 === 1));
 
   const displayTime = (deck: Deck): number => deck.displayTimeS();
 
@@ -274,130 +277,142 @@
   });
 </script>
 
+{#snippet deckControls(deck: Deck)}
+  <!-- bloc cues + loops d'un deck : pleine hauteur de sa colonne -->
+  <div class="controls" style="--accent: var({deck.colorVar})">
+    <div class="grp">
+      <span class="deck-id" title="Contrôles cues et boucles du deck {deck.id}">{deck.id}</span>
+      <div class="cues" title="Hot cues : clic = sauter · clic droit = supprimer · Shift+clic sur la waveform = poser">
+        {#each Array.from({ length: 8 }) as _, i (i)}
+          <button
+            class="hotcue"
+            class:set={deck.cues[i] !== undefined}
+            disabled={deck.cues[i] === undefined}
+            onclick={() => deck.jumpToCue(i)}
+            oncontextmenu={(e) => {
+              e.preventDefault();
+              if (deck.cues[i] !== undefined) deck.toggleCueAt(deck.cues[i]!);
+            }}
+            title={deck.cues[i] !== undefined
+              ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s) — touche ${i + 1}${deck.id === 'B' ? ' + Maj' : ''} · clic droit : supprimer`
+              : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
+          >
+            {i + 1}
+          </button>
+        {/each}
+      </div>
+      <div class="octave" title="TAP : taper le tempo sur les beats (l'ancre se cale sur le dernier tap) · ½×/2× : corriger l'octave du BPM · Alt+clic sur la waveform : déplacer l'ancre">
+        <button class="lp tap" onclick={() => onTap(deck)}>TAP</button>
+        <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
+        <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="beats" title={deck.grid ? 'Boucle des N derniers beats, calée sur la grille' : 'BPM inconnu — laisse jouer ~15 s avec l’extension pour détecter la grille'}>
+        {#each [1, 2, 4, 8, 16, 32] as n (n)}
+          <button
+            class="beat"
+            disabled={!deck.grid}
+            class:on={deck.loop.active &&
+              deck.grid !== null &&
+              deck.loop.inS !== null &&
+              deck.loop.outS !== null &&
+              Math.round((deck.loop.outS - deck.loop.inS) / periodS(deck.grid)) === n}
+            onclick={() => deck.beatLoop(n)}
+          >
+            {n}
+          </button>
+        {/each}
+      </div>
+      <div class="loop">
+        <button class="lp" onclick={() => deck.loopIn()} title="Point d'entrée de boucle (au temps courant)">IN</button>
+        <button
+          class="lp"
+          disabled={deck.loop.inS === null}
+          onclick={() => deck.loopOut()}
+          title="Point de sortie — active la boucle"
+        >
+          OUT
+        </button>
+        <button
+          class="lp toggle"
+          class:on={deck.loop.active}
+          disabled={deck.loop.outS === null}
+          onclick={() => deck.toggleLoop()}
+          title="Couper / relancer la boucle (reloop)"
+        >
+          ∞
+        </button>
+        <button
+          class="lp roll"
+          class:on={deck.rollMode}
+          onclick={() => (deck.rollMode = !deck.rollMode)}
+          title="Loop roll : à la sortie, reprendre là où le morceau serait arrivé sans la boucle"
+        >
+          ROLL
+        </button>
+        <button
+          class="lp"
+          disabled={deck.loop.outS === null}
+          onclick={() => deck.resizeActiveLoop(0.5)}
+          title="Moitié de boucle : IN reste fixe, OUT se rapproche (÷2)"
+        >
+          ÷2
+        </button>
+        <button
+          class="lp"
+          disabled={deck.loop.outS === null}
+          onclick={() => deck.resizeActiveLoop(2)}
+          title="Double de boucle : IN reste fixe, OUT s'éloigne (×2)"
+        >
+          ×2
+        </button>
+      </div>
+      <div class="jump">
+        <button
+          class="lp"
+          disabled={!deck.grid}
+          onclick={(e) => deck.beatJump(e.shiftKey ? -1 : -4)}
+          title="Saut en arrière : 1 mesure (4 beats) · Maj+clic : 1 beat"
+        >
+          ◀
+        </button>
+        <button
+          class="lp phase"
+          disabled={!canResync(deck)}
+          onclick={() => resyncPhase(deck)}
+          title="Recaler la phase de ce deck sur le deck maître, immédiatement (saut du plus court chemin)"
+        >
+          φ
+        </button>
+        <button
+          class="lp"
+          disabled={!deck.grid}
+          onclick={(e) => deck.beatJump(e.shiftKey ? 1 : 4)}
+          title="Saut en avant : 1 mesure (4 beats) · Maj+clic : 1 beat"
+        >
+          ▶
+        </button>
+      </div>
+    </div>
+  </div>
+{/snippet}
+
 {#if loadedDecks.length > 0}
   <section
     class="strip"
     title="Clic : seek (aimanté sur les cues) · Shift+clic : poser/retirer un cue · Molette : zoomer la waveform · Double-clic : zoom par défaut · Alt+clic : déplacer l'ancre de grille"
   >
-    {#each loadedDecks as deck (deck.id)}
-      <!-- decks de gauche (A, C) : contrôles à gauche ; decks de droite (B, D) : à droite -->
-      <div
-        class="row"
-        class:mirror={mixer.decks.indexOf(deck) % 2 === 1}
-        style="--accent: var({deck.colorVar})"
-      >
-        <div class="controls">
-          <div class="cues" title="Hot cues : clic = sauter · clic droit = supprimer · Shift+clic sur la waveform = poser">
-            {#each Array.from({ length: 8 }) as _, i (i)}
-              <button
-                class="hotcue"
-                class:set={deck.cues[i] !== undefined}
-                disabled={deck.cues[i] === undefined}
-                onclick={() => deck.jumpToCue(i)}
-                oncontextmenu={(e) => {
-                  e.preventDefault();
-                  if (deck.cues[i] !== undefined) deck.toggleCueAt(deck.cues[i]!);
-                }}
-                title={deck.cues[i] !== undefined
-                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s) — touche ${i + 1}${deck.id === 'B' ? ' + Maj' : ''} · clic droit : supprimer`
-                  : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
-              >
-                {i + 1}
-              </button>
-            {/each}
-          </div>
-          <div class="octave" title="TAP : taper le tempo sur les beats (l'ancre se cale sur le dernier tap) · ½×/2× : corriger l'octave du BPM · Alt+clic sur la waveform : déplacer l'ancre">
-            <button class="lp tap" onclick={() => onTap(deck)}>TAP</button>
-            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
-            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
-          </div>
-          <div class="beats" title={deck.grid ? 'Boucle des N derniers beats, calée sur la grille' : 'BPM inconnu — laisse jouer ~15 s avec l’extension pour détecter la grille'}>
-            {#each [1, 2, 4, 8, 16, 32] as n (n)}
-              <button
-                class="beat"
-                disabled={!deck.grid}
-                class:on={deck.loop.active &&
-                  deck.grid !== null &&
-                  deck.loop.inS !== null &&
-                  deck.loop.outS !== null &&
-                  Math.round((deck.loop.outS - deck.loop.inS) / periodS(deck.grid)) === n}
-                onclick={() => deck.beatLoop(n)}
-              >
-                {n}
-              </button>
-            {/each}
-          </div>
-          <div class="loop">
-            <button class="lp" onclick={() => deck.loopIn()} title="Point d'entrée de boucle (au temps courant)">IN</button>
-            <button
-              class="lp"
-              disabled={deck.loop.inS === null}
-              onclick={() => deck.loopOut()}
-              title="Point de sortie — active la boucle"
-            >
-              OUT
-            </button>
-            <button
-              class="lp toggle"
-              class:on={deck.loop.active}
-              disabled={deck.loop.outS === null}
-              onclick={() => deck.toggleLoop()}
-              title="Couper / relancer la boucle (reloop)"
-            >
-              ∞
-            </button>
-            <button
-              class="lp roll"
-              class:on={deck.rollMode}
-              onclick={() => (deck.rollMode = !deck.rollMode)}
-              title="Loop roll : à la sortie, reprendre là où le morceau serait arrivé sans la boucle"
-            >
-              ROLL
-            </button>
-            <button
-              class="lp"
-              disabled={deck.loop.outS === null}
-              onclick={() => deck.resizeActiveLoop(0.5)}
-              title="Moitié de boucle : IN reste fixe, OUT se rapproche (÷2)"
-            >
-              ÷2
-            </button>
-            <button
-              class="lp"
-              disabled={deck.loop.outS === null}
-              onclick={() => deck.resizeActiveLoop(2)}
-              title="Double de boucle : IN reste fixe, OUT s'éloigne (×2)"
-            >
-              ×2
-            </button>
-          </div>
-          <div class="jump">
-            <button
-              class="lp"
-              disabled={!deck.grid}
-              onclick={(e) => deck.beatJump(e.shiftKey ? -1 : -4)}
-              title="Saut en arrière : 1 mesure (4 beats) · Maj+clic : 1 beat"
-            >
-              ◀
-            </button>
-            <button
-              class="lp phase"
-              disabled={!canResync(deck)}
-              onclick={() => resyncPhase(deck)}
-              title="Recaler la phase de ce deck sur le deck maître, immédiatement (saut du plus court chemin)"
-            >
-              φ
-            </button>
-            <button
-              class="lp"
-              disabled={!deck.grid}
-              onclick={(e) => deck.beatJump(e.shiftKey ? 1 : 4)}
-              title="Saut en avant : 1 mesure (4 beats) · Maj+clic : 1 beat"
-            >
-              ▶
-            </button>
-          </div>
-        </div>
+    <!-- colonnes cues/loops pleine hauteur : A/C à gauche, B/D à droite des waveforms empilées -->
+    {#if leftDecks.length > 0}
+      <div class="ctrl-col">
+        {#each leftDecks as deck (deck.id)}
+          {@render deckControls(deck)}
+        {/each}
+      </div>
+    {/if}
+    <div class="waves">
+      {#each loadedDecks as deck (deck.id)}
         {#if showWaves}
           <canvas
             bind:this={canvases[deck.id]}
@@ -408,44 +423,76 @@
             ondblclick={() => (pxPerS = ZOOM_DEFAULT)}
           ></canvas>
         {:else}
-          <div class="wave-off" title="Waveform masquée — bouton 〰 en haut pour la réafficher">〰 masquée</div>
+          <div class="wave-off" style="height: {rowH}px" title="Waveform masquée — bouton 〰 en haut pour la réafficher">
+            〰 {deck.id} masquée
+          </div>
         {/if}
+      {/each}
+    </div>
+    {#if rightDecks.length > 0}
+      <div class="ctrl-col">
+        {#each rightDecks as deck (deck.id)}
+          {@render deckControls(deck)}
+        {/each}
       </div>
-    {/each}
+    {/if}
   </section>
 {/if}
 
 <style>
   .strip {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    gap: 8px;
+    align-items: stretch;
     padding: 4px 10px;
     background: var(--yt-panel-deep);
     border-top: 1px solid var(--yt-border);
     border-bottom: 1px solid var(--yt-border);
   }
 
-  .row {
+  /* colonne de contrôles pleine hauteur : chaque bloc s'étire sur la hauteur
+     des waveforms (un seul deck du côté = toute la hauteur) */
+  .ctrl-col {
     display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-
-  /* decks de droite (B, D) : le bloc de contrôles passe à droite, en miroir */
-  .row.mirror {
-    flex-direction: row-reverse;
-  }
-
-  .controls {
-    display: flex;
-    gap: 6px;
-    align-items: center;
+    flex-direction: column;
+    gap: 4px;
     flex: 0 0 auto;
   }
 
-  .row.mirror .controls {
-    flex-direction: row-reverse;
+  .controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border: 1px solid var(--yt-border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: var(--yt-panel);
+  }
+
+  .grp {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .deck-id {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--accent);
+    width: 12px;
+    text-align: center;
+    cursor: help;
+  }
+
+  .waves {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
   .jump {
@@ -459,19 +506,16 @@
   }
 
   .wave-off {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
+    display: grid;
+    place-items: center;
     color: var(--yt-text-dim);
     font-size: 11px;
-    padding: 8px 0;
     border: 1px dashed var(--yt-border);
     border-radius: 4px;
   }
 
   canvas {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
     display: block;
     cursor: crosshair;
     border-radius: 4px;

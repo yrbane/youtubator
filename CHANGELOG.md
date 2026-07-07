@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.10.1 — 2026-07-07 · « Colonnes pleine hauteur »
+
+- Les blocs cues/loops occupent désormais **toute la hauteur des waveforms** : colonne A (et C) à gauche, colonne B (et D) à droite, waveforms empilées au centre. Chaque bloc porte le badge et le liseré couleur de son deck.
+
 ## 0.10.0 — 2026-07-07 · « Bandeau miroir »
 
 Révision waveforms / synchro / cues / loops, et layout en miroir du bandeau.
