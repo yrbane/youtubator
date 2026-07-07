@@ -104,12 +104,39 @@ export async function fetchMyPlaylists(token: string): Promise<YtPlaylist[]> {
   }));
 }
 
-/** Pistes d'une playlist (durées incluses via videos.list). */
-export async function fetchPlaylistTracks(token: string, playlistId: string): Promise<Track[]> {
-  const json = await apiGet(
-    token,
-    `playlistItems?part=snippet&playlistId=${encodeURIComponent(playlistId)}&maxResults=50`,
-  );
+/** Chemin playlistItems paginé (pur, testable). */
+export function buildPlaylistItemsPath(playlistId: string, pageToken?: string | null): string {
+  const base = `playlistItems?part=snippet&playlistId=${encodeURIComponent(playlistId)}&maxResults=50`;
+  return pageToken ? `${base}&pageToken=${encodeURIComponent(pageToken)}` : base;
+}
+
+/**
+ * Fusionne deux pages sans doublon (videoId) :
+ * append = plus anciens en fin, prepend = nouveaux « J'aime » en tête.
+ */
+export function mergeTracks(
+  existing: Track[],
+  incoming: Track[],
+  where: 'append' | 'prepend',
+): Track[] {
+  const ordered = where === 'append' ? [...existing, ...incoming] : [...incoming, ...existing];
+  const seen = new Set<string>();
+  return ordered.filter((t) => !seen.has(t.videoId) && (seen.add(t.videoId), true));
+}
+
+export interface PlaylistPage {
+  tracks: Track[];
+  /** Token de la page suivante (plus anciens) ; null en fin de liste. */
+  nextPageToken: string | null;
+}
+
+/** Une page de playlist (50 max), durées incluses via videos.list. */
+export async function fetchPlaylistPage(
+  token: string,
+  playlistId: string,
+  pageToken?: string | null,
+): Promise<PlaylistPage> {
+  const json = await apiGet(token, buildPlaylistItemsPath(playlistId, pageToken));
   const tracks = ((json.items ?? []) as RawPlaylistItem[])
     .map(mapPlaylistItemToTrack)
     .filter((t): t is Track => t !== null);
@@ -126,5 +153,5 @@ export async function fetchPlaylistTracks(token: string, playlistId: string): Pr
       // durées non bloquantes
     }
   }
-  return tracks;
+  return { tracks, nextPageToken: json.nextPageToken ?? null };
 }

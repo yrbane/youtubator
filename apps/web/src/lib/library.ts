@@ -76,6 +76,18 @@ export interface WaveformRecord {
   updatedAt: number;
 }
 
+/** Cache local d'une liste YouTube (« J'aime » ou playlist) chargée page par page. */
+export interface YtListCache {
+  /** Clé composite : compte + playlist. */
+  key: string;
+  accountId: string;
+  playlistId: string;
+  tracks: Track[];
+  /** Reprise de la pagination (plus anciens) ; null quand tout est chargé. */
+  nextPageToken: string | null;
+  updatedAt: number;
+}
+
 class YoutubatorDb extends Dexie {
   history!: Table<HistoryEntry, number>;
   favorites!: Table<Favorite, string>;
@@ -83,6 +95,7 @@ class YoutubatorDb extends Dexie {
   searches!: Table<SearchEntry, number>;
   accounts!: Table<StoredAccount, string>;
   waveforms!: Table<WaveformRecord, string>;
+  ytLists!: Table<YtListCache, string>;
 
   constructor() {
     super('youtubator');
@@ -117,6 +130,15 @@ class YoutubatorDb extends Dexie {
       searches: '++id, norm, at',
       accounts: 'accountId, lastUsedAt',
       waveforms: 'videoId',
+    });
+    this.version(4).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+      ytLists: 'key, accountId',
     });
   }
 }
@@ -255,6 +277,33 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     autoGain: record.autoGain ?? null,
     updatedAt: Date.now(),
   });
+}
+
+// --- Cache des listes YouTube (« J'aime », playlists) — pagination reprise d'une session à l'autre ---
+
+export async function loadYtList(accountId: string, playlistId: string): Promise<YtListCache | undefined> {
+  return db.ytLists.get(`${accountId}::${playlistId}`);
+}
+
+export async function saveYtList(
+  accountId: string,
+  playlistId: string,
+  tracks: Track[],
+  nextPageToken: string | null,
+): Promise<void> {
+  // copies planes obligatoires : les $state Svelte sont des Proxies non clonables
+  await db.ytLists.put({
+    key: `${accountId}::${playlistId}`,
+    accountId,
+    playlistId,
+    tracks: tracks.map(toPlainTrack),
+    nextPageToken,
+    updatedAt: Date.now(),
+  });
+}
+
+export async function deleteYtLists(accountId: string): Promise<void> {
+  await db.ytLists.where('accountId').equals(accountId).delete();
 }
 
 // --- Comptes YouTube mémorisés ---

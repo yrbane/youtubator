@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildRateRequest, mapPlaylistItemToTrack } from './youtube-account.js';
+import {
+  buildPlaylistItemsPath,
+  buildRateRequest,
+  mapPlaylistItemToTrack,
+  mergeTracks,
+} from './youtube-account.js';
+import type { Track } from './tracks.js';
 
 function item(overrides: Record<string, unknown> = {}) {
   return {
@@ -45,6 +51,48 @@ describe('mapPlaylistItemToTrack', () => {
 
   it('retourne null sans videoId', () => {
     expect(mapPlaylistItemToTrack({ snippet: { title: 'x', resourceId: {} } })).toBeNull();
+  });
+});
+
+function track(videoId: string): Track {
+  return { videoId, title: videoId, channel: '', durationS: 0, thumbnailUrl: '' };
+}
+
+describe('pagination des listes YouTube', () => {
+  it('première page sans pageToken, pages suivantes avec', () => {
+    expect(buildPlaylistItemsPath('PL42')).toBe(
+      'playlistItems?part=snippet&playlistId=PL42&maxResults=50',
+    );
+    expect(buildPlaylistItemsPath('PL42', 'CAoQAA')).toBe(
+      'playlistItems?part=snippet&playlistId=PL42&maxResults=50&pageToken=CAoQAA',
+    );
+  });
+
+  it('encode playlistId et pageToken', () => {
+    expect(buildPlaylistItemsPath('a b', 'c&d')).toContain('playlistId=a%20b');
+    expect(buildPlaylistItemsPath('a b', 'c&d')).toContain('pageToken=c%26d');
+  });
+});
+
+describe('mergeTracks — fusion des pages sans doublons', () => {
+  it('append : les plus anciens arrivent en fin de liste', () => {
+    const merged = mergeTracks([track('aaa'), track('bbb')], [track('ccc')], 'append');
+    expect(merged.map((t) => t.videoId)).toEqual(['aaa', 'bbb', 'ccc']);
+  });
+
+  it('prepend : les nouveaux « J\'aime » remontent en tête', () => {
+    const merged = mergeTracks([track('bbb'), track('ccc')], [track('aaa'), track('bbb')], 'prepend');
+    expect(merged.map((t) => t.videoId)).toEqual(['aaa', 'bbb', 'ccc']);
+  });
+
+  it('dédoublonne par videoId, l\'existant garde sa place en append', () => {
+    const merged = mergeTracks([track('aaa'), track('bbb')], [track('bbb'), track('ccc')], 'append');
+    expect(merged.map((t) => t.videoId)).toEqual(['aaa', 'bbb', 'ccc']);
+  });
+
+  it('listes vides tolérées des deux côtés', () => {
+    expect(mergeTracks([], [track('aaa')], 'append').length).toBe(1);
+    expect(mergeTracks([track('aaa')], [], 'prepend').length).toBe(1);
   });
 });
 

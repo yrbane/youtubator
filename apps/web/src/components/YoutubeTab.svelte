@@ -4,9 +4,11 @@
   import {
     fetchLikedPlaylistId,
     fetchMyPlaylists,
-    fetchPlaylistTracks,
+    fetchPlaylistPage,
+    mergeTracks,
     type YtPlaylist,
   } from '../lib/youtube-account.js';
+  import { deleteYtLists, loadYtList, saveYtList } from '../lib/library.js';
   import { getClientId } from '../lib/youtube-auth.js';
   import { session } from '../lib/session.svelte.js';
   import type { Track } from '../lib/tracks.js';
@@ -33,6 +35,9 @@
   let activeListId = $state<string | null>(null);
   let tracks = $state<Track[]>([]);
   let loadedFor = $state<string | null>(null); // compte dont les listes sont affichées
+  let nextPageToken = $state<string | null>(null); // reprise vers les plus anciens
+  let loadingMore = $state(false);
+  let sentinel = $state<HTMLElement | null>(null); // déclencheur du scroll infini
 
   const hasClientId = $derived(getClientId() !== null);
 
@@ -59,6 +64,7 @@
   async function forget(accountId: string, title: string): Promise<void> {
     if (!confirm(`Oublier le compte « ${title} » sur cet ordinateur ?`)) return;
     await session.forget(accountId);
+    await deleteYtLists(accountId); // ses listes en cache partent avec lui
     if (loadedFor === accountId) {
       playlists = [];
       tracks = [];
@@ -87,18 +93,63 @@
 
   async function openList(id: string): Promise<void> {
     const token = session.activeToken;
-    if (!token) return;
+    const accountId = session.activeId;
+    if (!token || !accountId) return;
     activeListId = id;
-    loading = true;
     error = null;
+    // cache local d'abord : affichage immédiat + reprise de la pagination
+    const cached = await loadYtList(accountId, id);
+    if (activeListId !== id) return;
+    tracks = cached?.tracks ?? [];
+    nextPageToken = cached?.nextPageToken ?? null;
+    loading = !cached;
     try {
-      tracks = await fetchPlaylistTracks(token, id);
+      // première page fraîche : les nouveaux « J'aime » remontent en tête
+      const page = await fetchPlaylistPage(token, id);
+      if (activeListId !== id) return;
+      tracks = cached ? mergeTracks(tracks, page.tracks, 'prepend') : page.tracks;
+      if (!cached) nextPageToken = page.nextPageToken;
+      await saveYtList(accountId, id, tracks, nextPageToken);
+    } catch (e) {
+      // hors ligne ou session expirée : le cache reste affiché
+      if (tracks.length === 0) error = e instanceof Error ? e.message : String(e);
+    } finally {
+      if (activeListId === id) loading = false;
+    }
+  }
+
+  /** Arrivé en bas : charge la page suivante (plus anciens) et complète le cache. */
+  async function loadMore(): Promise<void> {
+    const token = session.activeToken;
+    const accountId = session.activeId;
+    const id = activeListId;
+    if (!token || !accountId || !id || !nextPageToken || loadingMore || loading) return;
+    loadingMore = true;
+    try {
+      const page = await fetchPlaylistPage(token, id, nextPageToken);
+      if (activeListId !== id) return;
+      tracks = mergeTracks(tracks, page.tracks, 'append');
+      nextPageToken = page.nextPageToken;
+      await saveYtList(accountId, id, tracks, nextPageToken);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
-      loading = false;
+      loadingMore = false;
     }
   }
+
+  // sentinelle en fin de liste : visible → page suivante
+  $effect(() => {
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
 
   // token de session encore valide au montage → recharge automatiquement
   $effect(() => {
@@ -171,6 +222,16 @@
       {:else}
         <p class="hint">Cette liste est vide (ou ne contient que des vidéos privées).</p>
       {/each}
+      {#if tracks.length > 0}
+        <div class="sentinel" bind:this={sentinel}></div>
+        {#if loadingMore}
+          <p class="hint">⏳ Chargement des plus anciens…</p>
+        {:else if nextPageToken}
+          <p class="hint">Fais défiler pour charger les plus anciens.</p>
+        {:else}
+          <p class="hint">Toute la liste est là ({tracks.length} morceaux, gardés en cache local).</p>
+        {/if}
+      {/if}
     {/if}
   {:else if session.accounts.length === 0}
     <p class="hint">Ajoute un premier compte : chacun retrouvera ses « J'aime » et ses playlists, et on switche d'un clic pendant la soirée. 🎧</p>
@@ -294,5 +355,10 @@
   .chip.on {
     border-color: var(--yt-deck-a);
     color: var(--yt-deck-a);
+  }
+
+  /* invisible : ne sert qu'à déclencher le chargement des plus anciens */
+  .sentinel {
+    height: 1px;
   }
 </style>
