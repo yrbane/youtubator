@@ -8,6 +8,7 @@
   import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
   import { meta } from '../lib/meta.svelte.js';
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
+  import { filterRows, type FilterableRow } from '../lib/filter.js';
   import {
     clearHistory,
     countHistory,
@@ -70,6 +71,21 @@
   let favLimit = $state(50);
   let plLimit = $state(50);
 
+  // filtre libre façon Traktor : réduit la liste affichée, quel que soit l'onglet
+  let filter = $state('');
+
+  function toFilterRow(track: Track): FilterableRow {
+    const m = meta.get(track.videoId);
+    const w = waveMeta.get(track.videoId);
+    return {
+      title: track.title,
+      channel: track.channel,
+      style: m?.style ?? null,
+      bpm: w?.bpm ?? null,
+      key: w?.key ?? null,
+    };
+  }
+
   // tri des colonnes : clic = croissant, re-clic = décroissant, 3e clic = ordre d'origine
   let sort = $state<{ key: SortKey; dir: 1 | -1 } | null>(null);
 
@@ -129,10 +145,16 @@
   const filteredFavorites = $derived(
     userFilter === null ? favorites : favorites.filter((f) => f.by === userFilter),
   );
-  const sortedResults = $derived(applySort(results, (t) => t));
-  const sortedHistory = $derived(applySort(filteredHistory, (e) => e.track));
-  const sortedFavorites = $derived(applySort(filteredFavorites, (f) => f.track));
-  const sortedPlaylistTracks = $derived(openPlaylist ? applySort(openPlaylist.tracks, (t) => t) : []);
+  const sortedResults = $derived(filterRows(applySort(results, (t) => t), toFilterRow, filter));
+  const sortedHistory = $derived(
+    filterRows(applySort(filteredHistory, (e) => e.track), (e) => toFilterRow(e.track), filter),
+  );
+  const sortedFavorites = $derived(
+    filterRows(applySort(filteredFavorites, (f) => f.track), (f) => toFilterRow(f.track), filter),
+  );
+  const sortedPlaylistTracks = $derived(
+    openPlaylist ? filterRows(applySort(openPlaylist.tracks, (t) => t), toFilterRow, filter) : [],
+  );
 
   export function focusSearch(): void {
     tab = 'search';
@@ -267,6 +289,19 @@
     <button class="tab" class:on={tab === 'history'} onclick={() => (tab = 'history')}>HISTORIQUE</button>
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
     <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
+    <input
+      class="filter"
+      type="search"
+      placeholder="⧩ filtrer (titre, artiste, style, BPM, tonalité…)"
+      title="Filtre libre façon Traktor : réduit la liste affichée — plusieurs mots = tous requis, Échap pour effacer"
+      bind:value={filter}
+      onkeydown={(e) => {
+        if (e.key === 'Escape' && filter !== '') {
+          filter = '';
+          e.stopPropagation();
+        }
+      }}
+    />
     <span class="nav-spacer"></span>
     <button
       class="tab max-btn"
@@ -357,7 +392,11 @@
         />
       {:else}
         {#if !error && !searching}
-          <p class="hint">Les résultats se routent vers un deck avec les boutons →A / →B.</p>
+          <p class="hint">
+            {filter && results.length > 0
+              ? 'Aucun résultat ne correspond au filtre.'
+              : 'Les résultats se routent vers un deck avec les boutons →A / →B.'}
+          </p>
         {/if}
       {/each}
       {#if results.length > 1}
@@ -372,6 +411,7 @@
       <YoutubeTab
         {mixer}
         favoriteIds={favoriteIds}
+        {filter}
         onRoute={route}
         onToggleFavorite={handleToggleFavorite}
         {onOpenSettings}
@@ -414,7 +454,9 @@
           }}
         />
       {:else}
-        <p class="hint">Chaque morceau chargé dans un deck apparaît ici.</p>
+        <p class="hint">
+          {filter ? 'Aucun morceau ne correspond au filtre.' : 'Chaque morceau chargé dans un deck apparaît ici.'}
+        </p>
       {/each}
       {#if history.length > 0}
         <LoadMoreSentinel
@@ -493,7 +535,9 @@
             onToggleFavorite={handleToggleFavorite}
           />
         {:else}
-          <p class="hint">Ajoute des favoris avec ☆ depuis la recherche ou l’historique.</p>
+          <p class="hint">
+            {filter ? 'Aucun favori ne correspond au filtre.' : 'Ajoute des favoris avec ☆ depuis la recherche ou l’historique.'}
+          </p>
         {/each}
         {#if filteredFavorites.length > 0}
           <LoadMoreSentinel
@@ -539,6 +583,23 @@
 
   .tab.yt.on {
     border-bottom-color: #ff0033;
+  }
+
+  .filter {
+    flex: 0 1 340px;
+    min-width: 90px;
+    align-self: center;
+    margin: 4px 6px 4px 12px;
+    background: var(--yt-panel-deep);
+    border: 1px solid var(--yt-border);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11px;
+    outline: none;
+  }
+
+  .filter:focus {
+    border-color: var(--yt-deck-a);
   }
 
   .nav-spacer {

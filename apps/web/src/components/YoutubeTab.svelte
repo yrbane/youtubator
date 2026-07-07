@@ -5,6 +5,7 @@
   import SortBar from './SortBar.svelte';
   import { meta } from '../lib/meta.svelte.js';
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
+  import { filterRows } from '../lib/filter.js';
   import {
     fetchLikedPlaylistId,
     fetchMyPlaylists,
@@ -22,12 +23,15 @@
   let {
     mixer,
     favoriteIds,
+    filter = '',
     onRoute,
     onToggleFavorite,
     onOpenSettings,
   }: {
     mixer: Mixer;
     favoriteIds: Set<string>;
+    /** Filtre libre du browser (champ commun à tous les onglets). */
+    filter?: string;
     onRoute: (track: Track, deckId: string) => void;
     onToggleFavorite: (track: Track) => void;
     onOpenSettings: () => void;
@@ -143,7 +147,11 @@
   }
 
   const sortedTracks = $derived(
-    sort ? sortRows(tracks, toSortRow, sort.key, sort.dir) : tracks,
+    filterRows(
+      sort ? sortRows(tracks, toSortRow, sort.key, sort.dir) : tracks,
+      (t) => ({ title: t.title, channel: t.channel, style: meta.get(t.videoId)?.style ?? null }),
+      filter,
+    ),
   );
 
   /** Retire un morceau des « J'aime » YouTube du compte actif (et du cache local). */
