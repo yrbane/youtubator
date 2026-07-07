@@ -57,10 +57,11 @@
     </label>
 
     <label>
-      Client ID OAuth Google <small>(connexion au compte YouTube — onglet ▶ YOUTUBE ; <a
+      Client ID OAuth Google <small>(connexion au compte YouTube — onglet ▶ YOUTUBE. Laisser vide
+        pour utiliser celui fourni par l'instance s'il existe ; ou <a
           href="https://console.cloud.google.com/apis/credentials"
           target="_blank"
-          rel="noreferrer">créer un ID client</a
+          rel="noreferrer">créer le tien</a
         >, origine autorisée : ce site)</small>
       <input
         type="text"

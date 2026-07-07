@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { resolveClientId } from './app-config.js';
+
 const TOKEN_PREFIX = 'youtubator.ytToken.';
 const ACTIVE_KEY = 'youtubator.activeAccountId';
 const CLIENT_ID_KEY = 'youtubator.ytClientId';
@@ -19,8 +21,9 @@ declare global {
 
 // --- Client ID OAuth (console Google Cloud) ---
 
+/** ID collé par l'utilisateur (⚙ Réglages) ou, à défaut, celui embarqué par l'instance. */
 export function getClientId(): string | null {
-  return localStorage.getItem(CLIENT_ID_KEY);
+  return resolveClientId(localStorage.getItem(CLIENT_ID_KEY));
 }
 
 export function setClientId(id: string): void {

@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.12.1 — 2026-07-07 · « Connexion Google sans console »
+
+- **Client ID OAuth d'instance** : l'app peut embarquer un Client ID par défaut (`app-config.ts`, public par conception, protégé par les origines autorisées du projet Google). Les visiteurs se connectent alors « juste avec leur compte Google », sans créer d'identifiants. L'ID collé dans ⚙ Réglages prime toujours (instance ≠ obligation).
+- Reste à renseigner `DEFAULT_CLIENT_ID` avec l'ID du projet de l'instance et à autoriser les deux origines (github.io + nethttp.net) dans la console Google.
+
 ## 0.12.0 — 2026-07-07 · « Déploiement continu du miroir »
 
 - **Workflow GitHub `deploy-nethttp.yml`** : chaque push sur main construit (base `/`) et déploie automatiquement sur https://youtubator.nethttp.net (clé SSH dédiée en secret, rsync, installation www-data, vérification en ligne). Déclenchable aussi à la main (workflow_dispatch).
