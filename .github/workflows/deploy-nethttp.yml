@@ -1,0 +1,50 @@
+# Déploiement automatique du miroir auto-hébergé https://youtubator.nethttp.net
+# à chaque push sur main (et à la main via workflow_dispatch).
+# Secrets requis : NETHTTP_SSH_KEY (clé ed25519 dédiée), NETHTTP_KNOWN_HOSTS.
+name: Deploy nethttp
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-nethttp
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: nethttp
+      url: https://youtubator.nethttp.net
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install
+      # base / : le miroir sert l'app à la racine du sous-domaine
+      - run: pnpm --filter @youtubator/web exec vite build
+      - name: Clé SSH de déploiement
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.NETHTTP_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.NETHTTP_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Rsync + installation dans le docroot
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -p 65222 -o UserKnownHostsFile=~/.ssh/known_hosts -o BatchMode=yes"
+          rsync -az --delete -e "$SSH" apps/web/dist/ debian@nethttp.net:/tmp/youtubator-deploy/
+          $SSH debian@nethttp.net '
+            sudo -n mkdir -p /var/www/nethttp.net/youtubator/public &&
+            sudo -n rsync -a --delete /tmp/youtubator-deploy/ /var/www/nethttp.net/youtubator/public/ &&
+            sudo -n chown -R www-data:www-data /var/www/nethttp.net/youtubator &&
+            rm -rf /tmp/youtubator-deploy
+          '
+      - name: Vérification en ligne
+        run: |
+          sleep 2
+          BODY=$(curl -fsS -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36 GithubDeployCheck' https://youtubator.nethttp.net/)
+          echo "$BODY" | grep -q 'Youtubator' && echo '✔ miroir en ligne'

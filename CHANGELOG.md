@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.12.0 — 2026-07-07 · « Déploiement continu du miroir »
+
+- **Workflow GitHub `deploy-nethttp.yml`** : chaque push sur main construit (base `/`) et déploie automatiquement sur https://youtubator.nethttp.net (clé SSH dédiée en secret, rsync, installation www-data, vérification en ligne). Déclenchable aussi à la main (workflow_dispatch).
+- **Fix miroir** : la CSP du vhost (`default-src 'self'`) bloquait l'IFrame API YouTube, les embeds, Google Sign-In et l'API Data — `apps/web/public/.htaccess` la remplace par une CSP adaptée (youtube.com, accounts.google.com, googleapis.com, miniatures/avatars), inerte sur GitHub Pages.
+
 ## 0.11.2 — 2026-07-07 · « Miroir auto-hébergé »
 
 - Déploiement sur **https://youtubator.nethttp.net** (vhost wildcard Apache, docroot `/var/www/nethttp.net/youtubator/public`) — script reproductible `scripts/deploy-nethttp.sh` (build base `/`, rsync, installation www-data).
