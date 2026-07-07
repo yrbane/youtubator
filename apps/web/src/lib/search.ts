@@ -12,13 +12,29 @@ function authQueryAndHeaders(apiKey: string | null): { qs: string; init: Request
   return { qs: `&key=${apiKey}`, init: {} };
 }
 
+/** Chemin de recherche paginé (pur, testable). */
+export function buildSearchPath(query: string, pageToken?: string | null): string {
+  const base = `search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}`;
+  return pageToken ? `${base}&pageToken=${encodeURIComponent(pageToken)}` : base;
+}
+
+export interface SearchPage {
+  tracks: Track[];
+  /** Token de la page suivante ; null en fin de résultats (ou piste directe). */
+  nextPageToken: string | null;
+}
+
 /**
  * Recherche : URL/ID YouTube collé → piste directe (métadonnées via oEmbed) ;
- * texte libre → YouTube Data API v3 (compte connecté ou clé API).
+ * texte libre → YouTube Data API v3 paginée (compte connecté ou clé API).
  */
-export async function searchYoutube(query: string, apiKey: string | null): Promise<Track[]> {
+export async function searchYoutubePage(
+  query: string,
+  apiKey: string | null,
+  pageToken?: string | null,
+): Promise<SearchPage> {
   const videoId = parseYoutubeInput(query);
-  if (videoId) return [await fetchTrackMeta(videoId)];
+  if (videoId) return { tracks: [await fetchTrackMeta(videoId)], nextPageToken: null };
 
   if (!apiKey && !getActiveToken()) {
     throw new Error(
@@ -27,10 +43,10 @@ export async function searchYoutube(query: string, apiKey: string | null): Promi
   }
 
   const { qs, init } = authQueryAndHeaders(apiKey);
-  const searchUrl = `${API}/search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}${qs}`;
-  const searchRes = await fetch(searchUrl, init);
+  const searchRes = await fetch(`${API}/${buildSearchPath(query, pageToken)}${qs}`, init);
   if (!searchRes.ok) throw new Error(`Recherche YouTube en échec (${searchRes.status})`);
   const searchJson = (await searchRes.json()) as {
+    nextPageToken?: string;
     items: Array<{ id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails: { default: { url: string } } } }>;
   };
   const ids = searchJson.items.map((i) => i.id.videoId);
@@ -47,13 +63,16 @@ export async function searchYoutube(query: string, apiKey: string | null): Promi
     }
   }
 
-  return searchJson.items.map((i) => ({
-    videoId: i.id.videoId,
-    title: decodeHtml(i.snippet.title),
-    channel: i.snippet.channelTitle,
-    durationS: durations.get(i.id.videoId) ?? 0,
-    thumbnailUrl: i.snippet.thumbnails.default.url,
-  }));
+  return {
+    tracks: searchJson.items.map((i) => ({
+      videoId: i.id.videoId,
+      title: decodeHtml(i.snippet.title),
+      channel: i.snippet.channelTitle,
+      durationS: durations.get(i.id.videoId) ?? 0,
+      thumbnailUrl: i.snippet.thumbnails.default.url,
+    })),
+    nextPageToken: searchJson.nextPageToken ?? null,
+  };
 }
 
 /** Métadonnées d'une vidéo isolée via oEmbed (pas de clé requise). */

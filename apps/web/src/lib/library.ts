@@ -88,6 +88,16 @@ export interface YtListCache {
   updatedAt: number;
 }
 
+/** Cache local des résultats d'une recherche (une recherche = 100 unités de quota). */
+export interface SearchCache {
+  /** Requête normalisée (clé). */
+  norm: string;
+  query: string;
+  tracks: Track[];
+  nextPageToken: string | null;
+  updatedAt: number;
+}
+
 class YoutubatorDb extends Dexie {
   history!: Table<HistoryEntry, number>;
   favorites!: Table<Favorite, string>;
@@ -96,6 +106,7 @@ class YoutubatorDb extends Dexie {
   accounts!: Table<StoredAccount, string>;
   waveforms!: Table<WaveformRecord, string>;
   ytLists!: Table<YtListCache, string>;
+  searchCache!: Table<SearchCache, string>;
 
   constructor() {
     super('youtubator');
@@ -140,6 +151,16 @@ class YoutubatorDb extends Dexie {
       waveforms: 'videoId',
       ytLists: 'key, accountId',
     });
+    this.version(5).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+      ytLists: 'key, accountId',
+      searchCache: 'norm, updatedAt',
+    });
   }
 }
 
@@ -167,6 +188,10 @@ export async function recordHistory(
 
 export async function listHistory(limit = 200): Promise<HistoryEntry[]> {
   return db.history.orderBy('loadedAt').reverse().limit(limit).toArray();
+}
+
+export async function countHistory(): Promise<number> {
+  return db.history.count();
 }
 
 export async function clearHistory(): Promise<void> {
@@ -277,6 +302,37 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     autoGain: record.autoGain ?? null,
     updatedAt: Date.now(),
   });
+}
+
+// --- Cache des résultats de recherche — pagination reprise, quota API épargné ---
+
+export async function loadSearchCache(norm: string): Promise<SearchCache | undefined> {
+  return db.searchCache.get(norm);
+}
+
+export async function saveSearchCache(
+  query: string,
+  tracks: Track[],
+  nextPageToken: string | null,
+): Promise<void> {
+  // copies planes obligatoires : les $state Svelte sont des Proxies non clonables
+  await db.searchCache.put({
+    norm: normalizeQuery(query),
+    query: query.trim(),
+    tracks: tracks.map(toPlainTrack),
+    nextPageToken,
+    updatedAt: Date.now(),
+  });
+  // le cache suit l'historique des recherches : on garde les N plus récentes
+  const count = await db.searchCache.count();
+  if (count > SEARCH_HISTORY_MAX) {
+    const oldest = await db.searchCache.orderBy('updatedAt').limit(count - SEARCH_HISTORY_MAX).toArray();
+    await db.searchCache.bulkDelete(oldest.map((c) => c.norm));
+  }
+}
+
+export async function deleteSearchCache(norm: string): Promise<void> {
+  await db.searchCache.delete(norm);
 }
 
 // --- Cache des listes YouTube (« J'aime », playlists) — pagination reprise d'une session à l'autre ---

@@ -1,17 +1,24 @@
 <script lang="ts">
   import TrackRow from './TrackRow.svelte';
   import YoutubeTab from './YoutubeTab.svelte';
-  import { searchYoutube, getApiKey } from '../lib/search.js';
+  import LoadMoreSentinel from './LoadMoreSentinel.svelte';
+  import { searchYoutubePage, getApiKey } from '../lib/search.js';
+  import { mergeTracks } from '../lib/youtube-account.js';
+  import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
   import {
     clearHistory,
+    countHistory,
     deletePlaylist,
     deleteSearch,
+    deleteSearchCache,
     listFavorites,
     listHistory,
     listPlaylists,
     listSearches,
+    loadSearchCache,
     recordSearch,
     savePlaylist,
+    saveSearchCache,
     toggleFavorite,
     type Favorite,
     type HistoryEntry,
@@ -48,6 +55,16 @@
   let openPlaylist = $state<Playlist | null>(null);
   let recentSearches = $state<SearchEntry[]>([]);
   let userFilter = $state<string | null>(null); // filtre « par utilisateur » (historique/favoris)
+
+  // pagination : recherche (API), historique (tranches Dexie), favoris/playlists (fenêtre d'affichage)
+  let resultsQuery = $state(''); // requête des résultats affichés (le champ peut avoir changé)
+  let searchNextToken = $state<string | null>(null);
+  let searchingMore = $state(false);
+  let historyLimit = $state(50);
+  let historyTotal = $state(0);
+  let loadingHistory = $state(false);
+  let favLimit = $state(50);
+  let plLimit = $state(50);
 
   const favoriteIds = $derived(new Set(favorites.map((f) => f.videoId)));
 
@@ -96,8 +113,9 @@
   }
 
   async function refreshLists(): Promise<void> {
-    [history, favorites, playlists, recentSearches] = await Promise.all([
-      listHistory(),
+    [history, historyTotal, favorites, playlists, recentSearches] = await Promise.all([
+      listHistory(historyLimit),
+      countHistory(),
       listFavorites(),
       listPlaylists(),
       listSearches(),
@@ -123,16 +141,57 @@
     if (query.trim() === '') return;
     searching = true;
     error = null;
+    resultsQuery = query;
     void recordSearch(query, session.attribution).then(async () => {
       recentSearches = await listSearches();
     });
     try {
-      results = await searchYoutube(query, getApiKey());
+      // cache local d'abord (une recherche coûte 100 unités de quota API)
+      const cached = await loadSearchCache(normalizeQuery(query));
+      if (cached && isSearchCacheFresh(cached.updatedAt, Date.now())) {
+        results = cached.tracks;
+        searchNextToken = cached.nextPageToken;
+      } else {
+        const page = await searchYoutubePage(query, getApiKey());
+        results = page.tracks;
+        searchNextToken = page.nextPageToken;
+        // les pistes directes (URL/ID collé) ne méritent pas d'entrée de cache
+        if (page.nextPageToken !== null) await saveSearchCache(query, results, searchNextToken);
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       results = [];
+      searchNextToken = null;
     } finally {
       searching = false;
+    }
+  }
+
+  /** Arrivé en bas des résultats : page suivante, ajoutée sans doublon, cache mis à jour. */
+  async function loadMoreSearch(): Promise<void> {
+    if (!searchNextToken || searchingMore || searching) return;
+    searchingMore = true;
+    try {
+      const page = await searchYoutubePage(resultsQuery, getApiKey(), searchNextToken);
+      results = mergeTracks(results, page.tracks, 'append');
+      searchNextToken = page.nextPageToken;
+      await saveSearchCache(resultsQuery, results, searchNextToken);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      searchingMore = false;
+    }
+  }
+
+  /** Arrivé en bas de l'historique : tranche suivante depuis la base locale. */
+  async function loadMoreHistory(): Promise<void> {
+    if (loadingHistory || history.length >= historyTotal) return;
+    loadingHistory = true;
+    historyLimit += 50;
+    try {
+      await refreshLists();
+    } finally {
+      loadingHistory = false;
     }
   }
 
@@ -238,6 +297,7 @@
                 title="Retirer de l'historique des recherches"
                 onclick={async () => {
                   await deleteSearch(s.id!);
+                  await deleteSearchCache(s.norm); // ses résultats cachés partent avec
                   recentSearches = await listSearches();
                 }}
               >
@@ -263,6 +323,14 @@
           <p class="hint">Les résultats se routent vers un deck avec les boutons →A / →B.</p>
         {/if}
       {/each}
+      {#if results.length > 1}
+        <LoadMoreSentinel
+          hasMore={searchNextToken !== null}
+          loading={searchingMore}
+          doneLabel="Fin des résultats ({results.length}, gardés en cache 1 h)."
+          onMore={() => void loadMoreSearch()}
+        />
+      {/if}
     {:else if tab === 'youtube'}
       <YoutubeTab
         {mixer}
@@ -306,12 +374,26 @@
       {:else}
         <p class="hint">Chaque morceau chargé dans un deck apparaît ici.</p>
       {/each}
+      {#if history.length > 0}
+        <LoadMoreSentinel
+          hasMore={history.length < historyTotal}
+          loading={loadingHistory}
+          doneLabel="Tout l'historique est là ({filteredHistory.length} morceaux)."
+          onMore={() => void loadMoreHistory()}
+        />
+      {/if}
     {:else}
       <div class="list-head">
         <div class="playlists">
           {#each playlists as p (p.id)}
             <span class="chip">
-              <button class="chip-name" onclick={() => (openPlaylist = openPlaylist?.id === p.id ? null : p)}>
+              <button
+                class="chip-name"
+                onclick={() => {
+                  openPlaylist = openPlaylist?.id === p.id ? null : p;
+                  plLimit = 50;
+                }}
+              >
                 {p.name} ({p.tracks.length})
               </button>
               <button
@@ -344,7 +426,7 @@
       {/if}
       {#if openPlaylist}
         <p class="hint">Playlist « {openPlaylist.name} »</p>
-        {#each openPlaylist.tracks as track (track.videoId)}
+        {#each openPlaylist.tracks.slice(0, plLimit) as track (track.videoId)}
           <TrackRow
             {track}
             {mixer}
@@ -353,8 +435,13 @@
             onToggleFavorite={handleToggleFavorite}
           />
         {/each}
+        <LoadMoreSentinel
+          hasMore={openPlaylist.tracks.length > plLimit}
+          loading={false}
+          onMore={() => (plLimit += 50)}
+        />
       {:else}
-        {#each filteredFavorites as fav (fav.videoId)}
+        {#each filteredFavorites.slice(0, favLimit) as fav (fav.videoId)}
           <TrackRow
             track={fav.track}
             {mixer}
@@ -366,6 +453,13 @@
         {:else}
           <p class="hint">Ajoute des favoris avec ☆ depuis la recherche ou l’historique.</p>
         {/each}
+        {#if filteredFavorites.length > 0}
+          <LoadMoreSentinel
+            hasMore={filteredFavorites.length > favLimit}
+            loading={false}
+            onMore={() => (favLimit += 50)}
+          />
+        {/if}
       {/if}
     {/if}
   </div>

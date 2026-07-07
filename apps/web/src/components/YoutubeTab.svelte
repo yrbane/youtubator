@@ -1,6 +1,7 @@
 <script lang="ts">
   import TrackRow from './TrackRow.svelte';
   import Avatar from './Avatar.svelte';
+  import LoadMoreSentinel from './LoadMoreSentinel.svelte';
   import {
     fetchLikedPlaylistId,
     fetchMyPlaylists,
@@ -37,7 +38,6 @@
   let loadedFor = $state<string | null>(null); // compte dont les listes sont affichées
   let nextPageToken = $state<string | null>(null); // reprise vers les plus anciens
   let loadingMore = $state(false);
-  let sentinel = $state<HTMLElement | null>(null); // déclencheur du scroll infini
 
   const hasClientId = $derived(getClientId() !== null);
 
@@ -138,19 +138,6 @@
     }
   }
 
-  // sentinelle en fin de liste : visible → page suivante
-  $effect(() => {
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
-      },
-      { rootMargin: '200px' },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  });
-
   // token de session encore valide au montage → recharge automatiquement
   $effect(() => {
     if (session.activeToken && loadedFor !== session.activeId && !loading) {
@@ -223,14 +210,12 @@
         <p class="hint">Cette liste est vide (ou ne contient que des vidéos privées).</p>
       {/each}
       {#if tracks.length > 0}
-        <div class="sentinel" bind:this={sentinel}></div>
-        {#if loadingMore}
-          <p class="hint">⏳ Chargement des plus anciens…</p>
-        {:else if nextPageToken}
-          <p class="hint">Fais défiler pour charger les plus anciens.</p>
-        {:else}
-          <p class="hint">Toute la liste est là ({tracks.length} morceaux, gardés en cache local).</p>
-        {/if}
+        <LoadMoreSentinel
+          hasMore={nextPageToken !== null}
+          loading={loadingMore}
+          doneLabel="Toute la liste est là ({tracks.length} morceaux, gardés en cache local)."
+          onMore={() => void loadMore()}
+        />
       {/if}
     {/if}
   {:else if session.accounts.length === 0}
@@ -355,10 +340,5 @@
   .chip.on {
     border-color: var(--yt-deck-a);
     color: var(--yt-deck-a);
-  }
-
-  /* invisible : ne sert qu'à déclencher le chargement des plus anciens */
-  .sentinel {
-    height: 1px;
   }
 </style>
