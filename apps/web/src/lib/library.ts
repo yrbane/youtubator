@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import { toPlainTrack, type Track } from './tracks.js';
+import { deriveStyleColors } from './track-meta.js';
 import { normalizeQuery, SEARCH_HISTORY_MAX } from './search-history.js';
 import type { AccountProfile } from './accounts.js';
 
@@ -98,18 +99,24 @@ export interface SearchCache {
   updatedAt: number;
 }
 
-/** Métadonnées DJ persistées par morceau (note, couleur, style, lectures cumulées). */
+/** Métadonnées DJ persistées par morceau (note, style, lectures cumulées). */
 export interface TrackMetaRecord {
   videoId: string;
   /** 0 = sans note, 1..5 étoiles. */
   rating: number;
-  /** Couleur de la palette ('' = sans couleur). */
+  /** Historique v6 (couleur par morceau) — la couleur vit désormais sur le style. */
   color: string;
   /** Style musical ('' = non renseigné). */
   style: string;
   /** Lectures cumulées (toutes sessions). */
   plays: number;
   lastPlayedAt: number | null;
+}
+
+/** Couleur associée à un style musical (partagée par tous ses morceaux). */
+export interface StyleColorRecord {
+  style: string;
+  color: string;
 }
 
 class YoutubatorDb extends Dexie {
@@ -122,6 +129,7 @@ class YoutubatorDb extends Dexie {
   ytLists!: Table<YtListCache, string>;
   searchCache!: Table<SearchCache, string>;
   trackMeta!: Table<TrackMetaRecord, string>;
+  styleColors!: Table<StyleColorRecord, string>;
 
   constructor() {
     super('youtubator');
@@ -187,6 +195,27 @@ class YoutubatorDb extends Dexie {
       searchCache: 'norm, updatedAt',
       trackMeta: 'videoId, style, rating',
     });
+    this.version(7)
+      .stores({
+        history: '++id, loadedAt, sessionId, byId',
+        favorites: 'videoId, order, byId',
+        playlists: 'id, name',
+        searches: '++id, norm, at',
+        accounts: 'accountId, lastUsedAt',
+        waveforms: 'videoId',
+        ytLists: 'key, accountId',
+        searchCache: 'norm, updatedAt',
+        trackMeta: 'videoId, style, rating',
+        styleColors: 'style',
+      })
+      .upgrade(async (tx) => {
+        // les couleurs posées par morceau (v6) remontent sur leur style
+        const rows = (await tx.table('trackMeta').toArray()) as TrackMetaRecord[];
+        const colors = deriveStyleColors(rows);
+        for (const [style, color] of Object.entries(colors)) {
+          await tx.table('styleColors').put({ style, color });
+        }
+      });
   }
 }
 

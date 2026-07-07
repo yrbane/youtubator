@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampRating,
+  deriveStyleColors,
   nextColor,
   normalizeStyle,
   sortRows,
@@ -31,6 +32,19 @@ describe('couleurs de morceau', () => {
 
   it('couleur inconnue → première couleur de la palette', () => {
     expect(nextColor('#123456')).toBe(TRACK_COLORS[1]);
+  });
+});
+
+describe('migration : couleurs par morceau → couleurs par style', () => {
+  it('chaque style hérite de la première couleur rencontrée parmi ses morceaux', () => {
+    const rows = [
+      { style: 'techno', color: '#ff4d4d' },
+      { style: 'techno', color: '#4dc3ff' }, // ignorée : techno a déjà sa couleur
+      { style: 'trance', color: '' }, // pas de couleur → rien
+      { style: '', color: '#ffd24d' }, // pas de style → rien
+      { style: 'acid', color: '#6bd968' },
+    ];
+    expect(deriveStyleColors(rows)).toEqual({ techno: '#ff4d4d', acid: '#6bd968' });
   });
 });
 

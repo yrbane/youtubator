@@ -138,7 +138,7 @@
       rating: m?.rating ?? 0,
       plays: m?.plays ?? 0,
       style: m?.style ?? null,
-      color: m?.color ?? null,
+      color: meta.colorOf(track.videoId) || null,
     };
   }
 

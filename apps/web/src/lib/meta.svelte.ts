@@ -6,16 +6,18 @@ function blank(videoId: string): TrackMetaRecord {
 }
 
 /**
- * Métadonnées DJ par morceau (note, couleur, style, lectures), réactives et
- * persistées dans Dexie. Le compteur « cette session » reste en mémoire.
+ * Métadonnées DJ par morceau (note, style, lectures) et couleurs par style,
+ * réactives et persistées dans Dexie. Le compteur « cette session » reste en mémoire.
  */
 class TrackMetaStore {
   #all = $state<Record<string, TrackMetaRecord>>({});
   #sessionPlays = $state<Record<string, number>>({});
+  #styleColors = $state<Record<string, string>>({});
 
   async init(): Promise<void> {
-    const rows = await db.trackMeta.toArray();
+    const [rows, colors] = await Promise.all([db.trackMeta.toArray(), db.styleColors.toArray()]);
     this.#all = Object.fromEntries(rows.map((r) => [r.videoId, r]));
+    this.#styleColors = Object.fromEntries(colors.map((c) => [c.style, c.color]));
   }
 
   get(videoId: string): TrackMetaRecord | undefined {
@@ -42,9 +44,21 @@ class TrackMetaStore {
     await this.#put({ ...current, rating: clampRating(rating) });
   }
 
-  async setColor(videoId: string, color: string): Promise<void> {
-    const current = this.#all[videoId] ?? blank(videoId);
-    await this.#put({ ...current, color });
+  /** Couleur d'un style (partagée par tous ses morceaux). */
+  styleColor(style: string): string {
+    return this.#styleColors[style] ?? '';
+  }
+
+  /** Couleur affichée pour un morceau : celle de son style. */
+  colorOf(videoId: string): string {
+    const style = this.#all[videoId]?.style ?? '';
+    return style === '' ? '' : this.styleColor(style);
+  }
+
+  async setStyleColor(style: string, color: string): Promise<void> {
+    if (style === '') return;
+    this.#styleColors = { ...this.#styleColors, [style]: color };
+    await db.styleColors.put({ style, color }); // copie plane implicite (primitives)
   }
 
   async setStyle(videoId: string, style: string): Promise<void> {

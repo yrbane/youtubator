@@ -27,6 +27,18 @@ export function normalizeStyle(style: string): string {
   return style.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+/**
+ * Migration v6 → v7 : la couleur devient une propriété du style.
+ * Chaque style hérite de la première couleur non vide posée sur un de ses morceaux.
+ */
+export function deriveStyleColors(rows: Array<{ style: string; color: string }>): Record<string, string> {
+  const colors: Record<string, string> = {};
+  for (const { style, color } of rows) {
+    if (style !== '' && color !== '' && !(style in colors)) colors[style] = color;
+  }
+  return colors;
+}
+
 /** Colonnes triables des listes du browser. */
 export interface SortableRow {
   title: string;

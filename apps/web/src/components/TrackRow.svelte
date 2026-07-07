@@ -3,7 +3,7 @@
   import { ghost } from '../lib/ghost.svelte.js';
   import { loadWaveform } from '../lib/library.js';
   import { meta } from '../lib/meta.svelte.js';
-  import { nextColor } from '../lib/track-meta.js';
+  import { nextColor, TRACK_COLORS } from '../lib/track-meta.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -37,26 +37,64 @@
 
   const m = $derived(meta.get(track.videoId));
   const sessionPlays = $derived(meta.sessionPlays(track.videoId));
+  const style = $derived(m?.style ?? '');
+  const color = $derived(meta.colorOf(track.videoId));
+
+  let picker = $state(false); // nuancier (clic droit sur la pastille)
 
   function editStyle(): void {
     const known = meta.styles;
     const answer = prompt(
       `Style du morceau${known.length ? ` (déjà utilisés : ${known.join(', ')})` : ''} :`,
-      m?.style ?? '',
+      style,
     );
     if (answer !== null) void meta.setStyle(track.videoId, answer);
   }
+
+  /** Clic gauche : couleur suivante du style ; sans style, on en attribue un d'abord. */
+  function cycleColor(): void {
+    if (style === '') return editStyle();
+    void meta.setStyleColor(style, nextColor(color));
+  }
+
+  function openPicker(event: MouseEvent): void {
+    event.preventDefault();
+    if (style === '') return editStyle();
+    picker = !picker;
+  }
 </script>
 
-<div class="row" style="--tint: {m?.color || 'transparent'}">
-  <button
-    class="color"
-    class:none={!m?.color}
-    style="background: {m?.color || 'transparent'}"
-    title="Couleur du morceau — chaque clic passe à la suivante de la palette"
-    onclick={() => void meta.setColor(track.videoId, nextColor(m?.color ?? ''))}
-    aria-label="Couleur"
-  ></button>
+<div class="row" style="--tint: {color || 'transparent'}">
+  <span class="colorwrap">
+    <button
+      class="color"
+      class:none={!color}
+      style="background: {color || 'transparent'}"
+      title={style
+        ? `Couleur du style « ${style} » (tous ses morceaux) — clic : suivante, clic droit : nuancier`
+        : 'Couleur par style — attribue d’abord un style (clic)'}
+      onclick={cycleColor}
+      oncontextmenu={openPicker}
+      aria-label="Couleur du style"
+    ></button>
+    {#if picker}
+      <span class="picker" onmouseleave={() => (picker = false)} role="menu">
+        {#each TRACK_COLORS as swatch (swatch)}
+          <button
+            class="swatch"
+            class:none={!swatch}
+            style="background: {swatch || 'transparent'}"
+            title={swatch ? `Colorer « ${style} »` : 'Sans couleur'}
+            onclick={() => {
+              void meta.setStyleColor(style, swatch);
+              picker = false;
+            }}
+            aria-label={swatch || 'sans couleur'}
+          ></button>
+        {/each}
+      </span>
+    {/if}
+  </span>
   <img src={track.thumbnailUrl} alt="" loading="lazy" />
   <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
     {m?.style || 'style'}
@@ -213,18 +251,55 @@
     color: #ffe08a;
   }
 
+  .colorwrap {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
   .color {
     width: 0.9em;
     height: 0.9em;
     border-radius: 50%;
     border: 1px solid var(--yt-border);
     cursor: pointer;
-    flex: 0 0 auto;
     padding: 0;
   }
 
   .color.none {
     border-style: dashed;
+  }
+
+  /* nuancier du style (clic droit sur la pastille) */
+  .picker {
+    position: absolute;
+    left: 0;
+    top: 1.3em;
+    z-index: 10;
+    display: flex;
+    gap: 4px;
+    padding: 5px 6px;
+    background: var(--yt-panel);
+    border: 1px solid var(--yt-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  }
+
+  .swatch {
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    border: 1px solid var(--yt-border);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .swatch.none {
+    border-style: dashed;
+  }
+
+  .swatch:hover {
+    transform: scale(1.25);
   }
 
   .style {
