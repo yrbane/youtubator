@@ -21,4 +21,24 @@ describe('validateCrate — format d\'échange du crate', () => {
       validateCrate({ schema: 1, waveforms: [{ durationS: 1 }], favorites: [], playlists: [] }),
     ).toBeNull();
   });
+
+  it('schema 2 : métadonnées DJ, couleurs de styles, smartlists et historique — vides si absents (schema 1)', () => {
+    const v1 = validateCrate({ schema: 1, waveforms: [], favorites: [], playlists: [] });
+    expect(v1?.trackMeta).toEqual([]);
+    expect(v1?.styleColors).toEqual([]);
+    expect(v1?.smartlists).toEqual([]);
+    expect(v1?.history).toEqual([]);
+    const v2 = validateCrate({
+      schema: 2,
+      waveforms: [],
+      favorites: [],
+      playlists: [],
+      trackMeta: [{ videoId: 'x', rating: 4, color: '', style: 'techno', plays: 2, lastPlayedAt: null }],
+      styleColors: [{ style: 'techno', color: '#ff4d4d' }],
+      smartlists: [],
+      history: [],
+    });
+    expect(v2?.trackMeta.length).toBe(1);
+    expect(v2?.styleColors.length).toBe(1);
+  });
 });

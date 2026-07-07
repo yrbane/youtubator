@@ -3,6 +3,7 @@
   import { ghost } from '../lib/ghost.svelte.js';
   import { loadWaveform } from '../lib/library.js';
   import { meta } from '../lib/meta.svelte.js';
+  import { preview } from '../lib/preview.svelte.js';
   import { nextColor, TRACK_COLORS } from '../lib/track-meta.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
@@ -11,20 +12,39 @@
     mixer,
     favorite = false,
     by = '',
+    highlighted = false,
+    selected = false,
     onRoute,
     onToggleFavorite,
     onRemove,
     removeTitle = 'Retirer de cette liste',
+    onRowClick,
+    onMoveUp,
+    onMoveDown,
   }: {
     track: Track;
     mixer: Mixer;
     favorite?: boolean;
     by?: string;
+    /** Curseur clavier (↑/↓ puis Entrée → deck A, Maj+Entrée → B). */
+    highlighted?: boolean;
+    /** Sélection multiple (clic, Ctrl+clic, Maj+clic). */
+    selected?: boolean;
     onRoute: (track: Track, deckId: string) => void;
     onToggleFavorite: (track: Track) => void;
     onRemove?: () => void;
     removeTitle?: string;
+    onRowClick?: (event: MouseEvent) => void;
+    /** Réordonnancement dans une crate. */
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
   } = $props();
+
+  /** Clic sur le fond de la ligne : sélection — les boutons/liens gardent leur rôle. */
+  function handleRowClick(event: MouseEvent): void {
+    if ((event.target as HTMLElement).closest('button, a, input')) return;
+    onRowClick?.(event);
+  }
 
   // dossier connu du morceau (BPM/tonalité pré-analysés)
   let wave = $state<{ bpm: number | null; key: string | null } | null>(null);
@@ -64,7 +84,17 @@
   }
 </script>
 
-<div class="row" style="--tint: {color || 'transparent'}">
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div
+  class="row"
+  class:cursor={highlighted}
+  class:selected
+  style="--tint: {color || 'transparent'}"
+  onclick={handleRowClick}
+  title={onRowClick
+    ? 'Clic : sélectionner · Ctrl+clic : ajouter · Maj+clic : plage — actions groupées en bas du browser'
+    : undefined}
+>
   <span class="colorwrap">
     <button
       class="color"
@@ -131,6 +161,18 @@
     {/each}
   </span>
   <div class="actions">
+    {#if onMoveUp || onMoveDown}
+      <button class="btn" title="Monter dans la crate" disabled={!onMoveUp} onclick={onMoveUp}>↑</button>
+      <button class="btn" title="Descendre dans la crate" disabled={!onMoveDown} onclick={onMoveDown}>↓</button>
+    {/if}
+    <button
+      class="btn phones"
+      class:on={preview.current === track.videoId}
+      onclick={() => void preview.toggle(track)}
+      title="Pré-écouter sans occuper un deck (démarre au tiers du morceau, sortie principale) — re-clic pour arrêter"
+    >
+      🎧
+    </button>
     {#each mixer.decks as deck (deck.id)}
       <button
         class="btn route"
@@ -182,10 +224,28 @@
     border-bottom: 1px solid var(--yt-border);
     border-left: 3px solid var(--tint);
     font-size: calc(13px * var(--track-scale, 1));
+    /* virtualisation légère : les lignes hors écran ne sont pas rendues */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 3.4em;
   }
 
   .row:hover {
     background: var(--yt-panel-deep);
+  }
+
+  /* curseur clavier (↑/↓) et sélection multiple */
+  .row.cursor {
+    outline: 1px solid var(--yt-deck-a);
+    outline-offset: -1px;
+  }
+
+  .row.selected {
+    background: color-mix(in srgb, var(--yt-deck-a) 14%, transparent);
+  }
+
+  .phones.on {
+    color: var(--yt-deck-c);
+    border-color: var(--yt-deck-c);
   }
 
   img {

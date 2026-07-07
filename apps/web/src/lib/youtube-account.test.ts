@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCreatePlaylistRequest,
+  buildInsertItemRequest,
   buildPlaylistItemsPath,
   buildRateRequest,
   mapPlaylistItemToTrack,
@@ -93,6 +95,24 @@ describe('mergeTracks — fusion des pages sans doublons', () => {
   it('listes vides tolérées des deux côtés', () => {
     expect(mergeTracks([], [track('aaa')], 'append').length).toBe(1);
     expect(mergeTracks([track('aaa')], [], 'prepend').length).toBe(1);
+  });
+});
+
+describe('écriture des playlists YouTube (publier une crate)', () => {
+  it('création : playlist privée avec le titre demandé', () => {
+    const { url, init } = buildCreatePlaylistRequest('tok', 'Warm-up techno');
+    expect(url).toContain('playlists?part=snippet,status');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body as string);
+    expect(body.snippet.title).toBe('Warm-up techno');
+    expect(body.status.privacyStatus).toBe('private');
+  });
+
+  it('ajout : la vidéo est référencée dans la bonne playlist', () => {
+    const { init } = buildInsertItemRequest('tok', 'PL42', 'TbH3SF2-QqA');
+    const body = JSON.parse(init.body as string);
+    expect(body.snippet.playlistId).toBe('PL42');
+    expect(body.snippet.resourceId).toEqual({ kind: 'youtube#video', videoId: 'TbH3SF2-QqA' });
   });
 });
 

@@ -13,4 +13,17 @@ describe('buildSearchPath — recherche paginée', () => {
       'search?part=snippet&type=video&maxResults=15&q=acid&pageToken=CA8QAA%26x',
     );
   });
+
+  it('options par défaut : URL inchangée (le cache reste valable)', () => {
+    expect(buildSearchPath('acid', null, { duration: 'any', order: 'relevance' })).toBe(
+      buildSearchPath('acid'),
+    );
+  });
+
+  it('durée (tracks/mixes) et tri par date ajoutés à la demande', () => {
+    expect(buildSearchPath('acid', null, { duration: 'long' })).toContain('&videoDuration=long');
+    expect(buildSearchPath('acid', null, { duration: 'medium', order: 'date' })).toContain(
+      '&videoDuration=medium&order=date',
+    );
+  });
 });

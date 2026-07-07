@@ -1,37 +1,49 @@
 <script lang="ts">
   import TrackRow from './TrackRow.svelte';
   import YoutubeTab from './YoutubeTab.svelte';
+  import StatsTab from './StatsTab.svelte';
   import LoadMoreSentinel from './LoadMoreSentinel.svelte';
   import SortBar from './SortBar.svelte';
-  import { searchYoutubePage, getApiKey } from '../lib/search.js';
-  import { mergeTracks } from '../lib/youtube-account.js';
+  import { searchYoutubePage, getApiKey, type SearchOptions } from '../lib/search.js';
+  import { addVideoToYtPlaylist, createYtPlaylist, mergeTracks } from '../lib/youtube-account.js';
   import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
   import { meta } from '../lib/meta.svelte.js';
+  import { ghost } from '../lib/ghost.svelte.js';
+  import { ui } from '../lib/ui.svelte.js';
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import { filterRows, type FilterableRow } from '../lib/filter.js';
+  import { matchesMaster } from '../lib/match.js';
+  import { moveItem } from '../lib/list-utils.js';
+  import { tracklistCsv, tracklistTxt } from '../lib/session-export.js';
   import {
+    addTracksToPlaylist,
     clearHistory,
     countHistory,
     deleteHistoryEntry,
     deletePlaylist,
     deleteSearch,
     deleteSearchCache,
+    deleteSmartlist,
     listFavorites,
     listHistory,
     listPlaylists,
     listSearches,
+    listSmartlists,
     loadSearchCache,
     recordSearch,
+    renamePlaylist,
     savePlaylist,
     saveSearchCache,
+    saveSmartlist,
     toggleFavorite,
+    updatePlaylistTracks,
     type Favorite,
     type HistoryEntry,
     type Playlist,
     type SearchEntry,
+    type Smartlist,
   } from '../lib/library.js';
   import { session } from '../lib/session.svelte.js';
-  import { ui } from '../lib/ui.svelte.js';
   import { rateVideo } from '../lib/youtube-account.js';
   import { suggestNext } from '../lib/suggest.js';
   import { db } from '../lib/library.js';
@@ -48,7 +60,7 @@
     onOpenSettings: () => void;
   } = $props();
 
-  type Tab = 'search' | 'history' | 'favorites' | 'youtube';
+  type Tab = 'search' | 'history' | 'favorites' | 'youtube' | 'stats';
   let tab = $state<Tab>('search');
   let query = $state('');
   let results = $state<Track[]>([]);
@@ -73,6 +85,27 @@
 
   // filtre libre façon Traktor : réduit la liste affichée, quel que soit l'onglet
   let filter = $state('');
+
+  // affinage de la recherche YouTube (durée / tri) — seul le réglage par défaut est caché
+  let searchDuration = $state<'any' | 'medium' | 'long'>('any');
+  let searchOrder = $state<'relevance' | 'date'>('relevance');
+  const searchOpts = $derived<SearchOptions>({ duration: searchDuration, order: searchOrder });
+  const searchOptsDefault = $derived(searchDuration === 'any' && searchOrder === 'relevance');
+
+  // MATCH façon Traktor : ne garder que les morceaux mixables avec le deck maître
+  let matchOn = $state(false);
+  const masterRef = $derived.by(() => {
+    const master = mixer.decks.find((d) => d.id === mixer.masterId && d.grid);
+    return master?.grid ? { bpm: master.grid.bpm, key: master.musicalKey?.camelot ?? null } : null;
+  });
+
+  // filtres sauvegardés (smart crates)
+  let smartlists = $state<Smartlist[]>([]);
+
+  // sélection multiple + curseur clavier
+  let selectedIds = $state<Set<string>>(new Set());
+  let selectionAnchor = -1;
+  let cursor = $state(-1);
 
   function toFilterRow(track: Track): FilterableRow {
     const m = meta.get(track.videoId);
@@ -111,6 +144,20 @@
     return sort ? sortRows(items, (item) => toSortRow(get(item)), sort.key, sort.dir) : items;
   }
 
+  /** MATCH actif : ne garde que les morceaux mixables avec le deck maître. */
+  function applyMatch<T>(items: T[], get: (item: T) => Track): T[] {
+    if (!matchOn || !masterRef) return items;
+    return items.filter((item) => {
+      const w = waveMeta.get(get(item).videoId);
+      return matchesMaster({ bpm: w?.bpm ?? null, key: w?.key ?? null }, masterRef);
+    });
+  }
+
+  /** Filtre + tri + MATCH, dans cet ordre. */
+  function display<T>(items: T[], get: (item: T) => Track): T[] {
+    return applyMatch(filterRows(applySort(items, get), (i) => toFilterRow(get(i)), filter), get);
+  }
+
   const favoriteIds = $derived(new Set(favorites.map((f) => f.videoId)));
 
   // suggestions « à mixer ensuite » : bibliothèque locale vs deck maître
@@ -145,20 +192,208 @@
   const filteredFavorites = $derived(
     userFilter === null ? favorites : favorites.filter((f) => f.by === userFilter),
   );
-  const sortedResults = $derived(filterRows(applySort(results, (t) => t), toFilterRow, filter));
-  const sortedHistory = $derived(
-    filterRows(applySort(filteredHistory, (e) => e.track), (e) => toFilterRow(e.track), filter),
-  );
-  const sortedFavorites = $derived(
-    filterRows(applySort(filteredFavorites, (f) => f.track), (f) => toFilterRow(f.track), filter),
-  );
-  const sortedPlaylistTracks = $derived(
-    openPlaylist ? filterRows(applySort(openPlaylist.tracks, (t) => t), toFilterRow, filter) : [],
-  );
+  const sortedResults = $derived(display(results, (t) => t));
+  const sortedHistory = $derived(display(filteredHistory, (e) => e.track));
+  const sortedFavorites = $derived(display(filteredFavorites, (f) => f.track));
+  const sortedPlaylistTracks = $derived(openPlaylist ? display(openPlaylist.tracks, (t) => t) : []);
+
+  /** Liste de pistes sous le curseur/sélection pour l'onglet courant (fenêtres comprises). */
+  const selectionList = $derived.by((): Track[] => {
+    if (tab === 'search') return sortedResults;
+    if (tab === 'history') return sortedHistory.map((e) => e.track);
+    if (tab === 'favorites') {
+      return openPlaylist
+        ? sortedPlaylistTracks.slice(0, plLimit)
+        : sortedFavorites.slice(0, favLimit).map((f) => f.track);
+    }
+    return [];
+  });
 
   export function focusSearch(): void {
     tab = 'search';
     document.getElementById('search-input')?.focus();
+  }
+
+  // curseur et sélection repartent de zéro quand la liste affichée change de nature
+  $effect(() => {
+    void tab;
+    void filter;
+    void sort;
+    void matchOn;
+    cursor = -1;
+    selectionAnchor = -1;
+    selectedIds = new Set();
+  });
+
+  /** Navigation clavier façon Traktor : ↑/↓, Entrée → deck A, Maj+Entrée → deck B, F favori. */
+  function onListKeydown(e: KeyboardEvent): void {
+    const target = e.target as HTMLElement;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+    if (!ui.browserVisible && !ui.browserMax) return;
+    if (tab === 'youtube' || tab === 'stats') return;
+    const list = selectionList;
+    if (list.length === 0) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      cursor =
+        e.key === 'ArrowDown' ? Math.min(list.length - 1, cursor + 1) : Math.max(0, cursor - 1);
+      requestAnimationFrame(() =>
+        document.querySelector('.content .row.cursor')?.scrollIntoView({ block: 'nearest' }),
+      );
+    } else if (e.key === 'Enter' && cursor >= 0 && list[cursor]) {
+      e.preventDefault();
+      const deck = e.shiftKey ? mixer.decks[1] : mixer.decks[0];
+      if (deck) route(list[cursor], deck.id);
+    } else if ((e.key === 'f' || e.key === 'F') && cursor >= 0 && list[cursor]) {
+      void handleToggleFavorite(list[cursor]);
+    }
+  }
+
+  /** Clic = sélectionner, Ctrl+clic = ajouter/retirer, Maj+clic = plage. */
+  function handleSelect(e: MouseEvent, index: number): void {
+    const list = selectionList;
+    const id = list[index]?.videoId;
+    if (!id) return;
+    const next = new Set(selectedIds);
+    if (e.shiftKey && selectionAnchor >= 0) {
+      const [from, to] = [Math.min(selectionAnchor, index), Math.max(selectionAnchor, index)];
+      for (let i = from; i <= to; i++) next.add(list[i]!.videoId);
+    } else if (e.ctrlKey || e.metaKey) {
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      selectionAnchor = index;
+    } else {
+      next.clear();
+      next.add(id);
+      selectionAnchor = index;
+    }
+    cursor = index;
+    selectedIds = next;
+  }
+
+  /** Pistes sélectionnées, retrouvées dans toutes les sources connues. */
+  function selectedTracks(): Track[] {
+    const byId = new Map<string, Track>();
+    for (const t of results) byId.set(t.videoId, t);
+    for (const e of history) byId.set(e.track.videoId, e.track);
+    for (const f of favorites) byId.set(f.videoId, f.track);
+    if (openPlaylist) for (const t of openPlaylist.tracks) byId.set(t.videoId, t);
+    return [...selectedIds].map((id) => byId.get(id)).filter((t): t is Track => Boolean(t));
+  }
+
+  async function bulkRate(rating: number): Promise<void> {
+    for (const t of selectedTracks()) await meta.setRating(t.videoId, rating);
+  }
+
+  async function bulkStyle(): Promise<void> {
+    const known = meta.styles;
+    const style = prompt(
+      `Style pour les ${selectedIds.size} morceaux sélectionnés${known.length ? ` (déjà utilisés : ${known.join(', ')})` : ''} :`,
+    );
+    if (style === null) return;
+    for (const t of selectedTracks()) await meta.setStyle(t.videoId, style);
+  }
+
+  async function bulkCrate(): Promise<void> {
+    const name = prompt(
+      `Ajouter les ${selectedIds.size} morceaux à quelle crate ?${playlists.length ? `\nExistantes : ${playlists.map((p) => p.name).join(', ')}` : ''}\n(un nouveau nom crée la crate)`,
+    );
+    if (!name) return;
+    const existing = playlists.find((p) => p.name.toLowerCase() === name.trim().toLowerCase());
+    if (existing) await addTracksToPlaylist(existing.id, selectedTracks());
+    else await savePlaylist(name.trim(), selectedTracks());
+    await refreshLists();
+  }
+
+  function bulkAnalyze(): void {
+    for (const t of selectedTracks()) ghost.enqueue(t);
+  }
+
+  /** ⚡ liste : met toute la liste affichée dans la file d'analyse fantôme. */
+  function analyzeDisplayed(): void {
+    for (const t of selectionList) ghost.enqueue(t);
+  }
+
+  // --- filtres sauvegardés (smart crates) ---
+
+  async function saveCurrentSmartlist(): Promise<void> {
+    const name = prompt('Nom du filtre sauvegardé (smart crate) :', filter);
+    if (!name) return;
+    await saveSmartlist(name.trim(), filter, sort?.key ?? null, sort?.dir ?? null);
+    smartlists = await listSmartlists();
+  }
+
+  function applySmartlist(s: Smartlist): void {
+    filter = s.query;
+    sort = s.sortKey ? { key: s.sortKey as SortKey, dir: s.sortDir === -1 ? -1 : 1 } : null;
+  }
+
+  // --- crates éditables ---
+
+  async function createCrate(): Promise<void> {
+    const name = prompt('Nom de la nouvelle crate :');
+    if (!name) return;
+    await savePlaylist(name.trim(), []);
+    await refreshLists();
+  }
+
+  async function renameCrate(p: Playlist): Promise<void> {
+    const name = prompt('Nouveau nom de la crate :', p.name);
+    if (!name || name.trim() === p.name) return;
+    await renamePlaylist(p.id, name.trim());
+    await refreshLists();
+    if (openPlaylist?.id === p.id) openPlaylist = playlists.find((x) => x.id === p.id) ?? null;
+  }
+
+  /** Applique une mutation des morceaux de la crate ouverte et resynchronise l'affichage. */
+  async function mutateOpenPlaylist(tracks: Track[]): Promise<void> {
+    if (!openPlaylist) return;
+    const id = openPlaylist.id;
+    await updatePlaylistTracks(id, tracks);
+    await refreshLists();
+    openPlaylist = playlists.find((p) => p.id === id) ?? null;
+  }
+
+  /** Publie la crate ouverte comme playlist privée du compte YouTube actif. */
+  async function publishOpenPlaylist(): Promise<void> {
+    const token = session.activeToken;
+    if (!token || !openPlaylist) return;
+    const total = openPlaylist.tracks.length;
+    if (
+      !confirm(
+        `Créer la playlist privée « ${openPlaylist.name} » sur YouTube et y ajouter ${total} morceaux ?\n` +
+          `Coût quota API : ~${50 + total * 50} unités (50 par morceau).`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const playlistId = await createYtPlaylist(token, openPlaylist.name);
+      for (const t of openPlaylist.tracks) await addVideoToYtPlaylist(token, playlistId, t.videoId);
+      alert(`Playlist « ${openPlaylist.name} » publiée sur YouTube (privée). ✔`);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  /** Télécharge la tracklist affichée (filtres appliqués), en ordre chronologique. */
+  function exportTracklist(format: 'txt' | 'csv'): void {
+    const entries = [...sortedHistory]
+      .sort((a, b) => a.loadedAt - b.loadedAt)
+      .map((e) => ({
+        title: e.track.title,
+        channel: e.track.channel,
+        loadedAt: e.loadedAt,
+        deckId: e.deckId,
+        videoId: e.track.videoId,
+      }));
+    const content = format === 'txt' ? tracklistTxt(entries) : tracklistCsv(entries);
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tracklist-${new Date().toISOString().slice(0, 10)}.${format}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function toggleMax(): void {
@@ -168,12 +403,13 @@
   }
 
   async function refreshLists(): Promise<void> {
-    [history, historyTotal, favorites, playlists, recentSearches] = await Promise.all([
+    [history, historyTotal, favorites, playlists, recentSearches, smartlists] = await Promise.all([
       listHistory(historyLimit),
       countHistory(),
       listFavorites(),
       listPlaylists(),
       listSearches(),
+      listSmartlists(),
     ]);
     // les dossiers waveform sont lourds (buckets) : on ne les recharge que
     // toutes les 20 s au plus, les BPM/tonalités bougent rarement
@@ -201,17 +437,20 @@
       recentSearches = await listSearches();
     });
     try {
-      // cache local d'abord (une recherche coûte 100 unités de quota API)
-      const cached = await loadSearchCache(normalizeQuery(query));
+      // cache local d'abord (une recherche coûte 100 unités de quota API) —
+      // seul le réglage durée/tri par défaut est caché, les variantes vont à l'API
+      const cached = searchOptsDefault ? await loadSearchCache(normalizeQuery(query)) : undefined;
       if (cached && isSearchCacheFresh(cached.updatedAt, Date.now())) {
         results = cached.tracks;
         searchNextToken = cached.nextPageToken;
       } else {
-        const page = await searchYoutubePage(query, getApiKey());
+        const page = await searchYoutubePage(query, getApiKey(), null, searchOpts);
         results = page.tracks;
         searchNextToken = page.nextPageToken;
         // les pistes directes (URL/ID collé) ne méritent pas d'entrée de cache
-        if (page.nextPageToken !== null) await saveSearchCache(query, results, searchNextToken);
+        if (searchOptsDefault && page.nextPageToken !== null) {
+          await saveSearchCache(query, results, searchNextToken);
+        }
       }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -227,10 +466,10 @@
     if (!searchNextToken || searchingMore || searching) return;
     searchingMore = true;
     try {
-      const page = await searchYoutubePage(resultsQuery, getApiKey(), searchNextToken);
+      const page = await searchYoutubePage(resultsQuery, getApiKey(), searchNextToken, searchOpts);
       results = mergeTracks(results, page.tracks, 'append');
       searchNextToken = page.nextPageToken;
-      await saveSearchCache(resultsQuery, results, searchNextToken);
+      if (searchOptsDefault) await saveSearchCache(resultsQuery, results, searchNextToken);
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -283,12 +522,33 @@
   }
 </script>
 
+<svelte:window onkeydown={onListKeydown} />
+
 <section class="browser panel">
   <nav>
     <button class="tab" class:on={tab === 'search'} onclick={() => (tab = 'search')}>RECHERCHE</button>
     <button class="tab" class:on={tab === 'history'} onclick={() => (tab = 'history')}>HISTORIQUE</button>
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
     <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
+    <button
+      class="tab"
+      class:on={tab === 'stats'}
+      onclick={() => (tab = 'stats')}
+      title="Statistiques d'écoute : les plus joués, répartition par style, morceaux endormis"
+    >
+      📊 STATS
+    </button>
+    <button
+      class="tab match"
+      class:on={matchOn}
+      disabled={!masterRef}
+      onclick={() => (matchOn = !matchOn)}
+      title={masterRef
+        ? `MATCH : ne montrer que les morceaux mixables avec le deck maître (${masterRef.bpm.toFixed(0)} BPM ±6 %, octaves comprises${masterRef.key ? `, tonalités compatibles ${masterRef.key}` : ''})`
+        : 'MATCH : charge et analyse un morceau sur un deck (le maître) pour filtrer les morceaux mixables'}
+    >
+      MATCH
+    </button>
     <input
       class="filter"
       type="search"
@@ -336,8 +596,42 @@
     </div>
   {/if}
 
-  {#if tab !== 'youtube'}
-    <SortBar {sort} onSort={toggleSort} />
+  {#if tab !== 'youtube' && tab !== 'stats'}
+    <div class="toolrow">
+      <SortBar {sort} onSort={toggleSort} />
+      <div class="smart">
+        <button
+          class="btn"
+          disabled={filter === '' && !sort}
+          onclick={() => void saveCurrentSmartlist()}
+          title="Sauvegarder le filtre + tri actuels comme liste dynamique (smart crate) : un clic sur sa chip les réapplique"
+        >
+          💾
+        </button>
+        {#each smartlists as s (s.id)}
+          <span class="chip" title="Filtre : « {s.query} »{s.sortKey ? ` · tri ${s.sortKey}` : ''}">
+            <button class="chip-name" onclick={() => applySmartlist(s)}>✨ {s.name}</button>
+            <button
+              class="chip-del"
+              title="Supprimer ce filtre sauvegardé"
+              onclick={async () => {
+                await deleteSmartlist(s.id);
+                smartlists = await listSmartlists();
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        {/each}
+        <button
+          class="btn"
+          onclick={analyzeDisplayed}
+          title="Pré-analyser toute la liste affichée (waveform, BPM, tonalité) via l'analyse fantôme — les morceaux déjà analysés sont sautés"
+        >
+          ⚡ liste
+        </button>
+      </div>
+    </div>
   {/if}
 
   <div class="content">
@@ -355,6 +649,18 @@
           placeholder="Recherche YouTube, ou colle une URL / un ID vidéo…"
           bind:value={query}
         />
+        <select
+          bind:value={searchDuration}
+          title="Durée des vidéos : tracks (4-20 min) ou mixes/lives (> 20 min) — écarte aussi les Shorts"
+        >
+          <option value="any">Toute durée</option>
+          <option value="medium">Tracks (4-20 min)</option>
+          <option value="long">Mixes (+20 min)</option>
+        </select>
+        <select bind:value={searchOrder} title="Ordre des résultats YouTube">
+          <option value="relevance">Pertinence</option>
+          <option value="date">Plus récents</option>
+        </select>
         <button class="btn" type="submit" disabled={searching}>{searching ? '…' : '🔍'}</button>
       </form>
       {#if recentSearches.length > 0}
@@ -382,11 +688,14 @@
       {#if error}
         <p class="error">{error}</p>
       {/if}
-      {#each sortedResults as track (track.videoId)}
+      {#each sortedResults as track, i (track.videoId)}
         <TrackRow
           {track}
           {mixer}
           favorite={favoriteIds.has(track.videoId)}
+          highlighted={cursor === i}
+          selected={selectedIds.has(track.videoId)}
+          onRowClick={(e) => handleSelect(e, i)}
           onRoute={route}
           onToggleFavorite={handleToggleFavorite}
         />
@@ -407,6 +716,8 @@
           onMore={() => void loadMoreSearch()}
         />
       {/if}
+    {:else if tab === 'stats'}
+      <StatsTab {libraryTracks} {mixer} onRoute={route} />
     {:else if tab === 'youtube'}
       <YoutubeTab
         {mixer}
@@ -427,24 +738,43 @@
             {/each}
           {/if}
         </div>
-        <button
-          class="btn"
-          onclick={async () => {
-            if (confirm('Vider l’historique ?')) {
-              await clearHistory();
-              await refreshLists();
-            }
-          }}
-        >
-          Vider
-        </button>
+        <div class="head-actions">
+          <button
+            class="btn"
+            onclick={() => exportTracklist('txt')}
+            title="Télécharger la tracklist affichée (filtres appliqués) en texte publiable, minutage relatif"
+          >
+            ⤓ txt
+          </button>
+          <button
+            class="btn"
+            onclick={() => exportTracklist('csv')}
+            title="Télécharger la tracklist affichée en CSV (tableur) : position, horodatage, deck, chaîne, titre"
+          >
+            ⤓ csv
+          </button>
+          <button
+            class="btn"
+            onclick={async () => {
+              if (confirm('Vider l’historique ?')) {
+                await clearHistory();
+                await refreshLists();
+              }
+            }}
+          >
+            Vider
+          </button>
+        </div>
       </div>
-      {#each sortedHistory as entry (entry.id)}
+      {#each sortedHistory as entry, i (entry.id)}
         <TrackRow
           track={entry.track}
           {mixer}
           favorite={favoriteIds.has(entry.track.videoId)}
           by={entry.by}
+          highlighted={cursor === i}
+          selected={selectedIds.has(entry.track.videoId)}
+          onRowClick={(e) => handleSelect(e, i)}
           onRoute={route}
           onToggleFavorite={handleToggleFavorite}
           removeTitle="Retirer cette entrée de l'historique"
@@ -469,10 +799,14 @@
     {:else}
       <div class="list-head">
         <div class="playlists">
+          <button class="btn" onclick={() => void createCrate()} title="Créer une crate vide — remplis-la via la sélection multiple (clic sur les lignes puis ➕)">
+            + crate
+          </button>
           {#each playlists as p (p.id)}
             <span class="chip">
               <button
                 class="chip-name"
+                title="Ouvrir la crate (réordonnancement ↑↓ et retrait sur chaque ligne)"
                 onclick={() => {
                   openPlaylist = openPlaylist?.id === p.id ? null : p;
                   plLimit = 50;
@@ -480,11 +814,12 @@
               >
                 {p.name} ({p.tracks.length})
               </button>
+              <button class="chip-del" title="Renommer la crate" onclick={() => void renameCrate(p)}>✎</button>
               <button
                 class="chip-del"
-                title="Supprimer la playlist"
+                title="Supprimer la crate"
                 onclick={async () => {
-                  if (confirm(`Supprimer la playlist « ${p.name} » ?`)) {
+                  if (confirm(`Supprimer la crate « ${p.name} » ?`)) {
                     await deletePlaylist(p.id);
                     if (openPlaylist?.id === p.id) openPlaylist = null;
                     await refreshLists();
@@ -496,9 +831,20 @@
             </span>
           {/each}
         </div>
-        <button class="btn" onclick={() => void saveFavoritesAsPlaylist()} disabled={favorites.length === 0}>
-          Sauver les favoris en playlist
-        </button>
+        <div class="head-actions">
+          {#if openPlaylist && session.activeToken}
+            <button
+              class="btn"
+              onclick={() => void publishOpenPlaylist()}
+              title="Créer cette crate en playlist privée sur le compte YouTube actif (coût quota : ~50 unités par morceau)"
+            >
+              ▶ Publier sur YouTube
+            </button>
+          {/if}
+          <button class="btn" onclick={() => void saveFavoritesAsPlaylist()} disabled={favorites.length === 0}>
+            Sauver les favoris en playlist
+          </button>
+        </div>
       </div>
       {#if knownUsers.length > 0 && !openPlaylist}
         <div class="filters pad">
@@ -509,14 +855,29 @@
         </div>
       {/if}
       {#if openPlaylist}
-        <p class="hint">Playlist « {openPlaylist.name} »</p>
-        {#each sortedPlaylistTracks.slice(0, plLimit) as track (track.videoId)}
+        <p class="hint">
+          Crate « {openPlaylist.name} » — ↑↓ pour réordonner, 🗑 pour retirer
+          {#if sort || filter}(réordonnancement disponible sans tri ni filtre){/if}
+        </p>
+        {#each sortedPlaylistTracks.slice(0, plLimit) as track, i (track.videoId)}
           <TrackRow
             {track}
             {mixer}
             favorite={favoriteIds.has(track.videoId)}
+            highlighted={cursor === i}
+            selected={selectedIds.has(track.videoId)}
+            onRowClick={(e) => handleSelect(e, i)}
             onRoute={route}
             onToggleFavorite={handleToggleFavorite}
+            removeTitle="Retirer de la crate"
+            onRemove={() =>
+              void mutateOpenPlaylist(openPlaylist!.tracks.filter((t) => t.videoId !== track.videoId))}
+            onMoveUp={!sort && !filter && i > 0
+              ? () => void mutateOpenPlaylist(moveItem(openPlaylist!.tracks, i, i - 1))
+              : undefined}
+            onMoveDown={!sort && !filter && i < openPlaylist.tracks.length - 1
+              ? () => void mutateOpenPlaylist(moveItem(openPlaylist!.tracks, i, i + 1))
+              : undefined}
           />
         {/each}
         <LoadMoreSentinel
@@ -525,12 +886,15 @@
           onMore={() => (plLimit += 50)}
         />
       {:else}
-        {#each sortedFavorites.slice(0, favLimit) as fav (fav.videoId)}
+        {#each sortedFavorites.slice(0, favLimit) as fav, i (fav.videoId)}
           <TrackRow
             track={fav.track}
             {mixer}
             favorite
             by={fav.by}
+            highlighted={cursor === i}
+            selected={selectedIds.has(fav.videoId)}
+            onRowClick={(e) => handleSelect(e, i)}
             onRoute={route}
             onToggleFavorite={handleToggleFavorite}
           />
@@ -549,6 +913,21 @@
       {/if}
     {/if}
   </div>
+
+  {#if selectedIds.size > 0}
+    <div class="bulkbar" role="toolbar" aria-label="Actions sur la sélection">
+      <span class="count">{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+      <span class="grp" title="Noter tous les morceaux sélectionnés">
+        {#each [1, 2, 3, 4, 5] as n (n)}
+          <button class="btn" onclick={() => void bulkRate(n)}>{n}★</button>
+        {/each}
+      </span>
+      <button class="btn" onclick={() => void bulkStyle()} title="Attribuer un style à toute la sélection">✎ style</button>
+      <button class="btn" onclick={() => void bulkCrate()} title="Ajouter la sélection à une crate (nom existant) ou en créer une nouvelle">➕ crate</button>
+      <button class="btn" onclick={bulkAnalyze} title="Pré-analyser la sélection (waveform, BPM, tonalité) en silence">⚡</button>
+      <button class="btn" onclick={() => (selectedIds = new Set())} title="Vider la sélection">✕</button>
+    </div>
+  {/if}
 </section>
 
 <style>
@@ -600,6 +979,74 @@
 
   .filter:focus {
     border-color: var(--yt-deck-a);
+  }
+
+  .tab.match {
+    color: var(--yt-deck-c);
+  }
+
+  .tab.match:disabled {
+    color: var(--yt-text-dim);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .tab.match.on {
+    border-bottom-color: var(--yt-deck-c);
+    color: var(--yt-deck-c);
+  }
+
+  .toolrow {
+    border-bottom: 1px solid var(--yt-border);
+  }
+
+  .toolrow > :global(.sortbar) {
+    border-bottom: none;
+  }
+
+  .smart {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 0 10px 6px;
+  }
+
+  select {
+    background: var(--yt-panel-deep);
+    border: 1px solid var(--yt-border);
+    border-radius: 4px;
+    color: var(--yt-text);
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .head-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* actions groupées sur la sélection multiple */
+  .bulkbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    border-top: 1px solid var(--yt-deck-a);
+    background: var(--yt-panel-deep);
+  }
+
+  .bulkbar .count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--yt-deck-a);
+  }
+
+  .bulkbar .grp {
+    display: inline-flex;
+    gap: 2px;
   }
 
   .nav-spacer {

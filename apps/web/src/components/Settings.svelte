@@ -122,7 +122,7 @@
     </div>
 
     <div class="crate">
-      <span>Crate (waveforms, BPM, tonalités, cues, favoris, playlists)</span>
+      <span title="Sauvegarde complète : dossiers d’analyse, favoris, crates, notes/styles/couleurs, filtres sauvegardés, historique — pour changer de machine ou partager">Bibliothèque (waveforms, cues, favoris, crates, notes, styles, historique)</span>
       <div class="crate-actions">
         <button class="btn" onclick={() => void doExport()}>Exporter</button>
         <label class="btn">

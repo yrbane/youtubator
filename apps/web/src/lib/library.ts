@@ -119,6 +119,16 @@ export interface StyleColorRecord {
   color: string;
 }
 
+/** Filtre sauvegardé (smart crate) : un filtre + un tri, rejoués à la demande. */
+export interface Smartlist {
+  id: string;
+  name: string;
+  query: string;
+  sortKey: string | null;
+  sortDir: 1 | -1 | null;
+  createdAt: number;
+}
+
 class YoutubatorDb extends Dexie {
   history!: Table<HistoryEntry, number>;
   favorites!: Table<Favorite, string>;
@@ -130,6 +140,7 @@ class YoutubatorDb extends Dexie {
   searchCache!: Table<SearchCache, string>;
   trackMeta!: Table<TrackMetaRecord, string>;
   styleColors!: Table<StyleColorRecord, string>;
+  smartlists!: Table<Smartlist, string>;
 
   constructor() {
     super('youtubator');
@@ -216,6 +227,19 @@ class YoutubatorDb extends Dexie {
           await tx.table('styleColors').put({ style, color });
         }
       });
+    this.version(8).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+      ytLists: 'key, accountId',
+      searchCache: 'norm, updatedAt',
+      trackMeta: 'videoId, style, rating',
+      styleColors: 'style',
+      smartlists: 'id, name',
+    });
   }
 }
 
@@ -309,6 +333,43 @@ export async function listPlaylists(): Promise<Playlist[]> {
 
 export async function deletePlaylist(id: string): Promise<void> {
   await db.playlists.delete(id);
+}
+
+export async function renamePlaylist(id: string, name: string): Promise<void> {
+  await db.playlists.update(id, { name, updatedAt: Date.now() });
+}
+
+/** Remplace les morceaux d'une crate (réordonnancement, retrait). */
+export async function updatePlaylistTracks(id: string, tracks: Track[]): Promise<void> {
+  await db.playlists.update(id, { tracks: tracks.map(toPlainTrack), updatedAt: Date.now() });
+}
+
+/** Ajoute des morceaux à une crate, sans doublon (videoId). */
+export async function addTracksToPlaylist(id: string, tracks: Track[]): Promise<void> {
+  const playlist = await db.playlists.get(id);
+  if (!playlist) return;
+  const known = new Set(playlist.tracks.map((t) => t.videoId));
+  const merged = [...playlist.tracks, ...tracks.filter((t) => !known.has(t.videoId)).map(toPlainTrack)];
+  await db.playlists.update(id, { tracks: merged, updatedAt: Date.now() });
+}
+
+// --- Filtres sauvegardés (smart crates) ---
+
+export async function listSmartlists(): Promise<Smartlist[]> {
+  return db.smartlists.orderBy('name').toArray();
+}
+
+export async function saveSmartlist(
+  name: string,
+  query: string,
+  sortKey: string | null,
+  sortDir: 1 | -1 | null,
+): Promise<void> {
+  await db.smartlists.put({ id: crypto.randomUUID(), name, query, sortKey, sortDir, createdAt: Date.now() });
+}
+
+export async function deleteSmartlist(id: string): Promise<void> {
+  await db.smartlists.delete(id);
 }
 
 // --- Historique des recherches ---

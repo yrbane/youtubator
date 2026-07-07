@@ -1,5 +1,7 @@
 # 🎛️ Youtubator
 
+![version](https://img.shields.io/badge/version-0.9.0-blue) — voir [CHANGELOG.md](CHANGELOG.md). La version vit dans `apps/web/package.json`, est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
+
 > **Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube.**
 > Interface inspirée de Traktor : decks vidéo, mixer central (volume, EQ 3 bandes, tempo), sync, recherche/historique/favoris, playlists.
 
@@ -237,6 +239,27 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-PERF** : mode **performance** ⛶ (plein écran, browser masqué, waveforms ×2).
 - **F-REC** : **enregistrement du mix** via l'icône d'extension (tabCapture + offscreen + MediaRecorder → webm ; Chrome uniquement, usage personnel).
 
+### 6.4 quater Browser pro (v0.9)
+
+Le browser est un outil de mix complet, calqué sur Traktor. **Toute l'UI est auto-documentée** (infobulle sur chaque contrôle).
+
+- **F-BRW-08 — pagination + cache local partout** : « J'aime » et playlists YouTube chargés 50 par 50 au scroll (sentinelle `IntersectionObserver`) et **intégralement cachés** (Dexie ; reprise du jeton de pagination d'une session à l'autre, nouveautés fusionnées en tête). Recherche paginée, cachée 1 h par requête (une recherche = 100 unités de quota). Historique par tranches de 50, favoris/playlists fenêtrés.
+- **F-BRW-09 — filtre libre** : champ « ⧩ filtrer » dans la barre d'onglets — live sur la liste affichée quel que soit l'onglet, insensible casse/accents, multi-mots en ET, cherche titre + chaîne + style + BPM + tonalité. `Échap` efface.
+- **F-BRW-10 — tri des colonnes** : barre « Trier » (titre, chaîne, durée, BPM, note, lectures, style, couleur) — 1ᵉʳ clic croissant, 2ᵉ décroissant, 3ᵉ ordre d'origine ; valeurs absentes toujours en fin.
+- **F-BRW-11 — métadonnées DJ** : **note 1-5 ★**, **style musical** (chip éditable, suggestions des styles existants), **couleur par style** (partagée par tous les morceaux du style — clic = couleur suivante, clic droit = nuancier), **compteur de lectures** total·session, lien **↗ YouTube**, retraits contextuels (entrée d'historique 🗑, « J'aime » YouTube via `videos.rate none`). Persistance Dexie (`trackMeta`, `styleColors`).
+- **F-BRW-12 — MATCH** : ne garder que les morceaux **mixables avec le deck maître** (BPM ±6 %, octaves ½×/2× comprises, tonalités compatibles Camelot).
+- **F-BRW-13 — navigation clavier** : `↑`/`↓` curseur, `Entrée` → deck A, `Maj+Entrée` → deck B, `F` favori.
+- **F-BRW-14 — sélection multiple** : clic / Ctrl+clic / Maj+clic (plage) → barre d'actions groupées : noter, styler, **➕ crate**, ⚡ analyser.
+- **F-BRW-15 — crates éditables** : « + crate », renommer ✎, réordonner ↑↓, retirer 🗑, **▶ publier en playlist YouTube privée** (`playlists.insert` + `playlistItems.insert`, coût quota annoncé avant confirmation).
+- **F-BRW-16 — smart crates** : 💾 sauvegarde le couple filtre + tri courant ; chips ✨ pour le réappliquer d'un clic.
+- **F-BRW-17 — ⚡ liste** : pré-analyse toute la liste affichée via l'analyse fantôme (les morceaux déjà analysés sont sautés).
+- **F-BRW-18 — pré-écoute 🎧** : écouter sans occuper de deck (lecteur caché, départ au tiers du morceau, sortie principale ; s'arrête au chargement d'un morceau sur un deck).
+- **F-BRW-19 — export de tracklist** : ⤓ txt (numéroté, minutage relatif, publiable) et ⤓ csv depuis l'historique — la liste affichée, filtres appliqués.
+- **F-BRW-20 — stats 📊** : les plus joués, répartition par style (avec couleurs), morceaux « endormis » (30 j+).
+- **F-BRW-21 — recherche affinée** : durée (tracks 4-20 min / mixes +20 min — écarte aussi les Shorts) et tri (pertinence / plus récents) ; seul le réglage par défaut est mis en cache.
+- **F-BRW-22 — plein écran momentané** : ⛶ sur le browser (ou `/` quand il est masqué) le temps de chercher ; `Échap` ou chargement d'un morceau pour revenir au mix.
+- **F-BRW-23 — virtualisation légère** : `content-visibility: auto` sur les lignes — les longues listes ne rendent que ce qui est à l'écran.
+
 ### 6.5 Réglages
 
 - **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide) et **Client ID OAuth Google** (connexion compte, origine autorisée = URL de l'app).
@@ -291,11 +314,14 @@ Palette sombre type Traktor : fond `#1a1d21`, panneaux `#24282e`, accents deck A
 | Touche | Action |
 |---|---|
 | `Espace` / `Q` | Play/Pause deck A / deck B |
-| `Maj+Q` etc. | Cue |
 | `S` / `L` | Sync A / B |
 | `←→` | Crossfader par pas |
-| `1..4` | Focus deck n |
-| `/` | Focus recherche |
+| `1..8` / `Maj+1..8` | Hot cues deck A / deck B |
+| `/` | Focus recherche (browser en plein écran s'il est masqué) |
+| `↑↓` | Curseur dans la liste du browser |
+| `Entrée` / `Maj+Entrée` | Charger le morceau sous le curseur sur A / B |
+| `F` | Favori du morceau sous le curseur |
+| `Échap` | Effacer le filtre / réduire le browser plein écran |
 
 ## 8. `potard` — lib de contrôles style Ableton (repo externe)
 

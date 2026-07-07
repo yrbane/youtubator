@@ -12,10 +12,28 @@ function authQueryAndHeaders(apiKey: string | null): { qs: string; init: Request
   return { qs: `&key=${apiKey}`, init: {} };
 }
 
-/** Chemin de recherche paginé (pur, testable). */
-export function buildSearchPath(query: string, pageToken?: string | null): string {
-  const base = `search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}`;
-  return pageToken ? `${base}&pageToken=${encodeURIComponent(pageToken)}` : base;
+/** Affinage de la recherche : durée YouTube et ordre des résultats. */
+export interface SearchOptions {
+  /** any = tout ; medium = 4-20 min (tracks) ; long = > 20 min (mixes/lives). */
+  duration?: 'any' | 'medium' | 'long';
+  order?: 'relevance' | 'date';
+}
+
+export const DEFAULT_SEARCH_OPTIONS: Required<SearchOptions> = {
+  duration: 'any',
+  order: 'relevance',
+};
+
+/** Chemin de recherche paginé (pur, testable) ; les options par défaut n'ajoutent rien. */
+export function buildSearchPath(
+  query: string,
+  pageToken?: string | null,
+  options: SearchOptions = {},
+): string {
+  let path = `search?part=snippet&type=video&maxResults=15&q=${encodeURIComponent(query)}`;
+  if (options.duration && options.duration !== 'any') path += `&videoDuration=${options.duration}`;
+  if (options.order && options.order !== 'relevance') path += `&order=${options.order}`;
+  return pageToken ? `${path}&pageToken=${encodeURIComponent(pageToken)}` : path;
 }
 
 export interface SearchPage {
@@ -32,6 +50,7 @@ export async function searchYoutubePage(
   query: string,
   apiKey: string | null,
   pageToken?: string | null,
+  options: SearchOptions = {},
 ): Promise<SearchPage> {
   const videoId = parseYoutubeInput(query);
   if (videoId) return { tracks: [await fetchTrackMeta(videoId)], nextPageToken: null };
@@ -43,7 +62,7 @@ export async function searchYoutubePage(
   }
 
   const { qs, init } = authQueryAndHeaders(apiKey);
-  const searchRes = await fetch(`${API}/${buildSearchPath(query, pageToken)}${qs}`, init);
+  const searchRes = await fetch(`${API}/${buildSearchPath(query, pageToken, options)}${qs}`, init);
   if (!searchRes.ok) throw new Error(`Recherche YouTube en échec (${searchRes.status})`);
   const searchJson = (await searchRes.json()) as {
     nextPageToken?: string;

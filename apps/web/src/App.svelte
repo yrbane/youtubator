@@ -12,6 +12,7 @@
   import { isBrowserHidden } from './lib/ui-prefs.js';
   import { recordHistory } from './lib/library.js';
   import { meta } from './lib/meta.svelte.js';
+  import { preview } from './lib/preview.svelte.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
   import type { Track } from './lib/tracks.js';
@@ -50,6 +51,7 @@
   }
   let browser = $state<ReturnType<typeof Browser>>();
   let ghostContainer: HTMLDivElement;
+  let previewContainer: HTMLDivElement;
 
   // contrôleur MIDI → actions sur les decks et le mixer
   midi.onAction((action, value) => {
@@ -98,6 +100,7 @@
 
   $effect(() => {
     ghost.attach(ghostContainer);
+    preview.attach(previewContainer);
     void session.init();
     void meta.init();
     void loadYouTubeApi().then(() => {
@@ -113,6 +116,7 @@
     const deck = mixer.decks.find((d) => d.id === deckId);
     if (!deck) return;
     if (deck.isPlaying && !confirm(`Remplacer le morceau en cours sur le deck ${deckId} ?`)) return;
+    preview.stop(); // la pré-écoute cède la place au vrai chargement
     await deck.loadTrack(track);
     await recordHistory(track, deckId, session.attribution);
     await meta.recordPlay(track.videoId); // compteurs de lecture (session + total)
@@ -188,6 +192,7 @@
 
 <header class="topbar">
   <h1>YOU<span>TUBATOR</span></h1>
+  <span class="version mono" title="Version de l'application (CHANGELOG.md pour le détail)">v{__APP_VERSION__}</span>
   <button
     class="btn"
     onclick={() => {
@@ -248,6 +253,7 @@
 <WaveformStrip {mixer} rowH={perfMode ? 110 : 56} showWaves={ui.showWaves} />
 
 <div class="ghost-hole" bind:this={ghostContainer}></div>
+<div class="ghost-hole" bind:this={previewContainer}></div>
 
 <div
   class="browser-zone"
@@ -293,6 +299,14 @@
 
   h1 span {
     color: var(--yt-text);
+  }
+
+  .version {
+    font-size: 9px;
+    color: var(--yt-text-dim);
+    align-self: flex-end;
+    margin: 0 0 2px -8px;
+    cursor: help;
   }
 
   .ext {

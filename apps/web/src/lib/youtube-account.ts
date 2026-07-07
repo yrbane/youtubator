@@ -82,6 +82,52 @@ export async function rateVideo(token: string, videoId: string, rating: VideoRat
   if (!res.ok) throw new Error(`Impossible de noter la vidéo (${res.status})`);
 }
 
+/** Requête de création de playlist YouTube (pure, testable) — 50 unités de quota. */
+export function buildCreatePlaylistRequest(token: string, title: string): { url: string; init: RequestInit } {
+  return {
+    url: `${API}/playlists?part=snippet,status`,
+    init: {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snippet: { title }, status: { privacyStatus: 'private' } }),
+    },
+  };
+}
+
+/** Requête d'ajout d'une vidéo à une playlist (pure, testable) — 50 unités de quota. */
+export function buildInsertItemRequest(
+  token: string,
+  playlistId: string,
+  videoId: string,
+): { url: string; init: RequestInit } {
+  return {
+    url: `${API}/playlistItems?part=snippet`,
+    init: {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        snippet: { playlistId, resourceId: { kind: 'youtube#video', videoId } },
+      }),
+    },
+  };
+}
+
+/** Crée une playlist privée sur le compte connecté et retourne son id. */
+export async function createYtPlaylist(token: string, title: string): Promise<string> {
+  const { url, init } = buildCreatePlaylistRequest(token, title);
+  const res = await fetch(url, init);
+  if (!res.ok) throw new Error(`Création de playlist YouTube en échec (${res.status})`);
+  const json = (await res.json()) as { id?: string };
+  if (!json.id) throw new Error('Playlist créée mais id introuvable.');
+  return json.id;
+}
+
+export async function addVideoToYtPlaylist(token: string, playlistId: string, videoId: string): Promise<void> {
+  const { url, init } = buildInsertItemRequest(token, playlistId, videoId);
+  const res = await fetch(url, init);
+  if (!res.ok) throw new Error(`Ajout à la playlist YouTube en échec (${res.status})`);
+}
+
 /** Identité du compte : chaîne YouTube + userinfo Google (email, avatar). */
 export async function fetchAccountIdentity(token: string): Promise<{ channels: any; userinfo: any }> {
   const [channels, userinfoRes] = await Promise.all([

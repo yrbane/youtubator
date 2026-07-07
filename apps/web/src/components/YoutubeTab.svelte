@@ -4,6 +4,7 @@
   import LoadMoreSentinel from './LoadMoreSentinel.svelte';
   import SortBar from './SortBar.svelte';
   import { meta } from '../lib/meta.svelte.js';
+  import { ghost } from '../lib/ghost.svelte.js';
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import { filterRows } from '../lib/filter.js';
   import {
@@ -255,7 +256,16 @@
       <p class="hint">Chargement…</p>
     {:else}
       {#if tracks.length > 0}
-        <SortBar {sort} onSort={toggleSort} />
+        <div class="tools">
+          <SortBar {sort} onSort={toggleSort} />
+          <button
+            class="btn zap-all"
+            onclick={() => sortedTracks.forEach((t) => ghost.enqueue(t))}
+            title="Pré-analyser toute la liste affichée (waveform, BPM, tonalité) via l'analyse fantôme — les morceaux déjà analysés sont sautés"
+          >
+            ⚡ liste
+          </button>
+        </div>
       {/if}
       {#each sortedTracks as track (track.videoId)}
         <TrackRow
@@ -403,5 +413,21 @@
   .chip.on {
     border-color: var(--yt-deck-a);
     color: var(--yt-deck-a);
+  }
+
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tools > :global(.sortbar) {
+    flex: 1;
+    border-bottom: none;
+  }
+
+  .tools {
+    border-bottom: 1px solid var(--yt-border);
+    padding-right: 10px;
   }
 </style>
