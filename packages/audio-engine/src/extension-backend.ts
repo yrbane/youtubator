@@ -22,8 +22,8 @@ export class ExtensionBackend implements DeckAudioBackend {
   #capabilities: DeckCapabilities | null = null;
   #meterListeners = new Set<(level: number) => void>();
   #loopStateListeners = new Set<(s: { engaged: boolean; resumeAtS: number | null }) => void>();
-  #envelopeWaiters: Array<(e: { rate: number; data: number[]; endTimeS: number; mode?: string }) => void> = [];
-  #chromaWaiters: Array<(c: { bins: number[]; samples: number }) => void> = [];
+  /** Requêtes en attente, par type de message de réponse (FIFO). */
+  #waiters = new Map<string, Array<(payload: unknown) => void>>();
   #unsubChannel: Unsubscribe;
   #helloTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -59,56 +59,54 @@ export class ExtensionBackend implements DeckAudioBackend {
       case 'METER':
         for (const l of this.#meterListeners) l(msg.level);
         break;
-      case 'ENVELOPE': {
-        const waiter = this.#envelopeWaiters.shift();
-        waiter?.({ rate: msg.rate, data: msg.data, endTimeS: msg.endTimeS, mode: msg.mode });
+      case 'ENVELOPE':
+        this.#waiters.get('ENVELOPE')?.shift()?.({
+          rate: msg.rate,
+          data: msg.data,
+          endTimeS: msg.endTimeS,
+          mode: msg.mode,
+        });
         break;
-      }
-      case 'CHROMA': {
-        const chromaWaiter = this.#chromaWaiters.shift();
-        chromaWaiter?.({ bins: msg.bins, samples: msg.samples });
+      case 'CHROMA':
+        this.#waiters.get('CHROMA')?.shift()?.({ bins: msg.bins, samples: msg.samples });
         break;
-      }
       case 'LOOP_STATE':
         for (const l of this.#loopStateListeners) l({ engaged: msg.engaged, resumeAtS: msg.resumeAtS });
         break;
     }
   }
 
-  /** Enveloppe d'énergie du ring buffer (pour la détection de BPM). */
-  async getEnvelope(): Promise<{ rate: number; data: number[]; endTimeS: number; mode?: string } | null> {
-    if (!this.#connected) return null;
+  /**
+   * Requête/réponse générique vers la frame : envoie `requestType`, résout
+   * avec le payload du prochain `responseType` (FIFO), null après timeout.
+   */
+  #request<T>(requestType: 'GET_ENVELOPE' | 'GET_CHROMA', responseType: string): Promise<T | null> {
+    if (!this.#connected) return Promise.resolve(null);
     return new Promise((resolve) => {
+      const queue = this.#waiters.get(responseType) ?? [];
+      this.#waiters.set(responseType, queue);
       const timeout = setTimeout(() => {
-        const i = this.#envelopeWaiters.indexOf(waiter);
-        if (i >= 0) this.#envelopeWaiters.splice(i, 1);
+        const i = queue.indexOf(waiter);
+        if (i >= 0) queue.splice(i, 1);
         resolve(null);
       }, 3000);
-      const waiter = (e: { rate: number; data: number[]; endTimeS: number; mode?: string }): void => {
+      const waiter = (payload: unknown): void => {
         clearTimeout(timeout);
-        resolve(e);
+        resolve(payload as T);
       };
-      this.#envelopeWaiters.push(waiter);
-      this.#channel.send(createMessage('GET_ENVELOPE', {}));
+      queue.push(waiter);
+      this.#channel.send(createMessage(requestType, {}));
     });
   }
 
+  /** Enveloppe d'énergie du ring buffer (pour la détection de BPM). */
+  getEnvelope(): Promise<{ rate: number; data: number[]; endTimeS: number; mode?: string } | null> {
+    return this.#request('GET_ENVELOPE', 'ENVELOPE');
+  }
+
   /** Chromagramme accumulé côté frame (détection de tonalité). */
-  async getChroma(): Promise<{ bins: number[]; samples: number } | null> {
-    if (!this.#connected) return null;
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        const i = this.#chromaWaiters.indexOf(waiter);
-        if (i >= 0) this.#chromaWaiters.splice(i, 1);
-        resolve(null);
-      }, 3000);
-      const waiter = (c: { bins: number[]; samples: number }): void => {
-        clearTimeout(timeout);
-        resolve(c);
-      };
-      this.#chromaWaiters.push(waiter);
-      this.#channel.send(createMessage('GET_CHROMA', {}));
-    });
+  getChroma(): Promise<{ bins: number[]; samples: number } | null> {
+    return this.#request('GET_CHROMA', 'CHROMA');
   }
 
   /** Boucle sample-accurate jouée depuis le buffer local de la frame. */

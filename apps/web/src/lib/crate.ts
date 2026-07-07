@@ -38,15 +38,13 @@ export async function exportCrate(): Promise<CrateExport> {
 export async function importCrate(data: unknown): Promise<{ waveforms: number; favorites: number; playlists: number } | null> {
   const crate = validateCrate(data);
   if (!crate) return null;
-  let waveformCount = 0;
-  for (const record of crate.waveforms) {
-    const existing = await db.waveforms.get(record.videoId);
-    if (!existing || (record.updatedAt ?? 0) > (existing.updatedAt ?? 0)) {
-      await db.waveforms.put(record);
-      waveformCount++;
-    }
-  }
+  // fusion en deux requêtes bulk (pas de N allers-retours IndexedDB)
+  const existing = await db.waveforms.bulkGet(crate.waveforms.map((w) => w.videoId));
+  const fresher = crate.waveforms.filter(
+    (record, i) => !existing[i] || (record.updatedAt ?? 0) > (existing[i]!.updatedAt ?? 0),
+  );
+  await db.waveforms.bulkPut(fresher);
   await db.favorites.bulkPut(crate.favorites);
   await db.playlists.bulkPut(crate.playlists);
-  return { waveforms: waveformCount, favorites: crate.favorites.length, playlists: crate.playlists.length };
+  return { waveforms: fresher.length, favorites: crate.favorites.length, playlists: crate.playlists.length };
 }

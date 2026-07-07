@@ -23,8 +23,18 @@
 
   const displayTime = (deck: Deck): number => deck.displayTimeS();
 
+  // les accents sont des tokens CSS statiques : un getComputedStyle par deck
+  // et par frame (60/s) provoquerait des recalculs de style inutiles
+  const accentCache = new Map<string, string>();
+
   function accentOf(deck: Deck): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(deck.colorVar).trim() || '#19c2ff';
+    let accent = accentCache.get(deck.colorVar);
+    if (!accent) {
+      accent =
+        getComputedStyle(document.documentElement).getPropertyValue(deck.colorVar).trim() || '#19c2ff';
+      accentCache.set(deck.colorVar, accent);
+    }
+    return accent;
   }
 
   function draw(deck: Deck, canvas: HTMLCanvasElement): void {
@@ -220,6 +230,11 @@
   $effect(() => {
     let raf = 0;
     const loop = (): void => {
+      if (document.hidden) {
+        // onglet caché : zéro travail canvas, on repasse en veille douce
+        setTimeout(() => (raf = requestAnimationFrame(loop)), 500);
+        return;
+      }
       for (const deck of loadedDecks) {
         const canvas = canvases[deck.id];
         if (!canvas) continue;

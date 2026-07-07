@@ -74,11 +74,8 @@ export class Deck {
   #extension: ExtensionBackend | null = null;
   #container: HTMLElement | null = null;
   #xfGain = 1;
-  #meterTimer: ReturnType<typeof setInterval> | null = null;
-  #capsTimer: ReturnType<typeof setInterval> | null = null;
+  #tickTimer: ReturnType<typeof setInterval> | null = null;
   #waveDirty = false;
-  #waveSaveTimer: ReturnType<typeof setInterval> | null = null;
-  #loopTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(id: string, index: number) {
     this.id = id;
@@ -174,36 +171,39 @@ export class Deck {
         if (mergeSample(this.waveBuckets, this.currentTimeS, level)) this.#waveDirty = true;
       }
     });
-    this.#waveSaveTimer = setInterval(() => void this.#flushWaveform(), 8000);
-    // garde de boucle (mode dégradé) : re-saute au IN dès que la sortie est franchie
-    this.#loopTimer = setInterval(() => {
-      if (!this.isPlaying || this.sampleLoop) return;
-      const target = shouldJump(this.loop, this.displayTimeS());
-      if (target !== null) this.seekToS(target);
-    }, 80);
-    // analyse de BPM automatique après ~12 s de lecture capturée
-    setInterval(() => {
-      if (this.hasExtension && this.isPlaying && !this.grid && !this.#analyzingBpm && this.currentTimeS > 12) {
-        void this.analyzeBpm();
+    // un seul ticker par deck (80 ms) : les cadences lentes en dérivent par
+    // modulo — moins de réveils du main thread que 5 intervalles séparés
+    let tick = 0;
+    let capsDone = false;
+    this.#tickTimer = setInterval(() => {
+      tick++;
+      // garde de boucle (mode dégradé) : re-saute au IN dès la sortie franchie
+      if (this.isPlaying && !this.sampleLoop) {
+        const target = shouldJump(this.loop, this.displayTimeS());
+        if (target !== null) this.seekToS(target);
       }
-    }, 4000);
-    // VU approximatif tant que l'extension n'est pas là (F-MIX-04 dégradé)
-    this.#meterTimer = setInterval(() => {
-      if (!this.hasExtension) {
+      // ~480 ms : détection de l'extension puis poussée de l'état initial
+      if (!capsDone && tick % 6 === 0) {
+        this.hasExtension = backend.capabilities.eq;
+        if (this.hasExtension) {
+          capsDone = true;
+          this.#pushAllEq();
+          this.#backend?.setTempoMode(this.tempoMode);
+          if (this.silentMode) this.#extension?.setGain(0);
+          else if (this.autoGain !== 1) this.#extension?.setGain(this.autoGain); // auto-gain restauré du cache
+        }
+      }
+      // ~160 ms : VU approximatif tant que l'extension n'est pas là
+      if (!this.hasExtension && tick % 2 === 0) {
         this.meterLevel = this.isPlaying ? this.volume * this.#xfGain * (0.55 + 0.35 * Math.random()) : 0;
       }
-    }, 100);
-    this.#capsTimer = setInterval(() => {
-      this.hasExtension = backend.capabilities.eq;
-      if (this.hasExtension && this.#capsTimer !== null) {
-        clearInterval(this.#capsTimer);
-        this.#capsTimer = null;
-        this.#pushAllEq();
-        this.#backend?.setTempoMode(this.tempoMode);
-        if (this.silentMode) this.#extension?.setGain(0);
-        else if (this.autoGain !== 1) this.#extension?.setGain(this.autoGain); // auto-gain restauré du cache
+      // ~4 s : analyse de BPM automatique après ~12 s de lecture capturée
+      if (tick % 50 === 0 && this.hasExtension && this.isPlaying && !this.grid && !this.#analyzingBpm && this.currentTimeS > 12) {
+        void this.analyzeBpm();
       }
-    }, 500);
+      // ~8 s : sauvegarde périodique du dossier
+      if (tick % 100 === 0) void this.#flushWaveform();
+    }, 80);
   }
 
   play(): void {
@@ -515,10 +515,7 @@ export class Deck {
   }
 
   destroy(): void {
-    if (this.#meterTimer !== null) clearInterval(this.#meterTimer);
-    if (this.#capsTimer !== null) clearInterval(this.#capsTimer);
-    if (this.#waveSaveTimer !== null) clearInterval(this.#waveSaveTimer);
-    if (this.#loopTimer !== null) clearInterval(this.#loopTimer);
+    if (this.#tickTimer !== null) clearInterval(this.#tickTimer);
     void this.#flushWaveform();
     this.#backend?.destroy();
     this.#backend = null;

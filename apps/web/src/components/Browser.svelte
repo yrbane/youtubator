@@ -52,6 +52,7 @@
 
   // suggestions « à mixer ensuite » : bibliothèque locale vs deck maître
   let waveMeta = $state<Map<string, { bpm: number | null; key: string | null }>>(new Map());
+  let waveMetaAt = 0;
   const libraryTracks = $derived.by(() => {
     const byId = new Map<string, Track>();
     for (const f of favorites) byId.set(f.videoId, f.track);
@@ -94,12 +95,17 @@
       listPlaylists(),
       listSearches(),
     ]);
-    waveMeta = new Map(
-      (await db.waveforms.toArray()).map((w) => [
-        w.videoId,
-        { bpm: w.bpm ?? null, key: w.keyCamelot ?? null },
-      ]),
-    );
+    // les dossiers waveform sont lourds (buckets) : on ne les recharge que
+    // toutes les 20 s au plus, les BPM/tonalités bougent rarement
+    if (Date.now() - waveMetaAt > 20_000) {
+      waveMetaAt = Date.now();
+      waveMeta = new Map(
+        (await db.waveforms.toArray()).map((w) => [
+          w.videoId,
+          { bpm: w.bpm ?? null, key: w.keyCamelot ?? null },
+        ]),
+      );
+    }
   }
 
   $effect(() => {

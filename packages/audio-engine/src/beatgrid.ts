@@ -202,29 +202,25 @@ export function detectBpm(envelope: Float32Array, envelopeRate: number): BpmDete
   if (mean < 1e-6) return null; // enveloppe plate
   for (let i = 0; i < n; i++) novelty[i]! -= mean;
 
-  // autocorrélation sur la plage de lags correspondant à 60..180 BPM
+  // autocorrélation en une passe sur une plage étendue : elle couvre à la
+  // fois les candidats 60..180 BPM et leurs lags ×2/3 (pénalité sesquialtère)
   const lagMin = Math.floor((envelopeRate * 60) / BPM_MAX);
   const lagMax = Math.min(Math.ceil((envelopeRate * 60) / BPM_MIN), Math.floor(n / 2));
-  let bestLag = 0;
-  let bestScore = -Infinity;
+  const lagLow = Math.max(2, Math.floor((lagMin * 2) / 3));
   const scores = new Float32Array(lagMax + 1);
-  for (let lag = lagMin; lag <= lagMax; lag++) {
+  for (let lag = lagLow; lag <= lagMax; lag++) {
     let s = 0;
     for (let i = lag; i < n; i++) s += novelty[i]! * novelty[i - lag]!;
     scores[lag] = s / (n - lag);
   }
-  const corrAt = (lag: number): number => {
-    if (lag < 2 || lag >= n) return 0;
-    let s = 0;
-    for (let i = lag; i < n; i++) s += novelty[i]! * novelty[i - lag]!;
-    return s / (n - lag);
-  };
+  let bestLag = 0;
+  let bestScore = -Infinity;
   for (let lag = lagMin; lag <= lagMax; lag++) {
     // bonus harmonique : le double du lag doit corréler (anti-octave)
     const harmonic = lag * 2 <= lagMax ? 0.4 * scores[lag * 2]! : 0;
     // pénalité sesquialtère : si lag×2/3 corrèle fort, ce candidat est
     // l'erreur 3:2 d'un groove syncopé (le vrai beat est à 2/3 de ce lag)
-    const sesquialtera = 0.6 * Math.max(0, corrAt(Math.round((lag * 2) / 3)));
+    const sesquialtera = 0.6 * Math.max(0, scores[Math.round((lag * 2) / 3)] ?? 0);
     const s = scores[lag]! + harmonic - sesquialtera;
     if (s > bestScore) {
       bestScore = s;
