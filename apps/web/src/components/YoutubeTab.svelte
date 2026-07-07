@@ -2,11 +2,15 @@
   import TrackRow from './TrackRow.svelte';
   import Avatar from './Avatar.svelte';
   import LoadMoreSentinel from './LoadMoreSentinel.svelte';
+  import SortBar from './SortBar.svelte';
+  import { meta } from '../lib/meta.svelte.js';
+  import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import {
     fetchLikedPlaylistId,
     fetchMyPlaylists,
     fetchPlaylistPage,
     mergeTracks,
+    rateVideo,
     type YtPlaylist,
   } from '../lib/youtube-account.js';
   import { deleteYtLists, loadYtList, saveYtList } from '../lib/library.js';
@@ -118,6 +122,44 @@
     }
   }
 
+  // tri des colonnes (BPM absent ici : pas de dossier waveform sous la main)
+  let sort = $state<{ key: SortKey; dir: 1 | -1 } | null>(null);
+
+  function toggleSort(key: SortKey): void {
+    sort = sort?.key !== key ? { key, dir: 1 } : sort.dir === 1 ? { key, dir: -1 } : null;
+  }
+
+  function toSortRow(track: Track): SortableRow {
+    const m = meta.get(track.videoId);
+    return {
+      title: track.title,
+      channel: track.channel,
+      durationS: track.durationS,
+      rating: m?.rating ?? 0,
+      plays: m?.plays ?? 0,
+      style: m?.style ?? null,
+      color: m?.color ?? null,
+    };
+  }
+
+  const sortedTracks = $derived(
+    sort ? sortRows(tracks, toSortRow, sort.key, sort.dir) : tracks,
+  );
+
+  /** Retire un morceau des « J'aime » YouTube du compte actif (et du cache local). */
+  async function unlike(track: Track): Promise<void> {
+    const token = session.activeToken;
+    const accountId = session.activeId;
+    if (!token || !accountId || !activeListId) return;
+    try {
+      await rateVideo(token, track.videoId, 'none');
+      tracks = tracks.filter((t) => t.videoId !== track.videoId);
+      await saveYtList(accountId, activeListId, tracks, nextPageToken);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
   /** Arrivé en bas : charge la page suivante (plus anciens) et complète le cache. */
   async function loadMore(): Promise<void> {
     const token = session.activeToken;
@@ -204,8 +246,21 @@
     {#if loading}
       <p class="hint">Chargement…</p>
     {:else}
-      {#each tracks as track (track.videoId)}
-        <TrackRow {track} {mixer} favorite={favoriteIds.has(track.videoId)} {onRoute} {onToggleFavorite} />
+      {#if tracks.length > 0}
+        <SortBar {sort} onSort={toggleSort} />
+      {/if}
+      {#each sortedTracks as track (track.videoId)}
+        <TrackRow
+          {track}
+          {mixer}
+          favorite={favoriteIds.has(track.videoId)}
+          {onRoute}
+          {onToggleFavorite}
+          removeTitle={activeListId === likedId
+            ? 'Retirer des « J\'aime » de ce compte YouTube'
+            : undefined}
+          onRemove={activeListId === likedId ? () => void unlike(track) : undefined}
+        />
       {:else}
         <p class="hint">Cette liste est vide (ou ne contient que des vidéos privées).</p>
       {/each}

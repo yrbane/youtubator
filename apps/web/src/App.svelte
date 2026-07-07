@@ -11,6 +11,7 @@
   import { ui } from './lib/ui.svelte.js';
   import { isBrowserHidden } from './lib/ui-prefs.js';
   import { recordHistory } from './lib/library.js';
+  import { meta } from './lib/meta.svelte.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
   import type { Track } from './lib/tracks.js';
@@ -98,6 +99,7 @@
   $effect(() => {
     ghost.attach(ghostContainer);
     void session.init();
+    void meta.init();
     void loadYouTubeApi().then(() => {
       apiReady = true;
       mixer.addDeck();
@@ -113,6 +115,7 @@
     if (deck.isPlaying && !confirm(`Remplacer le morceau en cours sur le deck ${deckId} ?`)) return;
     await deck.loadTrack(track);
     await recordHistory(track, deckId, session.attribution);
+    await meta.recordPlay(track.videoId); // compteurs de lecture (session + total)
     ui.setBrowserMax(false); // morceau trouvé et chargé : retour à la vue mix
     mixer.refresh();
   }

@@ -2,6 +2,8 @@
   import { formatDuration, type Track } from '../lib/tracks.js';
   import { ghost } from '../lib/ghost.svelte.js';
   import { loadWaveform } from '../lib/library.js';
+  import { meta } from '../lib/meta.svelte.js';
+  import { nextColor } from '../lib/track-meta.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -11,6 +13,8 @@
     by = '',
     onRoute,
     onToggleFavorite,
+    onRemove,
+    removeTitle = 'Retirer de cette liste',
   }: {
     track: Track;
     mixer: Mixer;
@@ -18,19 +22,33 @@
     by?: string;
     onRoute: (track: Track, deckId: string) => void;
     onToggleFavorite: (track: Track) => void;
+    onRemove?: () => void;
+    removeTitle?: string;
   } = $props();
 
   // dossier connu du morceau (BPM/tonalité pré-analysés)
-  let meta = $state<{ bpm: number | null; key: string | null } | null>(null);
+  let wave = $state<{ bpm: number | null; key: string | null } | null>(null);
 
   $effect(() => {
     void loadWaveform(track.videoId).then((record) => {
-      meta = record ? { bpm: record.bpm ?? null, key: record.keyCamelot ?? null } : null;
+      wave = record ? { bpm: record.bpm ?? null, key: record.keyCamelot ?? null } : null;
     });
   });
+
+  const m = $derived(meta.get(track.videoId));
+  const sessionPlays = $derived(meta.sessionPlays(track.videoId));
+
+  function editStyle(): void {
+    const known = meta.styles;
+    const answer = prompt(
+      `Style du morceau${known.length ? ` (déjà utilisés : ${known.join(', ')})` : ''} :`,
+      m?.style ?? '',
+    );
+    if (answer !== null) void meta.setStyle(track.videoId, answer);
+  }
 </script>
 
-<div class="row">
+<div class="row" style="--tint: {m?.color || 'transparent'}">
   <img src={track.thumbnailUrl} alt="" loading="lazy" />
   <div class="meta">
     <span class="title" title={track.title}>{track.title}</span>
@@ -39,11 +57,40 @@
       {#if by}<span class="by" title="Ajouté par {by}">· {by}</span>{/if}
     </span>
   </div>
-  {#if meta?.bpm || meta?.key}
-    <span class="mono analyzed" title="Déjà analysé : BPM{meta.key ? ' · tonalité' : ''}">
-      {meta.bpm ? meta.bpm.toFixed(0) : '–'}{meta.key ? ` · ${meta.key}` : ''}
+  {#if wave?.bpm || wave?.key}
+    <span class="mono analyzed" title="Déjà analysé : BPM{wave.key ? ' · tonalité' : ''}">
+      {wave.bpm ? wave.bpm.toFixed(0) : '–'}{wave.key ? ` · ${wave.key}` : ''}
     </span>
   {/if}
+  <span class="stars" title="Note du morceau — re-cliquer la même étoile pour la retirer">
+    {#each [1, 2, 3, 4, 5] as n (n)}
+      <button
+        class="star"
+        class:on={n <= (m?.rating ?? 0)}
+        onclick={() => void meta.setRating(track.videoId, m?.rating === n ? 0 : n)}
+      >
+        ★
+      </button>
+    {/each}
+  </span>
+  <button
+    class="color"
+    class:none={!m?.color}
+    style="background: {m?.color || 'transparent'}"
+    title="Couleur du morceau — chaque clic passe à la suivante de la palette"
+    onclick={() => void meta.setColor(track.videoId, nextColor(m?.color ?? ''))}
+    aria-label="Couleur"
+  ></button>
+  <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
+    {m?.style || 'style'}
+  </button>
+  <span
+    class="mono plays"
+    class:zero={!(m?.plays ?? 0)}
+    title="Lectures : {m?.plays ?? 0} au total{sessionPlays ? `, dont ${sessionPlays} cette session` : ''}"
+  >
+    ▶{m?.plays ?? 0}{sessionPlays ? `·${sessionPlays}` : ''}
+  </span>
   <span class="mono duration">{formatDuration(track.durationS)}</span>
   <div class="actions">
     {#each mixer.decks as deck (deck.id)}
@@ -64,13 +111,25 @@
       ⚡
     </button>
     <button
-      class="btn star"
+      class="btn star-btn"
       class:on={favorite}
       onclick={() => onToggleFavorite(track)}
       title="Favori — synchronisé avec les « J'aime » du compte YouTube actif"
     >
       {favorite ? '★' : '☆'}
     </button>
+    <a
+      class="btn yt-link"
+      href="https://www.youtube.com/watch?v={track.videoId}"
+      target="_blank"
+      rel="noreferrer"
+      title="Ouvrir dans YouTube (nouvel onglet)"
+    >
+      ↗
+    </a>
+    {#if onRemove}
+      <button class="btn remove" title={removeTitle} onclick={onRemove}>🗑</button>
+    {/if}
   </div>
 </div>
 
@@ -83,6 +142,7 @@
     gap: 0.77em;
     padding: 0.38em 0.6em;
     border-bottom: 1px solid var(--yt-border);
+    border-left: 3px solid var(--tint);
     font-size: calc(13px * var(--track-scale, 1));
   }
 
@@ -131,6 +191,71 @@
     white-space: nowrap;
   }
 
+  .stars {
+    display: inline-flex;
+    white-space: nowrap;
+  }
+
+  .star {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 1px;
+    font-size: 0.9em;
+    color: var(--yt-border);
+  }
+
+  .star.on {
+    color: #ffcc33;
+  }
+
+  .star:hover {
+    color: #ffe08a;
+  }
+
+  .color {
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: 50%;
+    border: 1px solid var(--yt-border);
+    cursor: pointer;
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  .color.none {
+    border-style: dashed;
+  }
+
+  .style {
+    background: none;
+    border: 1px solid var(--yt-border);
+    border-radius: 10px;
+    color: var(--yt-text);
+    font-size: 0.75em;
+    padding: 1px 8px;
+    cursor: pointer;
+    max-width: 7em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .style.unset {
+    color: var(--yt-text-dim);
+    border-style: dashed;
+  }
+
+  .plays {
+    color: var(--yt-deck-c);
+    font-size: 0.8em;
+    white-space: nowrap;
+  }
+
+  .plays.zero {
+    color: var(--yt-text-dim);
+  }
+
   .actions {
     display: flex;
     gap: 4px;
@@ -145,7 +270,17 @@
     color: #101318;
   }
 
-  .star.on {
+  .star-btn.on {
     color: #ffcc33;
+  }
+
+  .yt-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .remove:hover {
+    border-color: var(--yt-danger);
   }
 </style>

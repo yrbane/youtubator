@@ -98,6 +98,20 @@ export interface SearchCache {
   updatedAt: number;
 }
 
+/** Métadonnées DJ persistées par morceau (note, couleur, style, lectures cumulées). */
+export interface TrackMetaRecord {
+  videoId: string;
+  /** 0 = sans note, 1..5 étoiles. */
+  rating: number;
+  /** Couleur de la palette ('' = sans couleur). */
+  color: string;
+  /** Style musical ('' = non renseigné). */
+  style: string;
+  /** Lectures cumulées (toutes sessions). */
+  plays: number;
+  lastPlayedAt: number | null;
+}
+
 class YoutubatorDb extends Dexie {
   history!: Table<HistoryEntry, number>;
   favorites!: Table<Favorite, string>;
@@ -107,6 +121,7 @@ class YoutubatorDb extends Dexie {
   waveforms!: Table<WaveformRecord, string>;
   ytLists!: Table<YtListCache, string>;
   searchCache!: Table<SearchCache, string>;
+  trackMeta!: Table<TrackMetaRecord, string>;
 
   constructor() {
     super('youtubator');
@@ -161,6 +176,17 @@ class YoutubatorDb extends Dexie {
       ytLists: 'key, accountId',
       searchCache: 'norm, updatedAt',
     });
+    this.version(6).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+      ytLists: 'key, accountId',
+      searchCache: 'norm, updatedAt',
+      trackMeta: 'videoId, style, rating',
+    });
   }
 }
 
@@ -192,6 +218,10 @@ export async function listHistory(limit = 200): Promise<HistoryEntry[]> {
 
 export async function countHistory(): Promise<number> {
   return db.history.count();
+}
+
+export async function deleteHistoryEntry(id: number): Promise<void> {
+  await db.history.delete(id);
 }
 
 export async function clearHistory(): Promise<void> {

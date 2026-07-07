@@ -2,12 +2,16 @@
   import TrackRow from './TrackRow.svelte';
   import YoutubeTab from './YoutubeTab.svelte';
   import LoadMoreSentinel from './LoadMoreSentinel.svelte';
+  import SortBar from './SortBar.svelte';
   import { searchYoutubePage, getApiKey } from '../lib/search.js';
   import { mergeTracks } from '../lib/youtube-account.js';
   import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
+  import { meta } from '../lib/meta.svelte.js';
+  import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import {
     clearHistory,
     countHistory,
+    deleteHistoryEntry,
     deletePlaylist,
     deleteSearch,
     deleteSearchCache,
@@ -66,6 +70,31 @@
   let favLimit = $state(50);
   let plLimit = $state(50);
 
+  // tri des colonnes : clic = croissant, re-clic = décroissant, 3e clic = ordre d'origine
+  let sort = $state<{ key: SortKey; dir: 1 | -1 } | null>(null);
+
+  function toggleSort(key: SortKey): void {
+    sort = sort?.key !== key ? { key, dir: 1 } : sort.dir === 1 ? { key, dir: -1 } : null;
+  }
+
+  function toSortRow(track: Track): SortableRow {
+    const m = meta.get(track.videoId);
+    return {
+      title: track.title,
+      channel: track.channel,
+      durationS: track.durationS,
+      bpm: waveMeta.get(track.videoId)?.bpm ?? null,
+      rating: m?.rating ?? 0,
+      plays: m?.plays ?? 0,
+      style: m?.style ?? null,
+      color: m?.color ?? null,
+    };
+  }
+
+  function applySort<T>(items: T[], get: (item: T) => Track): T[] {
+    return sort ? sortRows(items, (item) => toSortRow(get(item)), sort.key, sort.dir) : items;
+  }
+
   const favoriteIds = $derived(new Set(favorites.map((f) => f.videoId)));
 
   // suggestions « à mixer ensuite » : bibliothèque locale vs deck maître
@@ -100,6 +129,10 @@
   const filteredFavorites = $derived(
     userFilter === null ? favorites : favorites.filter((f) => f.by === userFilter),
   );
+  const sortedResults = $derived(applySort(results, (t) => t));
+  const sortedHistory = $derived(applySort(filteredHistory, (e) => e.track));
+  const sortedFavorites = $derived(applySort(filteredFavorites, (f) => f.track));
+  const sortedPlaylistTracks = $derived(openPlaylist ? applySort(openPlaylist.tracks, (t) => t) : []);
 
   export function focusSearch(): void {
     tab = 'search';
@@ -268,6 +301,10 @@
     </div>
   {/if}
 
+  {#if tab !== 'youtube'}
+    <SortBar {sort} onSort={toggleSort} />
+  {/if}
+
   <div class="content">
     {#if tab === 'search'}
       <form
@@ -310,7 +347,7 @@
       {#if error}
         <p class="error">{error}</p>
       {/if}
-      {#each results as track (track.videoId)}
+      {#each sortedResults as track (track.videoId)}
         <TrackRow
           {track}
           {mixer}
@@ -362,7 +399,7 @@
           Vider
         </button>
       </div>
-      {#each filteredHistory as entry (entry.id)}
+      {#each sortedHistory as entry (entry.id)}
         <TrackRow
           track={entry.track}
           {mixer}
@@ -370,6 +407,11 @@
           by={entry.by}
           onRoute={route}
           onToggleFavorite={handleToggleFavorite}
+          removeTitle="Retirer cette entrée de l'historique"
+          onRemove={async () => {
+            await deleteHistoryEntry(entry.id!);
+            await refreshLists();
+          }}
         />
       {:else}
         <p class="hint">Chaque morceau chargé dans un deck apparaît ici.</p>
@@ -426,7 +468,7 @@
       {/if}
       {#if openPlaylist}
         <p class="hint">Playlist « {openPlaylist.name} »</p>
-        {#each openPlaylist.tracks.slice(0, plLimit) as track (track.videoId)}
+        {#each sortedPlaylistTracks.slice(0, plLimit) as track (track.videoId)}
           <TrackRow
             {track}
             {mixer}
@@ -441,7 +483,7 @@
           onMore={() => (plLimit += 50)}
         />
       {:else}
-        {#each filteredFavorites.slice(0, favLimit) as fav (fav.videoId)}
+        {#each sortedFavorites.slice(0, favLimit) as fav (fav.videoId)}
           <TrackRow
             track={fav.track}
             {mixer}
