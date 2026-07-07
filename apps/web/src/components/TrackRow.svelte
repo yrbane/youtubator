@@ -49,6 +49,14 @@
 </script>
 
 <div class="row" style="--tint: {m?.color || 'transparent'}">
+  <button
+    class="color"
+    class:none={!m?.color}
+    style="background: {m?.color || 'transparent'}"
+    title="Couleur du morceau — chaque clic passe à la suivante de la palette"
+    onclick={() => void meta.setColor(track.videoId, nextColor(m?.color ?? ''))}
+    aria-label="Couleur"
+  ></button>
   <img src={track.thumbnailUrl} alt="" loading="lazy" />
   <div class="meta">
     <span class="title" title={track.title}>{track.title}</span>
@@ -62,25 +70,6 @@
       {wave.bpm ? wave.bpm.toFixed(0) : '–'}{wave.key ? ` · ${wave.key}` : ''}
     </span>
   {/if}
-  <span class="stars" title="Note du morceau — re-cliquer la même étoile pour la retirer">
-    {#each [1, 2, 3, 4, 5] as n (n)}
-      <button
-        class="star"
-        class:on={n <= (m?.rating ?? 0)}
-        onclick={() => void meta.setRating(track.videoId, m?.rating === n ? 0 : n)}
-      >
-        ★
-      </button>
-    {/each}
-  </span>
-  <button
-    class="color"
-    class:none={!m?.color}
-    style="background: {m?.color || 'transparent'}"
-    title="Couleur du morceau — chaque clic passe à la suivante de la palette"
-    onclick={() => void meta.setColor(track.videoId, nextColor(m?.color ?? ''))}
-    aria-label="Couleur"
-  ></button>
   <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
     {m?.style || 'style'}
   </button>
@@ -92,6 +81,17 @@
     ▶{m?.plays ?? 0}{sessionPlays ? `·${sessionPlays}` : ''}
   </span>
   <span class="mono duration">{formatDuration(track.durationS)}</span>
+  <span class="stars" title="Note du morceau — re-cliquer la même étoile pour la retirer">
+    {#each [1, 2, 3, 4, 5] as n (n)}
+      <button
+        class="star"
+        class:on={n <= (m?.rating ?? 0)}
+        onclick={() => void meta.setRating(track.videoId, m?.rating === n ? 0 : n)}
+      >
+        ★
+      </button>
+    {/each}
+  </span>
   <div class="actions">
     {#each mixer.decks as deck (deck.id)}
       <button
