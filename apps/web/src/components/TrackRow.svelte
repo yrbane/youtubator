@@ -58,6 +58,9 @@
     aria-label="Couleur"
   ></button>
   <img src={track.thumbnailUrl} alt="" loading="lazy" />
+  <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
+    {m?.style || 'style'}
+  </button>
   <div class="meta">
     <span class="title" title={track.title}>{track.title}</span>
     <span class="channel">
@@ -70,9 +73,6 @@
       {wave.bpm ? wave.bpm.toFixed(0) : '–'}{wave.key ? ` · ${wave.key}` : ''}
     </span>
   {/if}
-  <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
-    {m?.style || 'style'}
-  </button>
   <span
     class="mono plays"
     class:zero={!(m?.plays ?? 0)}
