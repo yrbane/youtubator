@@ -14,8 +14,17 @@
 
   let { mixer, rowH = 56, showWaves = true }: { mixer: Mixer; rowH?: number; showWaves?: boolean } = $props();
 
-  const PX_PER_S = 30;
   const CUE_SNAP_S = 0.5;
+
+  // zoom temporel commun à tous les bandeaux (molette sur la waveform)
+  const ZOOM_DEFAULT = 30;
+  let pxPerS = $state(ZOOM_DEFAULT);
+
+  function onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+    pxPerS = Math.min(120, Math.max(10, pxPerS * factor));
+  }
 
   let canvases: Record<string, HTMLCanvasElement> = $state({});
 
@@ -53,16 +62,16 @@
 
     const accent = accentOf(deck);
     const center = displayTime(deck);
-    const half = w / 2 / PX_PER_S;
+    const half = w / 2 / pxPerS;
     const mid = h / 2;
 
     // buckets visibles
     const first = Math.max(0, Math.floor((center - half) / BUCKET_S));
     const last = Math.min(deck.waveBuckets.length - 1, Math.ceil((center + half) / BUCKET_S));
-    const barW = Math.max(1, BUCKET_S * PX_PER_S - 1);
+    const barW = Math.max(1, BUCKET_S * pxPerS - 1);
     for (let i = first; i <= last; i++) {
       const t = i * BUCKET_S;
-      const x = w / 2 + (t - center) * PX_PER_S;
+      const x = w / 2 + (t - center) * pxPerS;
       const level = deck.waveBuckets[i] ?? 0;
       const bh = Math.max(1, level * (h - 10));
       ctx.fillStyle = t <= center ? accent : `${accent}66`; // joué : plein, à venir : translucide
@@ -74,7 +83,7 @@
       const p = periodS(deck.grid);
       let t = floorBeat(deck.grid, center - half) - p;
       while (t <= center + half) {
-        const x = w / 2 + (t - center) * PX_PER_S;
+        const x = w / 2 + (t - center) * pxPerS;
         const beatIndex = Math.round((t - deck.grid.anchorS) / p);
         const isPhrase = ((beatIndex % 16) + 16) % 16 === 0;
         const isMeasure = ((beatIndex % 4) + 4) % 4 === 0;
@@ -90,8 +99,8 @@
 
     // zone de boucle
     if (deck.loop.inS !== null) {
-      const x1 = w / 2 + (deck.loop.inS - center) * PX_PER_S;
-      const x2 = deck.loop.outS !== null ? w / 2 + (deck.loop.outS - center) * PX_PER_S : x1 + 2;
+      const x1 = w / 2 + (deck.loop.inS - center) * pxPerS;
+      const x2 = deck.loop.outS !== null ? w / 2 + (deck.loop.outS - center) * pxPerS : x1 + 2;
       ctx.fillStyle = deck.loop.active ? 'rgba(61,220,132,0.18)' : 'rgba(215,220,226,0.10)';
       ctx.fillRect(x1, 0, Math.max(2, x2 - x1), h);
       ctx.fillStyle = deck.loop.active ? '#3ddc84' : '#8b93a0';
@@ -101,7 +110,7 @@
 
     // points de cue
     deck.cues.forEach((cue, index) => {
-      const x = w / 2 + (cue - center) * PX_PER_S;
+      const x = w / 2 + (cue - center) * pxPerS;
       if (x < -10 || x > w + 10) return;
       ctx.fillStyle = '#ffcc33';
       ctx.fillRect(x - 1, 0, 2, h);
@@ -174,7 +183,7 @@
 
   function timeAt(deck: Deck, canvas: HTMLCanvasElement, clientX: number): number {
     const rect = canvas.getBoundingClientRect();
-    const t = displayTime(deck) + (clientX - rect.left - rect.width / 2) / PX_PER_S;
+    const t = displayTime(deck) + (clientX - rect.left - rect.width / 2) / pxPerS;
     return Math.min(Math.max(0, t), deck.durationS || 0);
   }
 
@@ -208,11 +217,25 @@
   // (deck en pause + aucun réglage touché = zéro travail canvas)
   const lastSignature: Record<string, string> = {};
 
+  /** Recale immédiatement la phase de ce deck sur le maître (saut du plus court chemin). */
+  function resyncPhase(deck: Deck): void {
+    const master = mixer.decks.find((d) => d.id === mixer.masterId);
+    if (!master?.grid || !deck.grid || master === deck) return;
+    const delta = alignPhaseDelta(master.grid, master.displayTimeS(), deck.grid, deck.displayTimeS());
+    deck.seekToS(deck.displayTimeS() + delta);
+  }
+
+  const canResync = (deck: Deck): boolean => {
+    const master = mixer.decks.find((d) => d.id === mixer.masterId);
+    return Boolean(master?.grid && deck.grid && master !== deck);
+  };
+
   function signature(deck: Deck, canvas: HTMLCanvasElement): string {
     return [
       displayTime(deck).toFixed(3),
       canvas.clientWidth,
       rowH,
+      pxPerS.toFixed(1),
       deck.waveBuckets.length,
       deck.waveIsReal,
       deck.cues.length,
@@ -252,19 +275,31 @@
 </script>
 
 {#if loadedDecks.length > 0}
-  <section class="strip" title="Clic : seek (aimanté sur les cues) · Shift+clic : poser/retirer un point de cue">
+  <section
+    class="strip"
+    title="Clic : seek (aimanté sur les cues) · Shift+clic : poser/retirer un cue · Molette : zoomer la waveform · Double-clic : zoom par défaut · Alt+clic : déplacer l'ancre de grille"
+  >
     {#each loadedDecks as deck (deck.id)}
-      <div class="row" style="--accent: var({deck.colorVar})">
-        <div class="side" title="Hot cues : clic = sauter · Shift+clic sur la waveform = poser/retirer">
-          <div class="cues">
+      <!-- decks de gauche (A, C) : contrôles à gauche ; decks de droite (B, D) : à droite -->
+      <div
+        class="row"
+        class:mirror={mixer.decks.indexOf(deck) % 2 === 1}
+        style="--accent: var({deck.colorVar})"
+      >
+        <div class="controls">
+          <div class="cues" title="Hot cues : clic = sauter · clic droit = supprimer · Shift+clic sur la waveform = poser">
             {#each Array.from({ length: 8 }) as _, i (i)}
               <button
                 class="hotcue"
                 class:set={deck.cues[i] !== undefined}
                 disabled={deck.cues[i] === undefined}
                 onclick={() => deck.jumpToCue(i)}
+                oncontextmenu={(e) => {
+                  e.preventDefault();
+                  if (deck.cues[i] !== undefined) deck.toggleCueAt(deck.cues[i]!);
+                }}
                 title={deck.cues[i] !== undefined
-                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s) — touche ${i + 1}${deck.id === 'B' ? ' + Maj' : ''}`
+                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s) — touche ${i + 1}${deck.id === 'B' ? ' + Maj' : ''} · clic droit : supprimer`
                   : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
               >
                 {i + 1}
@@ -276,17 +311,6 @@
             <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
             <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
           </div>
-        </div>
-        {#if showWaves}
-          <canvas
-            bind:this={canvases[deck.id]}
-            style="height: {rowH}px"
-            onclick={(e) => onClick(deck, e)}
-          ></canvas>
-        {:else}
-          <div class="wave-off" title="Waveform masquée — bouton 〰 en haut pour la réafficher">〰 masquée</div>
-        {/if}
-        <div class="side">
           <div class="beats" title={deck.grid ? 'Boucle des N derniers beats, calée sur la grille' : 'BPM inconnu — laisse jouer ~15 s avec l’extension pour détecter la grille'}>
             {#each [1, 2, 4, 8, 16, 32] as n (n)}
               <button
@@ -330,8 +354,62 @@
             >
               ROLL
             </button>
+            <button
+              class="lp"
+              disabled={deck.loop.outS === null}
+              onclick={() => deck.resizeActiveLoop(0.5)}
+              title="Moitié de boucle : IN reste fixe, OUT se rapproche (÷2)"
+            >
+              ÷2
+            </button>
+            <button
+              class="lp"
+              disabled={deck.loop.outS === null}
+              onclick={() => deck.resizeActiveLoop(2)}
+              title="Double de boucle : IN reste fixe, OUT s'éloigne (×2)"
+            >
+              ×2
+            </button>
+          </div>
+          <div class="jump">
+            <button
+              class="lp"
+              disabled={!deck.grid}
+              onclick={(e) => deck.beatJump(e.shiftKey ? -1 : -4)}
+              title="Saut en arrière : 1 mesure (4 beats) · Maj+clic : 1 beat"
+            >
+              ◀
+            </button>
+            <button
+              class="lp phase"
+              disabled={!canResync(deck)}
+              onclick={() => resyncPhase(deck)}
+              title="Recaler la phase de ce deck sur le deck maître, immédiatement (saut du plus court chemin)"
+            >
+              φ
+            </button>
+            <button
+              class="lp"
+              disabled={!deck.grid}
+              onclick={(e) => deck.beatJump(e.shiftKey ? 1 : 4)}
+              title="Saut en avant : 1 mesure (4 beats) · Maj+clic : 1 beat"
+            >
+              ▶
+            </button>
           </div>
         </div>
+        {#if showWaves}
+          <canvas
+            bind:this={canvases[deck.id]}
+            style="height: {rowH}px"
+            data-zoom={pxPerS.toFixed(1)}
+            onclick={(e) => onClick(deck, e)}
+            onwheel={onWheel}
+            ondblclick={() => (pxPerS = ZOOM_DEFAULT)}
+          ></canvas>
+        {:else}
+          <div class="wave-off" title="Waveform masquée — bouton 〰 en haut pour la réafficher">〰 masquée</div>
+        {/if}
       </div>
     {/each}
   </section>
@@ -354,11 +432,30 @@
     align-items: center;
   }
 
-  .side {
+  /* decks de droite (B, D) : le bloc de contrôles passe à droite, en miroir */
+  .row.mirror {
+    flex-direction: row-reverse;
+  }
+
+  .controls {
     display: flex;
     gap: 6px;
     align-items: center;
     flex: 0 0 auto;
+  }
+
+  .row.mirror .controls {
+    flex-direction: row-reverse;
+  }
+
+  .jump {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .lp.phase {
+    color: var(--yt-deck-c);
   }
 
   .wave-off {

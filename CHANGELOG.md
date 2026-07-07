@@ -3,6 +3,16 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.10.0 — 2026-07-07 · « Bandeau miroir »
+
+Révision waveforms / synchro / cues / loops, et layout en miroir du bandeau.
+
+- **Layout miroir** : les contrôles (hot cues, TAP/octave, beat loops, IN/OUT/∞/ROLL) du deck A (et C) sont regroupés **à gauche** de sa waveform, ceux du deck B (et D) **à droite** — face à face, comme sur une vraie table.
+- **Waveform** : **zoom à la molette** (10-120 px/s, commun aux bandeaux), double-clic pour revenir au zoom par défaut.
+- **Cues** : **clic droit sur un pad** pour supprimer le cue (plus besoin de retrouver sa position sur la waveform).
+- **Loops** : **÷2 / ×2** — redimensionne la boucle en gardant le point IN (ré-extraction sample-accurate si engagée).
+- **Synchro** : **saut de beats ◀/▶** (1 mesure, Maj = 1 beat) et bouton **φ** qui recale immédiatement la phase sur le deck maître (saut du plus court chemin).
+
 ## 0.9.0 — 2026-07-07 · « Browser pro »
 
 Le browser devient un outil de mix complet façon Traktor (README § 6.4 quater).

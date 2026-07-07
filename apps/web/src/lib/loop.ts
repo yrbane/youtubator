@@ -34,6 +34,17 @@ export function ghostPosition(engagedAtS: number, elapsedWallS: number, rate: nu
   return engagedAtS + elapsedWallS * rate;
 }
 
+/**
+ * Redimensionne la boucle (÷2 / ×2 façon Traktor) : IN reste fixe, OUT bouge.
+ * Inchangée si incomplète ou si la nouvelle longueur sort de [minLenS, maxLenS].
+ */
+export function resizeLoop(loop: LoopState, factor: number, minLenS = 0.05, maxLenS = 64): LoopState {
+  if (loop.inS === null || loop.outS === null) return loop;
+  const length = (loop.outS - loop.inS) * factor;
+  if (length < minLenS || length > maxLenS) return loop;
+  return { ...loop, outS: loop.inS + length };
+}
+
 /** Position de re-saut si la tête de lecture a franchi la sortie. */
 export function shouldJump(loop: LoopState, timeS: number): number | null {
   if (!loop.active || loop.inS === null || loop.outS === null) return null;

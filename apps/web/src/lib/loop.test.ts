@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { emptyLoop, ghostPosition, pressIn, pressOut, shouldJump, toggleActive } from './loop.js';
+import {
+  emptyLoop,
+  ghostPosition,
+  pressIn,
+  pressOut,
+  resizeLoop,
+  shouldJump,
+  toggleActive,
+} from './loop.js';
 
 describe('ghostPosition — position fantôme pour le loop roll', () => {
   it('avance depuis le point d’engagement au rate effectif', () => {
@@ -43,6 +51,22 @@ describe('boucle IN/OUT', () => {
 
   it('toggleActive sans points complets ne fait rien', () => {
     expect(toggleActive(pressIn(emptyLoop(), 12)).active).toBe(false);
+  });
+
+  it('resizeLoop ÷2 / ×2 : IN fixe, OUT bouge, activation conservée', () => {
+    const active = pressOut(pressIn(emptyLoop(), 12), 16); // 4 s
+    expect(resizeLoop(active, 2)).toEqual({ inS: 12, outS: 20, active: true });
+    expect(resizeLoop(active, 0.5)).toEqual({ inS: 12, outS: 14, active: true });
+    const inactive = toggleActive(active);
+    expect(resizeLoop(inactive, 2).active).toBe(false);
+  });
+
+  it('resizeLoop refuse les longueurs déraisonnables et les boucles incomplètes', () => {
+    const tiny = pressOut(pressIn(emptyLoop(), 12), 12.08); // 80 ms
+    expect(resizeLoop(tiny, 0.5)).toEqual(tiny); // < 50 ms : refusé
+    const long = pressOut(pressIn(emptyLoop(), 0), 40);
+    expect(resizeLoop(long, 2)).toEqual(long); // > 64 s : refusé
+    expect(resizeLoop(pressIn(emptyLoop(), 12), 2)).toEqual(pressIn(emptyLoop(), 12));
   });
 
   it('shouldJump renvoie le point IN au franchissement du OUT, sinon null', () => {

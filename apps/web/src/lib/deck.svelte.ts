@@ -23,6 +23,7 @@ import {
   ghostPosition,
   pressIn,
   pressOut,
+  resizeLoop,
   shouldJump,
   toggleActive,
   type LoopState,
@@ -316,6 +317,25 @@ export class Deck {
     this.#markLoopEngaged();
     this.#engageSampleLoopIfPossible();
     this.#persistLoop();
+  }
+
+  /** ÷2 / ×2 façon Traktor : IN fixe, OUT bouge ; la boucle engagée est ré-extraite. */
+  resizeActiveLoop(factor: 0.5 | 2): void {
+    const resized = resizeLoop(this.loop, factor);
+    if (resized === this.loop) return;
+    if (this.sampleLoop) this.#extension?.exitLoop();
+    this.loop = resized;
+    if (this.loop.active) {
+      this.#markLoopEngaged();
+      this.#engageSampleLoopIfPossible();
+    }
+    this.#persistLoop();
+  }
+
+  /** Saut d'un nombre exact de beats (négatif = en arrière), calé sur la grille. */
+  beatJump(beats: number): void {
+    if (!this.grid) return;
+    this.seekToS(this.displayTimeS() + beats * (60 / this.grid.bpm));
   }
 
   #persistLoop(): void {
