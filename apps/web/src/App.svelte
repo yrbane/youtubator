@@ -8,6 +8,7 @@
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { ghost } from './lib/ghost.svelte.js';
   import { midi } from './lib/midi.svelte.js';
+  import { ui } from './lib/ui.svelte.js';
   import { recordHistory } from './lib/library.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
@@ -23,6 +24,33 @@
     perfMode = !perfMode;
     if (perfMode) void document.documentElement.requestFullscreen?.().catch(() => {});
     else if (document.fullscreenElement) void document.exitFullscreen();
+  }
+
+  // échelle de police : zoom global (persisté)
+  $effect(() => {
+    const app = document.getElementById('app');
+    if (app) (app.style as CSSStyleDeclaration & { zoom: string }).zoom = String(ui.fontScale);
+  });
+
+  // splitter : redimensionner la zone browser au drag
+  let splitStartY = 0;
+  let splitStartH = 0;
+
+  function onSplitMove(e: PointerEvent): void {
+    ui.setBrowserHeight(splitStartH + (splitStartY - e.clientY));
+  }
+
+  function onSplitEnd(): void {
+    window.removeEventListener('pointermove', onSplitMove);
+    window.removeEventListener('pointerup', onSplitEnd);
+  }
+
+  function onSplitStart(e: PointerEvent): void {
+    e.preventDefault();
+    splitStartY = e.clientY;
+    splitStartH = ui.browserHeight;
+    window.addEventListener('pointermove', onSplitMove);
+    window.addEventListener('pointerup', onSplitEnd);
   }
   let browser = $state<ReturnType<typeof Browser>>();
   let ghostContainer: HTMLDivElement;
@@ -178,12 +206,19 @@
   {/if}
   <span class="spacer"></span>
   <span class="hint mono">espace/Q : play · S/L : sync · 1-8 : cues (Maj = deck B) · ←→ : crossfader · / : recherche</span>
+  <div class="toggles" role="group" aria-label="Affichage">
+    <button class="btn" class:on={ui.showVideo} onclick={() => ui.toggleVideo()} title="Afficher / masquer les vidéos (la lecture continue, seul l'affichage est replié)">🎞</button>
+    <button class="btn" class:on={ui.showWaves} onclick={() => ui.toggleWaves()} title="Afficher / masquer les waveforms (les blocs cues et loops restent)">〰</button>
+    <button class="btn" class:on={ui.browserVisible} onclick={() => ui.toggleBrowser()} title="Afficher / masquer le browser (recherche, historique, favoris) — redimensionnable en glissant sa poignée">☰</button>
+    <button class="btn" onclick={() => ui.bumpFontScale(-0.1)} title="Réduire la taille du texte">A−</button>
+    <button class="btn" onclick={() => ui.bumpFontScale(0.1)} title="Agrandir la taille du texte">A+</button>
+  </div>
   <button class="btn" class:on={perfMode} onclick={togglePerf} title="Mode performance : plein écran, browser masqué, grosses waveforms">⛶</button>
-  <button class="btn" onclick={() => (showSettings = true)} title="Réglages">⚙</button>
+  <button class="btn" onclick={() => (showSettings = true)} title="Réglages : clés API, compte YouTube, MIDI, crate, tempo">⚙</button>
 </header>
 
 {#if apiReady}
-  <main class:four={mixer.decks.length > 2}>
+  <main class:four={mixer.decks.length > 2} class:no-video={!ui.showVideo}>
     <div class="col left">
       {#each mixer.decks.filter((_, i) => i % 2 === 0) as deck (deck.id)}
         <DeckView {deck} {mixer} />
@@ -202,11 +237,18 @@
   <main class="loading">Chargement de l’API YouTube…</main>
 {/if}
 
-<WaveformStrip {mixer} rowH={perfMode ? 110 : 56} />
+<WaveformStrip {mixer} rowH={perfMode ? 110 : 56} showWaves={ui.showWaves} />
 
 <div class="ghost-hole" bind:this={ghostContainer}></div>
 
-<div class="browser-zone" class:hidden={perfMode}>
+<div class="browser-zone" class:hidden={perfMode || !ui.browserVisible} style="height: {ui.browserHeight}px">
+  <div
+    class="splitter"
+    onpointerdown={onSplitStart}
+    title="Glisser pour redimensionner le browser · bouton ☰ en haut pour le masquer"
+    role="separator"
+    aria-orientation="horizontal"
+  ></div>
   <Browser
     bind:this={browser}
     {mixer}
@@ -254,8 +296,52 @@
   .browser-zone {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 220px; /* la playlist respire toujours */
+    flex: 0 1 auto; /* hauteur pilotée par le splitter, borne basse garantie */
+    min-height: 140px;
+    margin-top: auto; /* colle le browser en bas quand il reste de la place */
+  }
+
+  .toggles {
+    display: flex;
+    gap: 4px;
+  }
+
+  .splitter {
+    height: 8px;
+    margin: 0 10px;
+    cursor: row-resize;
+    border-radius: 4px;
+    background: transparent;
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .splitter::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 3px;
+    transform: translateX(-50%);
+    width: 64px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--yt-border);
+  }
+
+  .splitter:hover::after {
+    background: var(--yt-deck-a);
+  }
+
+  /* vidéos repliées : la lecture continue, seul l'affichage est réduit */
+  main.no-video :global(.video) {
+    aspect-ratio: auto;
+    height: 6px;
+    max-height: 6px;
+    opacity: 0.25;
+  }
+
+  main.no-video :global(.placeholder) {
+    display: none;
   }
 
   .browser-zone > :global(.browser) {

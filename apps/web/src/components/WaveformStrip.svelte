@@ -12,7 +12,7 @@
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
-  let { mixer, rowH = 56 }: { mixer: Mixer; rowH?: number } = $props();
+  let { mixer, rowH = 56, showWaves = true }: { mixer: Mixer; rowH?: number; showWaves?: boolean } = $props();
 
   const PX_PER_S = 30;
   const CUE_SNAP_S = 0.5;
@@ -255,12 +255,7 @@
   <section class="strip" title="Clic : seek (aimanté sur les cues) · Shift+clic : poser/retirer un point de cue">
     {#each loadedDecks as deck (deck.id)}
       <div class="row" style="--accent: var({deck.colorVar})">
-        <canvas
-          bind:this={canvases[deck.id]}
-          style="height: {rowH}px"
-          onclick={(e) => onClick(deck, e)}
-        ></canvas>
-        <div class="controls">
+        <div class="side" title="Hot cues : clic = sauter · Shift+clic sur la waveform = poser/retirer">
           <div class="cues">
             {#each Array.from({ length: 8 }) as _, i (i)}
               <button
@@ -269,13 +264,29 @@
                 disabled={deck.cues[i] === undefined}
                 onclick={() => deck.jumpToCue(i)}
                 title={deck.cues[i] !== undefined
-                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s)`
+                  ? `Sauter au cue ${i + 1} (${deck.cues[i]!.toFixed(1)} s) — touche ${i + 1}${deck.id === 'B' ? ' + Maj' : ''}`
                   : `Cue ${i + 1} — Shift+clic sur la waveform pour le poser`}
               >
                 {i + 1}
               </button>
             {/each}
           </div>
+          <div class="octave" title="TAP : taper le tempo sur les beats (l'ancre se cale sur le dernier tap) · ½×/2× : corriger l'octave du BPM · Alt+clic sur la waveform : déplacer l'ancre">
+            <button class="lp tap" onclick={() => onTap(deck)}>TAP</button>
+            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
+            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
+          </div>
+        </div>
+        {#if showWaves}
+          <canvas
+            bind:this={canvases[deck.id]}
+            style="height: {rowH}px"
+            onclick={(e) => onClick(deck, e)}
+          ></canvas>
+        {:else}
+          <div class="wave-off" title="Waveform masquée — bouton 〰 en haut pour la réafficher">〰 masquée</div>
+        {/if}
+        <div class="side">
           <div class="beats" title={deck.grid ? 'Boucle des N derniers beats, calée sur la grille' : 'BPM inconnu — laisse jouer ~15 s avec l’extension pour détecter la grille'}>
             {#each [1, 2, 4, 8, 16, 32] as n (n)}
               <button
@@ -291,11 +302,6 @@
                 {n}
               </button>
             {/each}
-          </div>
-          <div class="octave" title="Corriger l'octave du BPM détecté · TAP : taper le tempo sur les beats (l'ancre se cale sur le dernier tap) · Alt+clic sur la waveform : déplacer l'ancre">
-            <button class="lp tap" onclick={() => onTap(deck)}>TAP</button>
-            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(0.5)}>½×</button>
-            <button class="lp" disabled={!deck.grid} onclick={() => deck.scaleBpm(2)}>2×</button>
           </div>
           <div class="loop">
             <button class="lp" onclick={() => deck.loopIn()} title="Point d'entrée de boucle (au temps courant)">IN</button>
@@ -344,8 +350,26 @@
 
   .row {
     display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .side {
+    display: flex;
     gap: 6px;
-    align-items: stretch;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+
+  .wave-off {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    color: var(--yt-text-dim);
+    font-size: 11px;
+    padding: 8px 0;
+    border: 1px dashed var(--yt-border);
+    border-radius: 4px;
   }
 
   canvas {
@@ -357,21 +381,15 @@
     background: #14171b;
   }
 
-  .controls {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
   .cues {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 2px;
+    gap: 3px;
   }
 
   .hotcue {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     font-size: 10px;
     font-weight: 700;
@@ -424,11 +442,21 @@
     cursor: default;
   }
 
-  .octave,
-  .loop {
+  .octave {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
+  }
+
+  .loop {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3px;
+  }
+
+  .loop .lp {
+    min-width: 34px;
+    padding: 4px 6px;
   }
 
   .lp {
