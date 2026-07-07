@@ -1,9 +1,10 @@
 import {
   alignPhaseDelta,
+  applyClockSync,
   applySync,
   electMaster,
   periodS,
-  phaseBend,
+  pllBend,
   DEFAULT_TEMPO_RANGE,
 } from '@youtubator/audio-engine';
 import { crossfadeGains, type CrossfadeCurve } from 'potard';
@@ -21,9 +22,28 @@ export class Mixer {
   masterId = $state<string | null>(null);
   tempoRange = $state(DEFAULT_TEMPO_RANGE);
 
+  /** Horloge maître façon Traktor : quand elle est armée, son BPM fait loi. */
+  clockEnabled = $state(false);
+  clockBpm = $state(140);
+
   constructor() {
-    // verrouillage de phase continu (beatmatch) : micro-bends, pas de seeks
-    setInterval(() => this.#alignSlavePhases(), 700);
+    // verrouillage de phase continu (beatmatch) : PLL serrée, pas de seeks
+    setInterval(() => this.#alignSlavePhases(), 250);
+  }
+
+  /** Arme/désarme l'horloge ; à l'armement, elle adopte le BPM effectif du maître courant. */
+  toggleClock(): void {
+    if (!this.clockEnabled) {
+      const master = this.decks.find((d) => d.id === this.masterId);
+      if (master?.grid) this.clockBpm = Math.round(master.grid.bpm * master.effectiveRate * 10) / 10;
+    }
+    this.clockEnabled = !this.clockEnabled;
+    this.refresh();
+  }
+
+  setClockBpm(bpm: number): void {
+    this.clockBpm = Math.min(220, Math.max(40, Math.round(bpm * 10) / 10));
+    if (this.clockEnabled) this.refresh();
   }
 
   addDeck(): Deck | null {
@@ -60,7 +80,12 @@ export class Mixer {
       bpm: d.grid?.bpm ?? null,
     }));
     this.masterId = electMaster(snapshot, this.masterId);
-    for (const update of applySync(snapshot, this.masterId)) {
+    // horloge armée : tous les syncés (maître de phase compris) suivent son BPM ;
+    // sinon, beatmatch classique des esclaves sur le deck maître
+    const updates = this.clockEnabled
+      ? applyClockSync(snapshot, this.clockBpm)
+      : applySync(snapshot, this.masterId);
+    for (const update of updates) {
       const deck = this.decks.find((d) => d.id === update.id);
       void deck?.setRate(update.rate, this.tempoRange);
     }
@@ -84,7 +109,8 @@ export class Mixer {
         if (Math.abs(delta) > 0.35 * periodS(slave.grid)) {
           slave.seekToS(slave.displayTimeS() + delta); // rattrapage grossier, rare
         } else {
-          void slave.applyPhaseBend(phaseBend(delta));
+          // PLL serrée : zone morte ±2 ms, convergence ~1 s, jamais de seek
+          void slave.applyPhaseBend(pllBend(delta));
         }
       } else if (Math.abs(delta) > 0.04) {
         slave.seekToS(slave.displayTimeS() + delta);

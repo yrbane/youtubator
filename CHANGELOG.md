@@ -3,6 +3,13 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.11.0 — 2026-07-07 · « Master clock »
+
+Synchro peaufinée façon Traktor.
+
+- **Horloge maître (CLOCK)** dans le mixer : armée, elle adopte le BPM du deck maître puis **fait loi** — tous les decks SYNC la suivent, deck maître compris (appariement d'octave). Boutons −/+ 0,5 BPM ; retour AUTO d'un clic ; BPM effectif affiché en continu.
+- **PLL resserrée** : verrouillage de phase 3× plus rapide (correction toutes les 250 ms au lieu de 700, convergence ~1 s au lieu de ~3,5), avec **zone morte de ±2 ms** — plus de micro-tremblement quand les decks sont calés, jamais de seek sous 35 % de période.
+
 ## 0.10.1 — 2026-07-07 · « Colonnes pleine hauteur »
 
 - Les blocs cues/loops occupent désormais **toute la hauteur des waveforms** : colonne A (et C) à gauche, colonne B (et D) à droite, waveforms empilées au centre. Chaque bloc porte le badge et le liseré couleur de son deck.

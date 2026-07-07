@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { electMaster, applySync, type SyncDeck } from './sync.js';
+import { electMaster, applySync, applyClockSync, type SyncDeck } from './sync.js';
 
 function deck(partial: Partial<SyncDeck> & { id: string }): SyncDeck {
   return { isPlaying: false, synced: false, rate: 1, ...partial };
@@ -98,5 +98,32 @@ describe('applySync', () => {
       deck({ id: 'B', synced: true, rate: 1 }),
     ];
     expect(applySync(decks, 'A')).toEqual([{ id: 'B', rate: 1.08 }]);
+  });
+});
+
+describe('applyClockSync — horloge maître façon Traktor', () => {
+  it('tous les decks synchronisés (maître compris) suivent le BPM de l’horloge', () => {
+    const decks = [
+      deck({ id: 'A', isPlaying: true, synced: true, rate: 1, bpm: 128 }),
+      deck({ id: 'B', isPlaying: true, synced: true, rate: 1, bpm: 100 }),
+    ];
+    expect(applyClockSync(decks, 140)).toEqual([
+      { id: 'A', rate: 140 / 128 },
+      { id: 'B', rate: 1.4 },
+    ]);
+  });
+
+  it('appariement d’octave : un BPM détecté à la moitié suit l’horloge sans doubler', () => {
+    const decks = [deck({ id: 'A', isPlaying: true, synced: true, rate: 0.9, bpm: 70 })];
+    expect(applyClockSync(decks, 140)).toEqual([{ id: 'A', rate: 1 }]);
+  });
+
+  it('ignore les decks non synchronisés, sans BPM ou déjà au bon rate', () => {
+    const decks = [
+      deck({ id: 'A', isPlaying: true, synced: false, bpm: 128 }),
+      deck({ id: 'B', isPlaying: true, synced: true, bpm: null }),
+      deck({ id: 'C', isPlaying: true, synced: true, rate: 1.4, bpm: 100 }),
+    ];
+    expect(applyClockSync(decks, 140)).toEqual([]);
   });
 });

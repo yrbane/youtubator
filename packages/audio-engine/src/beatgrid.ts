@@ -114,6 +114,16 @@ export function phaseBend(deltaS: number): number {
   return Math.min(MAX_PHASE_BEND, Math.max(-MAX_PHASE_BEND, deltaS / 2));
 }
 
+/**
+ * PLL serrée façon Traktor : zone morte de ±2 ms (aucun tremblement une fois
+ * calé), puis correction proportionnelle visant ~1 s de convergence,
+ * bornée à ±2 % (inaudible, surtout en Master Tempo).
+ */
+export function pllBend(deltaS: number, deadbandS = 0.002): number {
+  if (Math.abs(deltaS) <= deadbandS) return 0;
+  return Math.min(MAX_PHASE_BEND, Math.max(-MAX_PHASE_BEND, deltaS));
+}
+
 /** Flux de nouveauté (attaques) : dérivée positive, centrée. */
 function noveltyOf(envelope: Float32Array): Float32Array | null {
   const n = envelope.length;

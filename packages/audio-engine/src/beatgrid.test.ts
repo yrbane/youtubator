@@ -242,3 +242,19 @@ describe('detectBpm — autocorrélation sur enveloppe', () => {
     expect(detectBpm(new Float32Array(100), 50)).toBeNull();
   });
 });
+
+describe('pllBend — verrouillage de phase serré (zone morte + convergence ~1 s)', () => {
+  it('zone morte : sous ±2 ms on ne corrige pas (pas de tremblement permanent)', async () => {
+    const { pllBend } = await import('./beatgrid.js');
+    expect(pllBend(0.0015)).toBe(0);
+    expect(pllBend(-0.002)).toBe(0);
+  });
+
+  it('proportionnel au-delà : bend = delta (convergence ~1 s), borné à ±2 %', async () => {
+    const { pllBend } = await import('./beatgrid.js');
+    expect(pllBend(0.01)).toBeCloseTo(0.01, 10);
+    expect(pllBend(-0.012)).toBeCloseTo(-0.012, 10);
+    expect(pllBend(0.2)).toBe(0.02);
+    expect(pllBend(-0.5)).toBe(-0.02);
+  });
+});

@@ -44,6 +44,21 @@ export function applySync(decks: readonly SyncDeck[], masterId: string | null): 
 }
 
 /**
+ * Horloge maître façon Traktor : TOUS les decks synchronisés (maître de
+ * phase compris) égalisent leur BPM effectif sur celui de l'horloge.
+ * Sans BPM détecté, un deck ne peut pas suivre l'horloge.
+ */
+export function applyClockSync(decks: readonly SyncDeck[], clockBpm: number): RateUpdate[] {
+  return decks
+    .filter((d) => d.synced && d.bpm)
+    .map((d) => ({ id: d.id, rate: beatmatchRate(clockBpm, d.bpm!) }))
+    .filter((u) => {
+      const deck = decks.find((d) => d.id === u.id)!;
+      return Math.abs(deck.rate - u.rate) > 1e-9;
+    });
+}
+
+/**
  * Rate esclave égalisant les BPM effectifs, avec appariement d'octave :
  * le BPM esclave détecté peut être à la moitié ou au double du vrai tempo,
  * on choisit le candidat (×½, ×1, ×2) donnant le rate le plus proche de 1.
