@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.11.1 — 2026-07-07 · « Spec à jour »
+
+- README : la spécification Sync (§ 6.3) documente la PLL de verrouillage de phase (F-SYNC-04) et la master clock (F-SYNC-05) livrées en 0.11.0.
+- Processus de publication durci : CI verte exigée avant le tag, zip de l'extension joint à chaque release.
+
 ## 0.11.0 — 2026-07-07 · « Master clock »
 
 Synchro peaufinée façon Traktor.

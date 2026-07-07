@@ -199,7 +199,8 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-SYNC-01** : case **SYNC** par deck. Le premier deck en lecture est **maître** (badge « MASTER »).
 - **F-SYNC-02** : cocher SYNC sur un deck esclave aligne son `playbackRate` sur le rate du maître ; bouger le tempo du maître propage aux esclaves synchronisés. Chaque deck garde **son propre mode tempo** (Master Tempo ou Vinyle) pendant la sync — le mode définit l'effet sonore du rate, pas sa valeur.
 - **F-SYNC-03** : sync de phase basique — boutons « nudge » (+/− momentané, ±2 % tant que pressé) pour caler manuellement les temps.
-- **F-SYNC-04 (V3)** : beatmatching automatique — détection de BPM (WASM, autocorrélation) et alignement rate = BPM_maître / BPM_esclave, puis calage de phase assisté.
+- **F-SYNC-04** : beatmatching automatique — quand les deux grilles sont connues, rate esclave = BPM effectif maître / BPM esclave (appariement d'octave ½×/2×), puis **verrouillage de phase continu par PLL** : correction toutes les 250 ms, micro-bends de rate bornés à ±2 % (inaudibles, surtout en Master Tempo), **zone morte de ±2 ms** une fois calé, convergence ~1 s ; seek uniquement au-delà de 35 % de période. Bouton **φ** sur le bandeau pour recaler la phase manuellement, jauge d'écart en ms sur la waveform.
+- **F-SYNC-05 — master clock (façon Traktor)** : panneau **MASTER** en haut du mixer. **AUTO** (défaut) : le deck maître donne le tempo, BPM effectif affiché en continu. **CLOCK** : l'horloge adopte le BPM du maître à l'armement puis **fait loi** — tous les decks SYNC égalisent leur BPM effectif sur elle, deck maître compris ; boutons −/+ 0,5 BPM pour faire glisser le tempo du set, re-clic pour revenir en AUTO.
 
 ### 6.4 Browser (zone basse, 3 onglets)
 
