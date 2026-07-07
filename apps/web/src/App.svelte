@@ -26,12 +26,6 @@
     else if (document.fullscreenElement) void document.exitFullscreen();
   }
 
-  // échelle de police : zoom global (persisté)
-  $effect(() => {
-    const app = document.getElementById('app');
-    if (app) (app.style as CSSStyleDeclaration & { zoom: string }).zoom = String(ui.fontScale);
-  });
-
   // splitter : redimensionner la zone browser au drag
   let splitStartY = 0;
   let splitStartH = 0;
@@ -210,8 +204,8 @@
     <button class="btn" class:on={ui.showVideo} onclick={() => ui.toggleVideo()} title="Afficher / masquer les vidéos (la lecture continue, seul l'affichage est replié)">🎞</button>
     <button class="btn" class:on={ui.showWaves} onclick={() => ui.toggleWaves()} title="Afficher / masquer les waveforms (les blocs cues et loops restent)">〰</button>
     <button class="btn" class:on={ui.browserVisible} onclick={() => ui.toggleBrowser()} title="Afficher / masquer le browser (recherche, historique, favoris) — redimensionnable en glissant sa poignée">☰</button>
-    <button class="btn" onclick={() => ui.bumpFontScale(-0.1)} title="Réduire la taille du texte">A−</button>
-    <button class="btn" onclick={() => ui.bumpFontScale(0.1)} title="Agrandir la taille du texte">A+</button>
+    <button class="btn" onclick={() => ui.bumpFontScale(-0.1)} title="Réduire les vignettes des morceaux (listes du browser)">A−</button>
+    <button class="btn" onclick={() => ui.bumpFontScale(0.1)} title="Agrandir les vignettes des morceaux (listes du browser)">A+</button>
   </div>
   <button class="btn" class:on={perfMode} onclick={togglePerf} title="Mode performance : plein écran, browser masqué, grosses waveforms">⛶</button>
   <button class="btn" onclick={() => (showSettings = true)} title="Réglages : clés API, compte YouTube, MIDI, crate, tempo">⚙</button>
@@ -241,7 +235,11 @@
 
 <div class="ghost-hole" bind:this={ghostContainer}></div>
 
-<div class="browser-zone" class:hidden={perfMode || !ui.browserVisible} style="height: {ui.browserHeight}px">
+<div
+  class="browser-zone"
+  class:hidden={perfMode || !ui.browserVisible}
+  style="height: {ui.browserHeight}px; --track-scale: {ui.fontScale}"
+>
   <div
     class="splitter"
     onpointerdown={onSplitStart}

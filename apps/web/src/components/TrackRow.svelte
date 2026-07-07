@@ -75,12 +75,15 @@
 </div>
 
 <style>
+  /* l'échelle A−/A+ (--track-scale) ne concerne que les vignettes :
+     tout est en em, piloté par la taille de police de la ligne */
   .row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 8px;
+    gap: 0.77em;
+    padding: 0.38em 0.6em;
     border-bottom: 1px solid var(--yt-border);
+    font-size: calc(13px * var(--track-scale, 1));
   }
 
   .row:hover {
@@ -88,8 +91,8 @@
   }
 
   img {
-    width: 60px;
-    height: 34px;
+    width: 4.6em;
+    height: 2.6em;
     object-fit: cover;
     border-radius: 3px;
     background: #000;
@@ -110,7 +113,7 @@
 
   .channel {
     color: var(--yt-text-dim);
-    font-size: 11px;
+    font-size: 0.85em;
   }
 
   .by {
@@ -119,12 +122,12 @@
 
   .duration {
     color: var(--yt-text-dim);
-    font-size: 11px;
+    font-size: 0.85em;
   }
 
   .analyzed {
     color: var(--yt-deck-c);
-    font-size: 11px;
+    font-size: 0.85em;
     white-space: nowrap;
   }
 
