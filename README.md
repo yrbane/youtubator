@@ -449,6 +449,8 @@ pnpm test         # Vitest sur tout le monorepo
 pnpm build        # build de production (app + extension)
 ```
 
+**Déploiements** : chaque push sur `main` publie sur [yrbane.github.io/youtubator](https://yrbane.github.io/youtubator/) (GitHub Pages, base `/youtubator/`). Miroir auto-hébergé : `scripts/deploy-nethttp.sh` construit avec base `/` et pousse sur **[youtubator.nethttp.net](https://youtubator.nethttp.net)** (rsync + vhost wildcard Apache). ⚠️ Pour la connexion compte YouTube sur un nouveau domaine, ajouter son origine aux **origines JavaScript autorisées** du Client ID OAuth (console Google).
+
 **Activer l'EQ et les modes tempo (extension)** :
 
 1. `pnpm --filter @youtubator/extension build`

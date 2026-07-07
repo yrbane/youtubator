@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.11.2 — 2026-07-07 · « Miroir auto-hébergé »
+
+- Déploiement sur **https://youtubator.nethttp.net** (vhost wildcard Apache, docroot `/var/www/nethttp.net/youtubator/public`) — script reproductible `scripts/deploy-nethttp.sh` (build base `/`, rsync, installation www-data).
+- README § 16 : les deux cibles de déploiement documentées + rappel d'ajouter l'origine du nouveau domaine au Client ID OAuth Google.
+
 ## 0.11.1 — 2026-07-07 · « Spec à jour »
 
 - README : la spécification Sync (§ 6.3) documente la PLL de verrouillage de phase (F-SYNC-04) et la master clock (F-SYNC-05) livrées en 0.11.0.
