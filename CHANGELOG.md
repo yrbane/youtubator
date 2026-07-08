@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.13.1 — 2026-07-08 · « Accueil (fix CI) »
+
+- Tests e2e adaptés à l'écran d'accueil (nouveau test dédié + choix « sans compte » pré-mémorisé pour les autres).
+
 ## 0.13.0 — 2026-07-08 · « Accueil, logo & presets MIDI »
 
 - **Écran d'accueil** au premier lancement : logo, pitch en trois points et **connexion Google avant l'interface** ; « Continuer sans compte » reste possible (choix mémorisé, l'écran ne revient jamais dès qu'un compte est connu).

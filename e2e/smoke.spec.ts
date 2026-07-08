@@ -3,6 +3,20 @@ import { expect, test } from '@playwright/test';
 // Smoke test : l'app démarre, les contrôles potard se rendent,
 // les onglets et réglages répondent. Pas de lecture YouTube (flaky en CI).
 
+// L'écran d'accueil (connexion Google) s'affiche au premier lancement :
+// on mémorise le choix « sans compte » avant chaque navigation.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('youtubator.onboardingSkipped', '1'));
+});
+
+test('l’écran d’accueil propose la connexion Google au premier lancement', async ({ page, context }) => {
+  await context.addInitScript(() => localStorage.removeItem('youtubator.onboardingSkipped'));
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Se connecter avec Google/ })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /Continuer sans compte/ }).click();
+  await expect(page.locator('.splash')).toHaveCount(0);
+});
+
 test('l’app démarre avec deux decks et le mixer', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Youtubator/);
