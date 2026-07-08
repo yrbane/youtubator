@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.12.2 — 2026-07-08 · « Connexion en un clic »
+
+- Le Client ID OAuth de l'instance est embarqué : la connexion YouTube se fait désormais **juste avec un compte Google**, sur les deux domaines — plus d'onboarding console pour les visiteurs (rappel : l'origine `https://youtubator.nethttp.net` doit être autorisée sur le projet Google).
+
 ## 0.12.1 — 2026-07-07 · « Connexion Google sans console »
 
 - **Client ID OAuth d'instance** : l'app peut embarquer un Client ID par défaut (`app-config.ts`, public par conception, protégé par les origines autorisées du projet Google). Les visiteurs se connectent alors « juste avec leur compte Google », sans créer d'identifiants. L'ID collé dans ⚙ Réglages prime toujours (instance ≠ obligation).

@@ -9,7 +9,8 @@
  * projet Google, pas par le secret. '' = pas d'ID par défaut, chaque
  * utilisateur colle le sien dans ⚙ Réglages (comportement historique).
  */
-export const DEFAULT_CLIENT_ID = '';
+export const DEFAULT_CLIENT_ID =
+  '302756381690-us9aclrk987tlgf4kcn4h40ho5sics3t.apps.googleusercontent.com';
 
 /** Résolution : l'ID collé par l'utilisateur prime sur celui de l'instance. */
 export function resolveClientId(stored: string | null, fallback: string = DEFAULT_CLIENT_ID): string | null {
