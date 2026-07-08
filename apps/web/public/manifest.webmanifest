@@ -1,0 +1,13 @@
+{
+  "name": "Youtubator — mix YouTube",
+  "short_name": "Youtubator",
+  "description": "Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube.",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a1d21",
+  "theme_color": "#1a1d21",
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

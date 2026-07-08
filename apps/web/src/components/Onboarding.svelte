@@ -56,10 +56,16 @@
       Continuer sans compte →
     </button>
 
-    <p class="foot">
-      v{__APP_VERSION__} · L'EQ, les modes tempo et les boucles exactes s'activent avec
-      l'<a href="https://github.com/yrbane/youtubator/releases/latest" target="_blank" rel="noreferrer">extension</a>.
-    </p>
+    <div class="ext-note" title="YouTube joue dans une iframe verrouillée : seule l'extension (installée dans TON navigateur, 2 min) donne accès au vrai son de mix">
+      <strong>🧩 Pour le vrai son de mix, installe l'extension</strong> — elle débloque l'EQ 3
+      bandes, les modes tempo (Master Tempo / Vinyle), les waveforms réelles, les boucles calées
+      au beat et la détection BPM/tonalité.
+      <a href="https://github.com/yrbane/youtubator/releases/latest" target="_blank" rel="noreferrer">Télécharger le zip</a>
+      puis suivre le guide du badge <strong>EXT</strong> en haut de l'app (Chrome & Firefox, ~2 min).
+      Sans elle, on mixe quand même — en mode simplifié.
+    </div>
+
+    <p class="foot">v{__APP_VERSION__}</p>
   </div>
 </div>
 
@@ -159,13 +165,30 @@
     max-width: 420px;
   }
 
-  .foot {
-    margin: 10px 0 0;
+  .ext-note {
+    margin-top: 10px;
+    padding: 10px 14px;
+    border: 1px dashed var(--yt-border);
+    border-radius: 8px;
     color: var(--yt-text-dim);
-    font-size: 11px;
+    font-size: 12px;
+    line-height: 1.55;
+    text-align: left;
+    max-width: 460px;
+    cursor: help;
   }
 
-  .foot a {
+  .ext-note strong {
+    color: var(--yt-text);
+  }
+
+  .ext-note a {
     color: var(--yt-deck-a);
+  }
+
+  .foot {
+    margin: 8px 0 0;
+    color: var(--yt-text-dim);
+    font-size: 11px;
   }
 </style>

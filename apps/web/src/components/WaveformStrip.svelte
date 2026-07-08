@@ -505,6 +505,23 @@
     color: var(--yt-deck-c);
   }
 
+  /* --- Mobile : contrôles au-dessus/en-dessous des waveforms, défilables --- */
+  @media (max-width: 900px) {
+    .strip {
+      flex-direction: column;
+    }
+
+    .ctrl-col {
+      flex-direction: row;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .controls {
+      flex: 1 0 auto;
+    }
+  }
+
   .wave-off {
     display: grid;
     place-items: center;

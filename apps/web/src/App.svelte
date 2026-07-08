@@ -6,6 +6,7 @@
   import Avatar from './components/Avatar.svelte';
   import WaveformStrip from './components/WaveformStrip.svelte';
   import Onboarding from './components/Onboarding.svelte';
+  import ExtensionHelp from './components/ExtensionHelp.svelte';
   import Logo from './components/Logo.svelte';
   import { ONBOARDING_SKIP_KEY, shouldShowOnboarding } from './lib/onboarding.js';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
@@ -26,6 +27,7 @@
   let showSettings = $state(false);
   let perfMode = $state(false);
   let showOnboarding = $state(false);
+  let showExtHelp = $state(false);
 
   function togglePerf(): void {
     perfMode = !perfMode;
@@ -218,9 +220,16 @@
   >
     + deck
   </button>
-  <span class="ext" class:on={anyExtension} title={anyExtension ? 'Extension active : EQ et tempo continus' : 'Mode dégradé : installe l’extension pour l’EQ et les modes tempo'}>
+  <button
+    class="ext"
+    class:on={anyExtension}
+    onclick={() => (showExtHelp = true)}
+    title={anyExtension
+      ? 'Extension active : EQ réel, modes tempo, waveforms, boucles exactes — clic pour le détail'
+      : 'Extension non détectée : EQ, modes tempo, waveforms réelles et boucles exactes désactivés — clic pour le guide d’installation (2 min)'}
+  >
     {anyExtension ? '● EXT' : '○ EXT'}
-  </span>
+  </button>
   {#if ghost.current}
     <span class="ghost-badge" title="Analyse fantôme : {ghost.current.title}{ghost.queue.length ? ` (+${ghost.queue.length} en file)` : ''}">
       ⚡ {ghost.queue.length + 1}
@@ -295,6 +304,10 @@
   <Settings {mixer} onClose={() => (showSettings = false)} />
 {/if}
 
+{#if showExtHelp}
+  <ExtensionHelp connected={anyExtension} onClose={() => (showExtHelp = false)} />
+{/if}
+
 <style>
   .topbar {
     display: flex;
@@ -329,10 +342,21 @@
     font-weight: 800;
     color: var(--yt-text-dim);
     letter-spacing: 0.08em;
+    background: none;
+    border: 1px dashed var(--yt-border);
+    border-radius: 10px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+
+  .ext:hover {
+    border-color: var(--yt-text-dim);
   }
 
   .ext.on {
     color: var(--yt-deck-c);
+    border-style: solid;
+    border-color: var(--yt-deck-c);
   }
 
   .browser-zone {
@@ -516,6 +540,54 @@
     place-items: center;
     color: var(--yt-text-dim);
     padding: 40px;
+  }
+
+  /* --- Mobile : decks empilés, mixer en dessous pleine largeur, browser en flux --- */
+  @media (max-width: 900px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+
+    .col {
+      min-width: 0;
+    }
+
+    /* le mixer quitte sa colonne centrale et s'étale sous les decks */
+    .mixer-slot {
+      width: 100% !important;
+      order: 3;
+      min-height: 340px;
+    }
+
+    .mixer-slot > :global(.mixer) {
+      position: static;
+      overflow-y: visible;
+    }
+
+    .topbar {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 10px;
+    }
+
+    .hint {
+      display: none; /* raccourcis clavier : sans objet au doigt */
+    }
+
+    .spacer {
+      display: none;
+    }
+
+    /* le browser vit dans le flux (la page défile), hauteur bornée pour garder
+       son défilement interne et ses onglets sous la main */
+    .browser-zone {
+      height: 70dvh !important;
+      margin-top: 0;
+    }
+
+    .splitter {
+      display: none; /* redimensionnement à la souris : sans objet au doigt */
+    }
   }
 
 </style>

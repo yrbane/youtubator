@@ -50,6 +50,23 @@ test('les réglages s’ouvrent et se ferment', async ({ page }) => {
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('mobile : tout s’empile, sans défilement horizontal', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const page = await context.newPage();
+  await page.addInitScript(() => localStorage.setItem('youtubator.onboardingSkipped', '1'));
+  await page.goto('/');
+  await page.locator('article.deck').first().waitFor({ timeout: 30_000 });
+  // pas de débordement horizontal
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  // les decks sont empilés (le second nettement sous le premier)
+  const tops = await page
+    .locator('article.deck')
+    .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
+  expect(tops[1]!).toBeGreaterThan(tops[0]! + 100);
+  await context.close();
+});
+
 test('le clavier pilote le crossfader', async ({ page }) => {
   await page.goto('/');
   await page.locator('article.deck').first().waitFor({ timeout: 30_000 });

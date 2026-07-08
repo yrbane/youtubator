@@ -3,6 +3,12 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.14.0 — 2026-07-09 · « Extension explicite & mobile »
+
+- **Extension mise en avant** : le badge EXT devient un bouton qui ouvre un **guide complet** — statut détecté/absent, ce qu'elle débloque (EQ réel, modes tempo, waveforms, boucles exactes, BPM/tonalité, enregistrement), ce qui marche sans elle, et l'installation pas à pas Chrome **et** Firefox avec lien de téléchargement direct. L'écran d'accueil gagne un encart extension explicite.
+- **Version mobile** : l'app s'empile et défile sur petit écran (decks pleine largeur, mixer en dessous, contrôles du bandeau défilables, filtre pleine largeur, cibles tactiles agrandies, raccourcis clavier masqués) — testée sans débordement horizontal en 390×844 (test e2e dédié).
+- **PWA installable** : manifest + icône SVG + theme-color — « Ajouter à l'écran d'accueil » sur Android/iOS ouvre Youtubator en plein écran.
+
 ## 0.13.1 — 2026-07-08 · « Accueil (fix CI) »
 
 - Tests e2e adaptés à l'écran d'accueil (nouveau test dédié + choix « sans compte » pré-mémorisé pour les autres).

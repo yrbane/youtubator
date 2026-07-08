@@ -90,3 +90,23 @@ pt-button.active {
   color: #101318;
   border-color: transparent;
 }
+
+/* --- Mobile : l'app cesse d'être une « fenêtre fixe », tout s'empile et défile --- */
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100dvh;
+  }
+}
+
+/* écrans tactiles : cibles plus grandes */
+@media (pointer: coarse) {
+  .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

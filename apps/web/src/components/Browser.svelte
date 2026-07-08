@@ -1049,6 +1049,23 @@
     gap: 2px;
   }
 
+  /* --- Mobile : onglets sur deux lignes, filtre pleine largeur --- */
+  @media (max-width: 900px) {
+    nav {
+      flex-wrap: wrap;
+    }
+
+    .filter {
+      flex: 1 1 100%;
+      order: 10;
+      margin: 4px 8px 8px;
+    }
+
+    .nav-spacer {
+      display: none;
+    }
+  }
+
   .nav-spacer {
     flex: 1;
   }
