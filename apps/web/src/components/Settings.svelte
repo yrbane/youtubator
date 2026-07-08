@@ -201,6 +201,8 @@
 
   .dialog {
     width: min(440px, 90vw);
+    max-height: 92vh;
+    overflow-y: auto;
     padding: 18px;
     display: flex;
     flex-direction: column;

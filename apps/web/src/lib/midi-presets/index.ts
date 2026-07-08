@@ -1,5 +1,6 @@
 import type { MidiBinding } from '../midi-core.js';
 import { niKontrolX1 } from './ni-kontrol-x1.js';
+import { niKontrolS2 } from './ni-kontrol-s2.js';
 
 /**
  * Presets de contrôleurs MIDI connus — un fichier par contrôleur.
@@ -18,4 +19,4 @@ export interface MidiPreset {
   map: Record<string, MidiBinding>;
 }
 
-export const MIDI_PRESETS: MidiPreset[] = [niKontrolX1];
+export const MIDI_PRESETS: MidiPreset[] = [niKontrolS2, niKontrolX1];

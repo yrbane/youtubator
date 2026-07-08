@@ -101,7 +101,42 @@
         return;
     }
     const hotcue = /^hotcue[AB]([1-4])$/.exec(action);
-    if (hotcue) deck?.jumpToCue(Number(hotcue[1]) - 1);
+    if (hotcue) {
+      deck?.jumpToCue(Number(hotcue[1]) - 1);
+      return;
+    }
+    // EQ 3 bandes : knob MIDI 0..1 → ±12 dB
+    const eq = /^eq(Hi|Mid|Low)[AB]$/.exec(action);
+    if (eq) {
+      const band = eq[1] === 'Hi' ? 'high' : eq[1] === 'Mid' ? 'mid' : 'low';
+      deck?.setEqGain(band, (value * 2 - 1) * 12);
+      return;
+    }
+    // toggles (kills, boucles) : uniquement à l'appui — un bouton mappé en CC
+    // envoie 127 puis 0, sans ce garde il basculerait deux fois
+    if (value < 0.5) return;
+    const kill = /^kill(Hi|Mid|Low)[AB]$/.exec(action);
+    if (kill) {
+      deck?.toggleKill(kill[1] === 'Hi' ? 'high' : kill[1] === 'Mid' ? 'mid' : 'low');
+      return;
+    }
+    switch (action.replace(/[AB]$/, '')) {
+      case 'loopIn':
+        deck?.loopIn();
+        return;
+      case 'loopOut':
+        deck?.loopOut();
+        return;
+      case 'loopToggle':
+        deck?.toggleLoop();
+        return;
+      case 'loopHalf':
+        deck?.resizeActiveLoop(0.5);
+        return;
+      case 'loopDouble':
+        deck?.resizeActiveLoop(2);
+        return;
+    }
   });
 
   $effect(() => {

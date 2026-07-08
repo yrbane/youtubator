@@ -58,5 +58,22 @@ export const MIDI_ACTIONS: Array<{ id: string; label: string; continuous: boolea
   { id: 'syncB', label: 'Sync B', continuous: false },
   ...[1, 2, 3, 4].map((n) => ({ id: `hotcueA${n}`, label: `Hot cue A${n}`, continuous: false })),
   ...[1, 2, 3, 4].map((n) => ({ id: `hotcueB${n}`, label: `Hot cue B${n}`, continuous: false })),
+  // — EQ 3 bandes (knobs, ±12 dB) et kills (mute d'une bande) —
+  ...(['A', 'B'] as const).flatMap((d) => [
+    { id: `eqHi${d}`, label: `EQ High ${d}`, continuous: true },
+    { id: `eqMid${d}`, label: `EQ Mid ${d}`, continuous: true },
+    { id: `eqLow${d}`, label: `EQ Low ${d}`, continuous: true },
+    { id: `killHi${d}`, label: `Kill High ${d}`, continuous: false },
+    { id: `killMid${d}`, label: `Kill Mid ${d}`, continuous: false },
+    { id: `killLow${d}`, label: `Kill Low ${d}`, continuous: false },
+  ]),
+  // — boucles : IN / OUT / reloop ∞ / ÷2 / ×2 —
+  ...(['A', 'B'] as const).flatMap((d) => [
+    { id: `loopIn${d}`, label: `Loop IN ${d}`, continuous: false },
+    { id: `loopOut${d}`, label: `Loop OUT ${d}`, continuous: false },
+    { id: `loopToggle${d}`, label: `Loop ∞ ${d}`, continuous: false },
+    { id: `loopHalf${d}`, label: `Loop ÷2 ${d}`, continuous: false },
+    { id: `loopDouble${d}`, label: `Loop ×2 ${d}`, continuous: false },
+  ]),
 ];
 

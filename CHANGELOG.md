@@ -3,6 +3,12 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.15.0 — 2026-07-09 · « MIDI complet & preset S2 »
+
+- **22 nouvelles actions MIDI mappables** par deck : **EQ 3 bandes** (knobs ±12 dB), **kills** (mute High/Mid/Low), **boucles** (IN, OUT, reloop ∞, ÷2, ×2). Les toggles ne réagissent qu'à l'appui (un bouton mappé en CC ne bascule plus deux fois).
+- **Preset NI Traktor Kontrol S2** (mode MIDI) : mixer complet (crossfader, volumes, EQ, tempo faders), transport, hot cues et section loop — les knobs FX font office de filtres. Le preset **X1** gagne sa section loop.
+- Réglages : la grille MIDI défile dans le dialogue.
+
 ## 0.14.0 — 2026-07-09 · « Extension explicite & mobile »
 
 - **Extension mise en avant** : le badge EXT devient un bouton qui ouvre un **guide complet** — statut détecté/absent, ce qu'elle débloque (EQ réel, modes tempo, waveforms, boucles exactes, BPM/tonalité, enregistrement), ce qui marche sans elle, et l'installation pas à pas Chrome **et** Firefox avec lien de téléchargement direct. L'écran d'accueil gagne un encart extension explicite.

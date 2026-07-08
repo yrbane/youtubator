@@ -38,6 +38,17 @@ export const niKontrolX1: MidiPreset = {
     volumeB: { kind: 'cc', channel: 0, number: 11 },
     tempoA: { kind: 'cc', channel: 0, number: 4 },
     tempoB: { kind: 'cc', channel: 0, number: 12 },
-    // pas de crossfader sur le X1 : action volontairement non mappée
+    // — section loop (notes) : encodeurs pressés/tournés —
+    loopInA: { kind: 'noteon', channel: 0, number: 32 },
+    loopOutA: { kind: 'noteon', channel: 0, number: 33 },
+    loopToggleA: { kind: 'noteon', channel: 0, number: 34 },
+    loopHalfA: { kind: 'noteon', channel: 0, number: 35 },
+    loopDoubleA: { kind: 'noteon', channel: 0, number: 36 },
+    loopInB: { kind: 'noteon', channel: 0, number: 40 },
+    loopOutB: { kind: 'noteon', channel: 0, number: 41 },
+    loopToggleB: { kind: 'noteon', channel: 0, number: 42 },
+    loopHalfB: { kind: 'noteon', channel: 0, number: 43 },
+    loopDoubleB: { kind: 'noteon', channel: 0, number: 44 },
+    // pas de crossfader ni d'EQ sur le X1 : actions volontairement non mappées
   },
 };
