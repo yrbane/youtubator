@@ -5,6 +5,9 @@
   import Settings from './components/Settings.svelte';
   import Avatar from './components/Avatar.svelte';
   import WaveformStrip from './components/WaveformStrip.svelte';
+  import Onboarding from './components/Onboarding.svelte';
+  import Logo from './components/Logo.svelte';
+  import { ONBOARDING_SKIP_KEY, shouldShowOnboarding } from './lib/onboarding.js';
   import { Mixer, MAX_DECKS } from './lib/mixer.svelte.js';
   import { ghost } from './lib/ghost.svelte.js';
   import { midi } from './lib/midi.svelte.js';
@@ -22,6 +25,7 @@
   let apiReady = $state(false);
   let showSettings = $state(false);
   let perfMode = $state(false);
+  let showOnboarding = $state(false);
 
   function togglePerf(): void {
     perfMode = !perfMode;
@@ -101,7 +105,13 @@
   $effect(() => {
     ghost.attach(ghostContainer);
     preview.attach(previewContainer);
-    void session.init();
+    // accueil : connexion Google proposée avant l'interface, au premier lancement
+    void session.init().then(() => {
+      showOnboarding = shouldShowOnboarding(
+        session.accounts.length,
+        localStorage.getItem(ONBOARDING_SKIP_KEY) === '1',
+      );
+    });
     void meta.init();
     void loadYouTubeApi().then(() => {
       apiReady = true;
@@ -190,7 +200,12 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+{#if showOnboarding}
+  <Onboarding onDone={() => (showOnboarding = false)} />
+{/if}
+
 <header class="topbar">
+  <Logo size={26} />
   <h1>YOU<span>TUBATOR</span></h1>
   <span class="version mono" title="Version de l'application (CHANGELOG.md pour le détail)">v{__APP_VERSION__}</span>
   <button

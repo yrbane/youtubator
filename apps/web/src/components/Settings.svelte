@@ -8,10 +8,21 @@
 
   import { exportCrate, importCrate } from '../lib/crate.js';
   import { midi, MIDI_ACTIONS } from '../lib/midi.svelte.js';
+  import { MIDI_PRESETS } from '../lib/midi-presets/index.js';
 
   let apiKey = $state(getApiKey() ?? '');
   let clientId = $state(getClientId() ?? '');
   let crateStatus = $state<string | null>(null);
+  let presetId = $state('');
+  let presetStatus = $state<string | null>(null);
+
+  /** Charge un preset de contrôleur (remplace le mapping courant, Learn ajuste ensuite). */
+  function applyPreset(): void {
+    const preset = MIDI_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    midi.applyPreset(preset.map);
+    presetStatus = `Preset « ${preset.name} » chargé (${Object.keys(preset.map).length} contrôles). ${preset.notes}`;
+  }
 
   async function doExport(): Promise<void> {
     const crate = await exportCrate();
@@ -57,21 +68,6 @@
     </label>
 
     <label>
-      Client ID OAuth Google <small>(connexion au compte YouTube — onglet ▶ YOUTUBE. Laisser vide
-        pour utiliser celui fourni par l'instance s'il existe ; ou <a
-          href="https://console.cloud.google.com/apis/credentials"
-          target="_blank"
-          rel="noreferrer">créer le tien</a
-        >, origine autorisée : ce site)</small>
-      <input
-        type="text"
-        bind:value={clientId}
-        onchange={() => setClientId(clientId)}
-        placeholder="1234567890-xxxx.apps.googleusercontent.com"
-      />
-    </label>
-
-    <label>
       Plage du tempo fader
       <select
         value={String(mixer.tempoRange)}
@@ -105,6 +101,21 @@
         {#if midi.error}<small class="err">{midi.error}</small>{/if}
       {:else}
         <small>{midi.deviceNames.length ? midi.deviceNames.join(', ') : 'Aucun périphérique détecté'}</small>
+        <div class="preset-row">
+          <select
+            bind:value={presetId}
+            title="Mappings prêts à l'emploi pour des contrôleurs connus — un preset remplace tout le mapping, Learn ajuste ensuite touche par touche"
+          >
+            <option value="">— Preset de contrôleur —</option>
+            {#each MIDI_PRESETS as p (p.id)}
+              <option value={p.id}>{p.name}</option>
+            {/each}
+          </select>
+          <button class="btn" disabled={presetId === ''} onclick={applyPreset} title="Charger ce preset (remplace le mapping actuel)">
+            Charger
+          </button>
+        </div>
+        {#if presetStatus}<small>{presetStatus}</small>{/if}
         <div class="midi-grid">
           {#each MIDI_ACTIONS as action (action.id)}
             <span class="m-label">{action.label}</span>
@@ -133,6 +144,24 @@
       {#if crateStatus}<small>{crateStatus}</small>{/if}
     </div>
 
+    <details class="advanced">
+      <summary title="Options rarement utiles au quotidien">Avancé</summary>
+      <label>
+        Client ID OAuth Google <small>(connexion au compte YouTube. Laisser vide pour utiliser
+          celui fourni par l'instance ; ou <a
+            href="https://console.cloud.google.com/apis/credentials"
+            target="_blank"
+            rel="noreferrer">créer le tien</a
+          > — utile pour une instance auto-hébergée sur un autre domaine, origine autorisée : ce site)</small>
+        <input
+          type="text"
+          bind:value={clientId}
+          onchange={() => setClientId(clientId)}
+          placeholder="Vide = Client ID de l'instance"
+        />
+      </label>
+    </details>
+
     <button class="btn" onclick={onClose}>Fermer</button>
   </div>
 </div>
@@ -145,6 +174,29 @@
     display: grid;
     place-items: center;
     z-index: 50;
+  }
+
+  .advanced summary {
+    cursor: pointer;
+    color: var(--yt-text-dim);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .advanced[open] summary {
+    color: var(--yt-text);
+    margin-bottom: 8px;
+  }
+
+  .preset-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .preset-row select {
+    flex: 1;
   }
 
   .dialog {

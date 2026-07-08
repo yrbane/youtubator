@@ -2,26 +2,10 @@
 
 import { matchAction, parseMidiMessage, type MidiBinding, type MidiEvent } from './midi-core.js';
 
+export { MIDI_ACTIONS } from './midi-core.js';
+
 const MAP_KEY = 'youtubator.midiMap';
 
-/** Actions mappables — libellés pour l'écran de réglages. */
-export const MIDI_ACTIONS: Array<{ id: string; label: string; continuous: boolean }> = [
-  { id: 'crossfader', label: 'Crossfader', continuous: true },
-  { id: 'volumeA', label: 'Volume A', continuous: true },
-  { id: 'volumeB', label: 'Volume B', continuous: true },
-  { id: 'tempoA', label: 'Tempo A', continuous: true },
-  { id: 'tempoB', label: 'Tempo B', continuous: true },
-  { id: 'filterA', label: 'Filtre A', continuous: true },
-  { id: 'filterB', label: 'Filtre B', continuous: true },
-  { id: 'playA', label: 'Play/Pause A', continuous: false },
-  { id: 'playB', label: 'Play/Pause B', continuous: false },
-  { id: 'cueA', label: 'Cue A', continuous: false },
-  { id: 'cueB', label: 'Cue B', continuous: false },
-  { id: 'syncA', label: 'Sync A', continuous: false },
-  { id: 'syncB', label: 'Sync B', continuous: false },
-  ...[1, 2, 3, 4].map((n) => ({ id: `hotcueA${n}`, label: `Hot cue A${n}`, continuous: false })),
-  ...[1, 2, 3, 4].map((n) => ({ id: `hotcueB${n}`, label: `Hot cue B${n}`, continuous: false })),
-];
 
 /** Contrôleur MIDI : accès Web MIDI, mode learn, dispatch des actions. */
 export class MidiController {
@@ -68,6 +52,12 @@ export class MidiController {
   clear(actionId: string): void {
     const { [actionId]: _removed, ...rest } = this.map;
     this.map = rest;
+    this.#saveMap();
+  }
+
+  /** Charge un preset de contrôleur : remplace tout le mapping (Learn ajuste ensuite). */
+  applyPreset(map: Record<string, MidiBinding>): void {
+    this.map = { ...map };
     this.#saveMap();
   }
 

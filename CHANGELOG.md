@@ -3,6 +3,13 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.13.0 — 2026-07-08 · « Accueil, logo & presets MIDI »
+
+- **Écran d'accueil** au premier lancement : logo, pitch en trois points et **connexion Google avant l'interface** ; « Continuer sans compte » reste possible (choix mémorisé, l'écran ne revient jamais dès qu'un compte est connu).
+- **Logo SVG** original — hexagones concentriques façon Traktor + triangle play façon YouTube, dégradé deck A → deck B. En topbar, sur le splash, et en favicon.
+- **Presets MIDI par contrôleur** (un fichier par contrôleur, `lib/midi-presets/`) : sélecteur dans les réglages, premier preset **NI Traktor Kontrol X1 (mode MIDI)** — gabarit d'usine, chaque touche reste ajustable via Learn. Les tests valident automatiquement tout nouveau preset (actions connues, bindings MIDI valides, pas de touche en double).
+- **Réglages épurés** : le Client ID OAuth migre dans une section « Avancé » repliée (l'ID de l'instance suffit au quotidien).
+
 ## 0.12.2 — 2026-07-08 · « Connexion en un clic »
 
 - Le Client ID OAuth de l'instance est embarqué : la connexion YouTube se fait désormais **juste avec un compte Google**, sur les deux domaines — plus d'onboarding console pour les visiteurs (rappel : l'origine `https://youtubator.nethttp.net` doit être autorisée sur le projet Google).
