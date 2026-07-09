@@ -79,6 +79,15 @@ describe('tri des colonnes', () => {
     expect(ids('style', 1)).toEqual(['a', 'c', 'b']);
   });
 
+  it('tonalité : tri alphabétique Camelot, inconnue en fin', () => {
+    const withKeys = [
+      { id: 'a', row: { ...rows[0]!.row, key: '9B' } },
+      { id: 'b', row: { ...rows[1]!.row, key: null } },
+      { id: 'c', row: { ...rows[2]!.row, key: '3A' } },
+    ];
+    expect(sortRows(withKeys, (r) => r.row, 'key', 1).map((r) => r.id)).toEqual(['c', 'a', 'b']);
+  });
+
   it('couleur : ordre de la palette, sans couleur en fin', () => {
     expect(ids('color', 1)).toEqual(['c', 'a', 'b']);
   });

@@ -3,6 +3,7 @@ import {
   clampFontScale,
   parsePrefs,
   serializePrefs,
+  type ColumnId,
   type UiPrefs,
 } from './ui-prefs.js';
 
@@ -45,6 +46,18 @@ class UiStore {
 
   get showWaves(): boolean {
     return this.#prefs.showWaves;
+  }
+
+  /** Colonnes visibles dans les listes du browser (le titre est toujours affiché). */
+  get columns(): ColumnId[] {
+    return this.#prefs.columns;
+  }
+
+  toggleColumn(id: ColumnId): void {
+    const columns = this.#prefs.columns.includes(id)
+      ? this.#prefs.columns.filter((c) => c !== id)
+      : [...this.#prefs.columns, id];
+    this.#set({ columns });
   }
 
   toggleBrowser(): void {

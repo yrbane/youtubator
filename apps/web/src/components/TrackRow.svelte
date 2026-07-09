@@ -6,6 +6,7 @@
   import { preview } from '../lib/preview.svelte.js';
   import { nextColor, TRACK_COLORS } from '../lib/track-meta.js';
   import { isLocalTrackId } from '../lib/local-files.js';
+  import { ui } from '../lib/ui.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -59,6 +60,8 @@
   const m = $derived(meta.get(track.videoId));
   const sessionPlays = $derived(meta.sessionPlays(track.videoId));
   const local = $derived(isLocalTrackId(track.videoId));
+  // colonnes visibles (choix « ⚏ Colonnes » du browser, persisté)
+  const cols = $derived(new Set(ui.columns));
   const style = $derived(m?.style ?? '');
   const color = $derived(meta.colorOf(track.videoId));
 
@@ -127,41 +130,54 @@
       </span>
     {/if}
   </span>
-  <img src={track.thumbnailUrl} alt="" loading="lazy" />
-  <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
-    {m?.style || 'style'}
-  </button>
+  {#if cols.has('thumb')}
+    <img src={track.thumbnailUrl} alt="" loading="lazy" />
+  {/if}
+  {#if cols.has('style')}
+    <button class="style" class:unset={!m?.style} onclick={editStyle} title="Style musical — clic pour éditer">
+      {m?.style || 'style'}
+    </button>
+  {/if}
   <div class="meta">
     <span class="title" title={track.title}>{track.title}</span>
-    <span class="channel">
-      {track.channel}
-      {#if by}<span class="by" title="Ajouté par {by}">· {by}</span>{/if}
-    </span>
   </div>
-  {#if wave?.bpm || wave?.key}
-    <span class="mono analyzed" title="Déjà analysé : BPM{wave.key ? ' · tonalité' : ''}">
-      {wave.bpm ? wave.bpm.toFixed(0) : '–'}{wave.key ? ` · ${wave.key}` : ''}
+  {#if cols.has('artist')}
+    <span class="artist" title="Artiste / chaîne{by ? ` — ajouté par ${by}` : ''}">
+      {track.channel || '—'}
+      {#if by}<span class="by">· {by}</span>{/if}
     </span>
   {/if}
-  <span
-    class="mono plays"
-    class:zero={!(m?.plays ?? 0)}
-    title="Lectures : {m?.plays ?? 0} au total{sessionPlays ? `, dont ${sessionPlays} cette session` : ''}"
-  >
-    ▶{m?.plays ?? 0}{sessionPlays ? `·${sessionPlays}` : ''}
-  </span>
-  <span class="mono duration">{formatDuration(track.durationS)}</span>
-  <span class="stars" title="Note du morceau — re-cliquer la même étoile pour la retirer">
-    {#each [1, 2, 3, 4, 5] as n (n)}
-      <button
-        class="star"
-        class:on={n <= (m?.rating ?? 0)}
-        onclick={() => void meta.setRating(track.videoId, m?.rating === n ? 0 : n)}
-      >
-        ★
-      </button>
-    {/each}
-  </span>
+  {#if cols.has('bpm')}
+    <span class="mono analyzed" title="BPM détecté">{wave?.bpm ? wave.bpm.toFixed(0) : '–'}</span>
+  {/if}
+  {#if cols.has('key')}
+    <span class="mono analyzed" title="Tonalité (Camelot)">{wave?.key ?? '–'}</span>
+  {/if}
+  {#if cols.has('plays')}
+    <span
+      class="mono plays"
+      class:zero={!(m?.plays ?? 0)}
+      title="Lectures : {m?.plays ?? 0} au total{sessionPlays ? `, dont ${sessionPlays} cette session` : ''}"
+    >
+      ▶{m?.plays ?? 0}{sessionPlays ? `·${sessionPlays}` : ''}
+    </span>
+  {/if}
+  {#if cols.has('duration')}
+    <span class="mono duration">{formatDuration(track.durationS)}</span>
+  {/if}
+  {#if cols.has('rating')}
+    <span class="stars" title="Note du morceau — re-cliquer la même étoile pour la retirer">
+      {#each [1, 2, 3, 4, 5] as n (n)}
+        <button
+          class="star"
+          class:on={n <= (m?.rating ?? 0)}
+          onclick={() => void meta.setRating(track.videoId, m?.rating === n ? 0 : n)}
+        >
+          ★
+        </button>
+      {/each}
+    </span>
+  {/if}
   <div class="actions">
     {#if onMoveUp || onMoveDown}
       <button class="btn" title="Monter dans la crate" disabled={!onMoveUp} onclick={onMoveUp}>↑</button>
@@ -277,9 +293,14 @@
     text-overflow: ellipsis;
   }
 
-  .channel {
+  .artist {
     color: var(--yt-text-dim);
-    font-size: 0.85em;
+    font-size: 0.9em;
+    max-width: 14em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 0 1 auto;
   }
 
   .by {

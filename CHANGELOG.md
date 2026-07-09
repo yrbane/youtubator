@@ -3,6 +3,13 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.17.0 — 2026-07-09 · « Colonnes à la carte »
+
+- **Colonne Artiste** dédiée (chaîne YouTube ou tag du fichier local) et colonnes **BPM** / **Tonalité** séparées.
+- **⚏ Colonnes** : choisir les colonnes affichées dans toutes les listes — Vignette, Style, Artiste, BPM, Tonalité, Lectures, Durée, Note (le titre est toujours là). Choix persisté.
+- **Défaut épuré : style · titre · artiste** — le reste s'active à la demande.
+- Tri : « Artiste » (ex-Chaîne) et nouvelle clé **Tonalité** (Camelot, inconnues en fin).
+
 ## 0.16.0 — 2026-07-09 · « Fichiers locaux »
 
 La brique bibliothèque locale façon Traktor — tes achats Bandcamp/Beatport, tes rips, tes prods.

@@ -4,7 +4,9 @@ import {
   clampFontScale,
   isBrowserHidden,
   parsePrefs,
+  sanitizeColumns,
   serializePrefs,
+  DEFAULT_COLUMNS,
   UI_DEFAULTS,
 } from './ui-prefs.js';
 
@@ -32,6 +34,24 @@ describe('browser plein écran momentané', () => {
   it('le plein écran momentané prime sur tout : browser masqué ou mode performance', () => {
     expect(isBrowserHidden({ perfMode: false, visible: false, maximized: true })).toBe(false);
     expect(isBrowserHidden({ perfMode: true, visible: false, maximized: true })).toBe(false);
+  });
+});
+
+describe('colonnes du browser', () => {
+  it('défaut : style et artiste (le titre est toujours affiché)', () => {
+    expect(DEFAULT_COLUMNS).toEqual(['style', 'artist']);
+    expect(parsePrefs(null).columns).toEqual(['style', 'artist']);
+  });
+
+  it('choix persisté et rejoué, ids inconnus filtrés, doublons retirés', () => {
+    const prefs = { ...UI_DEFAULTS, columns: sanitizeColumns(['bpm', 'rating', 'bpm', 'nimporte']) };
+    expect(prefs.columns).toEqual(['bpm', 'rating']);
+    expect(parsePrefs(serializePrefs(prefs)).columns).toEqual(['bpm', 'rating']);
+  });
+
+  it('un choix vide est respecté (tout masqué sauf le titre)', () => {
+    const prefs = { ...UI_DEFAULTS, columns: [] as never[] };
+    expect(parsePrefs(serializePrefs(prefs)).columns).toEqual([]);
   });
 });
 

@@ -4,6 +4,7 @@
   import StatsTab from './StatsTab.svelte';
   import LoadMoreSentinel from './LoadMoreSentinel.svelte';
   import SortBar from './SortBar.svelte';
+  import ColumnPicker from './ColumnPicker.svelte';
   import { searchYoutubePage, getApiKey, type SearchOptions } from '../lib/search.js';
   import { addVideoToYtPlaylist, createYtPlaylist, mergeTracks } from '../lib/youtube-account.js';
   import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
@@ -172,11 +173,13 @@
 
   function toSortRow(track: Track): SortableRow {
     const m = meta.get(track.videoId);
+    const w = waveMeta.get(track.videoId);
     return {
       title: track.title,
       channel: track.channel,
       durationS: track.durationS,
-      bpm: waveMeta.get(track.videoId)?.bpm ?? null,
+      bpm: w?.bpm ?? null,
+      key: w?.key ?? null,
       rating: m?.rating ?? 0,
       plays: m?.plays ?? 0,
       style: m?.style ?? null,
@@ -655,6 +658,7 @@
     <div class="toolrow">
       <SortBar {sort} onSort={toggleSort} />
       <div class="smart">
+        <ColumnPicker />
         <button
           class="btn"
           disabled={filter === '' && !sort}

@@ -45,6 +45,7 @@ export interface SortableRow {
   channel: string;
   durationS: number;
   bpm?: number | null;
+  key?: string | null;
   rating?: number;
   plays?: number;
   style?: string | null;
@@ -55,9 +56,10 @@ export type SortKey = keyof SortableRow;
 
 export const SORT_KEYS: ReadonlyArray<[SortKey, string]> = [
   ['title', 'Titre'],
-  ['channel', 'Chaîne'],
+  ['channel', 'Artiste'],
   ['durationS', 'Durée'],
   ['bpm', 'BPM'],
+  ['key', 'Tonalité'],
   ['rating', 'Note'],
   ['plays', 'Lect.'],
   ['style', 'Style'],
