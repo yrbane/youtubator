@@ -1,5 +1,6 @@
 import { db } from './library.js';
 import { isAudioFile, localTrackId, parseTrackFilename } from './local-files.js';
+import { parseTags } from './tags.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -20,6 +21,9 @@ export interface LocalTrack {
   relPath: string;
   artist: string;
   title: string;
+  album?: string;
+  /** Genre du tag (ID3/Vorbis) — sert de style par défaut. */
+  genre?: string;
   ext: string;
   size: number;
   handle?: FileSystemFileHandle;
@@ -48,13 +52,17 @@ async function collect(
     } else if (isAudioFile(entry.name)) {
       const relPath = `${prefix}${entry.name}`;
       const file: File = await entry.getFile();
-      const { artist, title } = parseTrackFilename(entry.name);
+      // tags embarqués (ID3/Vorbis) prioritaires sur le nom de fichier
+      const tags = parseTags(await file.slice(0, 262144).arrayBuffer());
+      const fromName = parseTrackFilename(entry.name);
       out.push({
         id: localTrackId(folderId, relPath),
         folderId,
         relPath,
-        artist,
-        title,
+        artist: tags?.artist ?? fromName.artist,
+        title: tags?.title ?? fromName.title,
+        album: tags?.album ?? undefined,
+        genre: tags?.genre ?? undefined,
         ext: entry.name.split('.').pop()!.toLowerCase(),
         size: file.size,
         handle: entry,
@@ -101,20 +109,23 @@ export async function importFiles(files: FileList | File[]): Promise<LocalFolder
   };
   await db.localFolders.put(folder);
   await db.localTracks.bulkPut(
-    list.map((file) => {
+    await Promise.all(list.map(async (file) => {
       const relPath = (file as any).webkitRelativePath || file.name;
-      const { artist, title } = parseTrackFilename(file.name);
+      const tags = parseTags(await file.slice(0, 262144).arrayBuffer());
+      const fromName = parseTrackFilename(file.name);
       return {
         id: localTrackId(folder.id, relPath),
         folderId: folder.id,
         relPath,
-        artist,
-        title,
+        artist: tags?.artist ?? fromName.artist,
+        title: tags?.title ?? fromName.title,
+        album: tags?.album ?? undefined,
+        genre: tags?.genre ?? undefined,
         ext: file.name.split('.').pop()!.toLowerCase(),
         size: file.size,
         file,
       } satisfies LocalTrack;
-    }),
+    })),
   );
   return folder;
 }

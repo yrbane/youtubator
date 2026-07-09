@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatDuration, type Track } from '../lib/tracks.js';
   import { ghost } from '../lib/ghost.svelte.js';
+  import { localAnalysis } from '../lib/local-analysis.svelte.js';
   import { loadWaveform } from '../lib/library.js';
   import { meta } from '../lib/meta.svelte.js';
   import { preview } from '../lib/preview.svelte.js';
@@ -183,16 +184,14 @@
       <button class="btn" title="Monter dans la crate" disabled={!onMoveUp} onclick={onMoveUp}>↑</button>
       <button class="btn" title="Descendre dans la crate" disabled={!onMoveDown} onclick={onMoveDown}>↓</button>
     {/if}
-    {#if !local}
-      <button
-        class="btn phones"
-        class:on={preview.current === track.videoId}
-        onclick={() => void preview.toggle(track)}
-        title="Pré-écouter sans occuper un deck (démarre au tiers du morceau, sortie principale) — re-clic pour arrêter"
-      >
-        🎧
-      </button>
-    {/if}
+    <button
+      class="btn phones"
+      class:on={preview.current === track.videoId}
+      onclick={() => void preview.toggle(track)}
+      title="Pré-écouter sans occuper un deck (démarre au tiers du morceau, sortie principale) — re-clic pour arrêter"
+    >
+      🎧
+    </button>
     {#each mixer.decks as deck (deck.id)}
       <button
         class="btn route"
@@ -205,7 +204,7 @@
     {/each}
     <button
       class="btn zap"
-      onclick={() => ghost.enqueue(track)}
+      onclick={() => (local ? localAnalysis.enqueue(track.videoId) : ghost.enqueue(track))}
       title="Pré-analyser (waveform, BPM, tonalité) en silence, sans occuper un deck"
     >
       ⚡

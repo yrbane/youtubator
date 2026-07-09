@@ -10,6 +10,8 @@
   import { isSearchCacheFresh, normalizeQuery } from '../lib/search-history.js';
   import { meta } from '../lib/meta.svelte.js';
   import { ghost } from '../lib/ghost.svelte.js';
+  import { localAnalysis } from '../lib/local-analysis.svelte.js';
+  import { isLocalTrackId } from '../lib/local-files.js';
   import { ui } from '../lib/ui.svelte.js';
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import { filterRows, type FilterableRow } from '../lib/filter.js';
@@ -83,6 +85,10 @@
 
   async function refreshLocal(): Promise<void> {
     [localFolders, localTracks] = await Promise.all([listFolders(), listLocalTracks()]);
+    // le genre du tag devient le style par défaut (jamais par-dessus un choix manuel)
+    for (const t of localTracks) {
+      if (t.genre && !meta.get(t.id)?.style) void meta.setStyle(t.id, t.genre);
+    }
   }
 
   async function pickFolder(): Promise<void> {
@@ -355,12 +361,18 @@
   }
 
   function bulkAnalyze(): void {
-    for (const t of selectedTracks()) ghost.enqueue(t);
+    for (const t of selectedTracks()) {
+      if (isLocalTrackId(t.videoId)) localAnalysis.enqueue(t.videoId);
+      else ghost.enqueue(t);
+    }
   }
 
-  /** ⚡ liste : met toute la liste affichée dans la file d'analyse fantôme. */
+  /** ⚡ liste : analyse toute la liste affichée (fantôme pour YouTube, décodage direct en local). */
   function analyzeDisplayed(): void {
-    for (const t of selectionList) ghost.enqueue(t);
+    for (const t of selectionList) {
+      if (isLocalTrackId(t.videoId)) localAnalysis.enqueue(t.videoId);
+      else ghost.enqueue(t);
+    }
   }
 
   // --- filtres sauvegardés (smart crates) ---
@@ -825,7 +837,10 @@
             </span>
           {/each}
         </div>
-        <span class="mono head-count">{sortedLocal.length} morceaux</span>
+        <span class="mono head-count">
+          {#if localAnalysis.pending > 0}⚡ {localAnalysis.pending} en analyse ·{/if}
+          {sortedLocal.length} morceaux
+        </span>
       </div>
       {#each sortedLocal as track, i (track.videoId)}
         <TrackRow

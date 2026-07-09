@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeBuckets,
+  computeChroma,
   computeEnvelope,
   isAudioFile,
   localTrackId,
@@ -71,6 +72,17 @@ describe('décodage → buckets de waveform et enveloppe d’analyse', () => {
     expect(buckets.length).toBe(8); // 2 s / 250 ms
     expect(buckets[4]).toBeGreaterThan(0.9); // burst à 1,0-1,25 s
     expect(buckets[0]).toBe(0);
+  });
+
+  it('chromagramme : une sinusoïde en La (110 Hz) domine le bin A', () => {
+    const sr = 8000;
+    const sine = new Float32Array(sr * 3);
+    for (let i = 0; i < sine.length; i++) sine[i] = Math.sin((2 * Math.PI * 110 * i) / sr);
+    const chroma = computeChroma(sine, sr);
+    const A = 9; // C=0 … A=9
+    const max = Math.max(...chroma);
+    expect(chroma[A]).toBe(max);
+    expect(chroma[A]! / (chroma[(A + 6) % 12]! + 1e-9)).toBeGreaterThan(3); // nettement dominant
   });
 
   it('enveloppe RMS par blocs : rate cohérent, énergie au burst', () => {

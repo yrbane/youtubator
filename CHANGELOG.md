@@ -3,6 +3,16 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.18.0 — 2026-07-09 · « Deck local parité totale »
+
+Les cinq dernières marches du deck fichiers locaux — désormais au niveau (et parfois au-dessus) du deck YouTube+extension.
+
+- **Boucles sample-accurate locales** : la région IN→OUT est rejouée depuis l'AudioBuffer décodé, à travers l'EQ/filtre/gain — zéro seek, boucles parfaites, ÷2/×2 et beat loops compris. Le temps affiché cycle dans la région, la sortie reprend en phase.
+- **Tags embarqués** : lecture des **ID3v2 (MP3) et Vorbis comments (FLAC)** au scan — artiste, titre, album, **genre** (les genres numériques ID3v1 sont traduits). Les tags priment sur le nom de fichier, et **le genre devient le style par défaut** du morceau (jamais par-dessus un choix manuel).
+- **Tonalité locale** : chromagramme offline (Goertzel 36 demi-tons) → détection de clé Camelot sur tout le morceau, vérifiée E2E (La 220 Hz → 8A pile).
+- **Filtre bipolaire et VU-mètre** actifs sur les decks locaux ; **pré-écoute 🎧** des fichiers locaux (audio direct, départ au tiers).
+- **⚡ file d'analyse locale** : BPM + tonalité + waveform de toute la bibliothèque en tâche de fond (décodage direct, sans deck ni extension), compteur de progression dans l'onglet LOCAL — MATCH et tri BPM utiles sur toute la collection.
+
 ## 0.17.0 — 2026-07-09 · « Colonnes à la carte »
 
 - **Colonne Artiste** dédiée (chaîne YouTube ou tag du fichier local) et colonnes **BPM** / **Tonalité** séparées.

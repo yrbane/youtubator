@@ -17,7 +17,7 @@ import {
 import { analyze } from './analysis.js';
 import { iframeChannel } from './deck-channel.js';
 import { LocalFileBackend } from './local-backend.js';
-import { computeBuckets, computeEnvelope, isLocalTrackId } from './local-files.js';
+import { computeBuckets, computeChroma, computeEnvelope, isLocalTrackId } from './local-files.js';
 import { createPlayerFactory } from './yt-iframe.js';
 import { loadWaveform, saveWaveform } from './library.js';
 import {
@@ -175,7 +175,8 @@ export class Deck {
     this.waveBuckets = computeBuckets(decoded.pcm, decoded.sampleRate, decoded.durationS);
     this.waveIsReal = true;
     const { data, envelopeRate } = computeEnvelope(decoded.pcm, decoded.sampleRate);
-    const { bpm: detection, key } = await analyze(data, envelopeRate, null);
+    const chroma = computeChroma(decoded.pcm, decoded.sampleRate);
+    const { bpm: detection, key } = await analyze(data, envelopeRate, chroma);
     if (this.track?.videoId !== id) return;
     if (detection && detection.confidence >= 0.12) {
       // enveloppe en temps média direct (pas de conversion de rate ici)
@@ -217,6 +218,9 @@ export class Deck {
         this.timeUpdatedAt = performance.now();
       }
     });
+    if (backend instanceof LocalFileBackend) {
+      backend.onMeter((level) => (this.meterLevel = level));
+    }
     this.#extension?.onMeter((level) => {
       this.meterLevel = level;
       // capture progressive : la waveform réelle se construit pendant la lecture
@@ -322,7 +326,7 @@ export class Deck {
   }
 
   loopIn(): void {
-    if (this.sampleLoop) this.#extension?.exitLoop();
+    this.#exitSampleLoop();
     this.loop = pressIn(this.loop, this.displayTimeS());
   }
 
@@ -341,7 +345,7 @@ export class Deck {
       this.#engageSampleLoopIfPossible();
     } else {
       const ghost = this.rollMode ? this.ghostTimeS() : null;
-      if (this.sampleLoop) this.#extension?.exitLoop();
+      this.#exitSampleLoop();
       if (ghost !== null) this.seekToS(ghost); // roll : reprise comme si jamais bouclé
     }
   }
@@ -379,7 +383,7 @@ export class Deck {
   resizeActiveLoop(factor: 0.5 | 2): void {
     const resized = resizeLoop(this.loop, factor);
     if (resized === this.loop) return;
-    if (this.sampleLoop) this.#extension?.exitLoop();
+    this.#exitSampleLoop();
     this.loop = resized;
     if (this.loop.active) {
       this.#markLoopEngaged();
@@ -403,8 +407,24 @@ export class Deck {
   #engageSampleLoopIfPossible(): void {
     const { inS, outS, active } = this.loop;
     if (!active || inS === null || outS === null) return;
+    if (this.#backend instanceof LocalFileBackend) {
+      this.#backend.engageLoop(inS, outS);
+      this.sampleLoop = true;
+      return;
+    }
     if (this.#backend?.capabilities.sampleLoops) {
       this.#extension?.engageLoop(inS, outS);
+    }
+  }
+
+  /** Coupe la boucle sample-accurate, quel que soit le backend. */
+  #exitSampleLoop(): void {
+    if (!this.sampleLoop) return;
+    if (this.#backend instanceof LocalFileBackend) {
+      this.#backend.exitLoop();
+      this.sampleLoop = false;
+    } else {
+      this.#extension?.exitLoop();
     }
   }
 
@@ -552,7 +572,8 @@ export class Deck {
   /** Filtre bipolaire LP/HP (extension requise). */
   setFilter(value: number): void {
     this.filterValue = value;
-    this.#extension?.setFilter(value);
+    if (this.#backend instanceof LocalFileBackend) this.#backend.setFilter(value);
+    else this.#extension?.setFilter(value);
   }
 
   /** Delay synchronisé au BPM : fraction de beat + dosage wet. */

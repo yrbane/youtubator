@@ -1,4 +1,6 @@
 import { loadYouTubeApi } from './yt-iframe.js';
+import { isLocalTrackId } from './local-files.js';
+import { getLocalFile } from './local-library.js';
 import type { Track } from './tracks.js';
 
 const PREVIEW_VOLUME = 60;
@@ -20,8 +22,12 @@ class PreviewPlayer {
     this.#container = container;
   }
 
+  #localAudio: HTMLAudioElement | null = null;
+  #localUrl: string | null = null;
+
   async toggle(track: Track): Promise<void> {
     if (this.current === track.videoId) return this.stop();
+    if (isLocalTrackId(track.videoId)) return this.#toggleLocal(track);
     if (!this.#container) return;
     this.stop();
     this.current = track.videoId;
@@ -48,9 +54,30 @@ class PreviewPlayer {
     });
   }
 
+  /** Pré-écoute d'un fichier local : un simple <audio> sur blob, départ au tiers. */
+  async #toggleLocal(track: Track): Promise<void> {
+    this.stop();
+    this.current = track.videoId;
+    const file = await getLocalFile(track.videoId);
+    if (!file || this.current !== track.videoId) return this.stop();
+    this.#localUrl = URL.createObjectURL(file);
+    const audio = new Audio(this.#localUrl);
+    audio.volume = 0.6;
+    audio.addEventListener('loadedmetadata', () => {
+      audio.currentTime = audio.duration > 0 ? audio.duration / 3 : 0;
+      void audio.play();
+    });
+    audio.addEventListener('ended', () => this.stop());
+    this.#localAudio = audio;
+  }
+
   stop(): void {
     this.#player?.destroy?.();
     this.#player = null;
+    this.#localAudio?.pause();
+    this.#localAudio = null;
+    if (this.#localUrl) URL.revokeObjectURL(this.#localUrl);
+    this.#localUrl = null;
     this.current = null;
     if (this.#container) this.#container.innerHTML = '';
   }
