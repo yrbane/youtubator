@@ -16,6 +16,8 @@ import {
 } from '@youtubator/audio-engine';
 import { analyze } from './analysis.js';
 import { iframeChannel } from './deck-channel.js';
+import { LocalFileBackend } from './local-backend.js';
+import { computeBuckets, computeEnvelope, isLocalTrackId } from './local-files.js';
 import { createPlayerFactory } from './yt-iframe.js';
 import { loadWaveform, saveWaveform } from './library.js';
 import {
@@ -115,20 +117,74 @@ export class Deck {
     this.#core.load(track.videoId);
     void this.#restoreWaveform(track.videoId);
 
+    // fichiers locaux et YouTube n'ont pas le même backend : on bascule au besoin
+    const kind = isLocalTrackId(track.videoId) ? 'local' : 'yt';
+    if (this.#backend && this.#backendKind !== kind) {
+      this.#backend.destroy();
+      this.#backend = null;
+      this.#extension = null;
+      this.hasExtension = false;
+      if (this.#container) this.#container.innerHTML = '';
+    }
+
     if (!this.#backend) {
-      const factory = createPlayerFactory(this.#container);
-      const inner = new IframeApiBackend(factory);
-      await inner.load(track.videoId);
-      const iframe = factory.getIframe();
-      this.#extension = iframe ? new ExtensionBackend(inner, iframeChannel(iframe)) : null;
-      this.#backend = this.#extension ?? inner;
-      this.#wireBackend(this.#backend);
-      this.#core.ready();
+      if (kind === 'local') {
+        const backend = new LocalFileBackend();
+        this.#wireBackend(backend);
+        await backend.load(track.videoId);
+        this.#backend = backend;
+        this.#core.ready();
+      } else {
+        const factory = createPlayerFactory(this.#container);
+        const inner = new IframeApiBackend(factory);
+        await inner.load(track.videoId);
+        const iframe = factory.getIframe();
+        this.#extension = iframe ? new ExtensionBackend(inner, iframeChannel(iframe)) : null;
+        this.#backend = this.#extension ?? inner;
+        this.#wireBackend(this.#backend);
+        this.#core.ready();
+      }
+      this.#backendKind = kind;
     } else {
       await this.#backend.load(track.videoId);
     }
+    if (kind === 'local') void this.#analyzeLocalIfNeeded();
     this.applyVolume(this.#xfGain);
     void this.setRate(this.rate);
+  }
+
+  #backendKind: 'yt' | 'local' | null = null;
+
+  /** Deck sur fichier local (EQ/tempo natifs, sans extension). */
+  get isLocal(): boolean {
+    return this.#backendKind === 'local';
+  }
+
+  /**
+   * Fichier local : tout le PCM est là — waveform complète et grille de beats
+   * calculées immédiatement (sauf si le dossier du morceau est déjà complet).
+   */
+  async #analyzeLocalIfNeeded(): Promise<void> {
+    const id = this.track?.videoId;
+    const backend = this.#backend;
+    if (!id || !(backend instanceof LocalFileBackend)) return;
+    if (this.waveIsReal && this.grid) return; // restauré du cache
+    const decoded = await backend.decodeForAnalysis(id);
+    if (!decoded || this.track?.videoId !== id) return;
+    this.durationS = decoded.durationS;
+    this.waveBuckets = computeBuckets(decoded.pcm, decoded.sampleRate, decoded.durationS);
+    this.waveIsReal = true;
+    const { data, envelopeRate } = computeEnvelope(decoded.pcm, decoded.sampleRate);
+    const { bpm: detection, key } = await analyze(data, envelopeRate, null);
+    if (this.track?.videoId !== id) return;
+    if (detection && detection.confidence >= 0.12) {
+      // enveloppe en temps média direct (pas de conversion de rate ici)
+      this.grid = { bpm: detection.bpm, anchorS: detection.anchorS };
+      this.autoGain = computeAutoGain(data);
+    }
+    if (key) this.musicalKey = { camelot: key.camelot, name: key.name };
+    this.#waveDirty = true;
+    void this.#flushWaveform();
   }
 
   #wireBackend(backend: DeckAudioBackend): void {

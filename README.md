@@ -261,6 +261,13 @@ Le browser est un outil de mix complet, calqué sur Traktor. **Toute l'UI est au
 - **F-BRW-22 — plein écran momentané** : ⛶ sur le browser (ou `/` quand il est masqué) le temps de chercher ; `Échap` ou chargement d'un morceau pour revenir au mix.
 - **F-BRW-23 — virtualisation légère** : `content-visibility: auto` sur les lignes — les longues listes ne rendent que ce qui est à l'écran.
 
+### 6.4 quinquies Bibliothèque locale (v0.16)
+
+- **F-LOC-01 — dossiers musique façon Traktor** : onglet 💾 LOCAL, « + Dossier musique » (File System Access, permission persistée), scan récursif des formats audio courants, « Artiste - Titre » déduit du nom de fichier, rescan ↻ et retrait ✕ par dossier. Firefox : import ponctuel (`webkitdirectory`).
+- **F-LOC-02 — deck local sans extension** : `LocalFileBackend` (même contrat `DeckAudioBackend`) — `<audio>` sur blob + graphe Web Audio en page : **EQ 3 bandes, kills, Master Tempo/Vinyle, rate continu**, tout natif.
+- **F-LOC-03 — analyse instantanée** : décodage complet au chargement → waveform entière, BPM/grille, tonalité et auto-gain en quelques secondes, persistés dans le même dossier par morceau que YouTube (ids `file:` stables).
+- **F-LOC-04** : les morceaux locaux traversent tout le browser (filtre, tri, MATCH, sélection, crates, favoris locaux, historique) et se mixent avec les decks YouTube.
+
 ### 6.5 Réglages
 
 - **F-SET-01** : clé API YouTube Data v3 (champ masqué + lien d'aide) et **Client ID OAuth Google** (connexion compte, origine autorisée = URL de l'app).

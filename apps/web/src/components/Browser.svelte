@@ -13,6 +13,17 @@
   import { sortRows, type SortableRow, type SortKey } from '../lib/track-meta.js';
   import { filterRows, type FilterableRow } from '../lib/filter.js';
   import { matchesMaster } from '../lib/match.js';
+  import { toTrack } from '../lib/local-files.js';
+  import {
+    addFolder,
+    importFiles,
+    listFolders,
+    listLocalTracks,
+    removeFolder,
+    rescanFolder,
+    type LocalFolder,
+    type LocalTrack,
+  } from '../lib/local-library.js';
   import { moveItem } from '../lib/list-utils.js';
   import { tracklistCsv, tracklistTxt } from '../lib/session-export.js';
   import {
@@ -60,8 +71,41 @@
     onOpenSettings: () => void;
   } = $props();
 
-  type Tab = 'search' | 'history' | 'favorites' | 'youtube' | 'stats';
+  type Tab = 'search' | 'history' | 'favorites' | 'local' | 'youtube' | 'stats';
   let tab = $state<Tab>('search');
+
+  // --- bibliothèque locale façon Traktor : dossiers scannés ---
+  let localFolders = $state<LocalFolder[]>([]);
+  let localTracks = $state<LocalTrack[]>([]);
+  let localBusy = $state(false);
+  const supportsFolderPicker = typeof (window as { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function';
+
+  async function refreshLocal(): Promise<void> {
+    [localFolders, localTracks] = await Promise.all([listFolders(), listLocalTracks()]);
+  }
+
+  async function pickFolder(): Promise<void> {
+    try {
+      const handle = await (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> })
+        .showDirectoryPicker({ mode: 'read' });
+      localBusy = true;
+      await addFolder(handle);
+      await refreshLocal();
+    } catch {
+      // sélection annulée
+    } finally {
+      localBusy = false;
+    }
+  }
+
+  async function importLocalFiles(e: Event): Promise<void> {
+    const files = (e.target as HTMLInputElement).files;
+    if (!files?.length) return;
+    localBusy = true;
+    await importFiles(files);
+    await refreshLocal();
+    localBusy = false;
+  }
   let query = $state('');
   let results = $state<Track[]>([]);
   let searching = $state(false);
@@ -196,11 +240,13 @@
   const sortedHistory = $derived(display(filteredHistory, (e) => e.track));
   const sortedFavorites = $derived(display(filteredFavorites, (f) => f.track));
   const sortedPlaylistTracks = $derived(openPlaylist ? display(openPlaylist.tracks, (t) => t) : []);
+  const sortedLocal = $derived(display(localTracks.map(toTrack), (t) => t));
 
   /** Liste de pistes sous le curseur/sélection pour l'onglet courant (fenêtres comprises). */
   const selectionList = $derived.by((): Track[] => {
     if (tab === 'search') return sortedResults;
     if (tab === 'history') return sortedHistory.map((e) => e.track);
+    if (tab === 'local') return sortedLocal;
     if (tab === 'favorites') {
       return openPlaylist
         ? sortedPlaylistTracks.slice(0, plLimit)
@@ -426,6 +472,7 @@
 
   $effect(() => {
     void refreshLists();
+    void refreshLocal();
   });
 
   async function runSearch(): Promise<void> {
@@ -529,6 +576,14 @@
     <button class="tab" class:on={tab === 'search'} onclick={() => (tab = 'search')}>RECHERCHE</button>
     <button class="tab" class:on={tab === 'history'} onclick={() => (tab = 'history')}>HISTORIQUE</button>
     <button class="tab" class:on={tab === 'favorites'} onclick={() => (tab = 'favorites')}>FAVORIS</button>
+    <button
+      class="tab"
+      class:on={tab === 'local'}
+      onclick={() => (tab = 'local')}
+      title="Bibliothèque locale : dossiers musique scannés (FLAC, MP3, WAV…) — EQ, tempo et boucles complets, sans extension"
+    >
+      💾 LOCAL
+    </button>
     <button class="tab yt" class:on={tab === 'youtube'} onclick={() => (tab = 'youtube')}>▶ YOUTUBE</button>
     <button
       class="tab"
@@ -716,6 +771,76 @@
           onMore={() => void loadMoreSearch()}
         />
       {/if}
+    {:else if tab === 'local'}
+      <div class="list-head">
+        <div class="playlists">
+          {#if supportsFolderPicker}
+            <button
+              class="btn"
+              disabled={localBusy}
+              onclick={() => void pickFolder()}
+              title="Choisir un dossier musique à scanner (récursif) — la permission est mémorisée, ↻ pour rescanner après ajout de fichiers"
+            >
+              {localBusy ? 'Scan…' : '+ Dossier musique'}
+            </button>
+          {:else}
+            <label class="btn" title="Ce navigateur ne gère pas les dossiers persistants : import ponctuel (les fichiers sont copiés dans la bibliothèque du navigateur)">
+              {localBusy ? 'Import…' : '+ Importer un dossier'}
+              <input type="file" webkitdirectory hidden onchange={(e) => void importLocalFiles(e)} />
+            </label>
+          {/if}
+          {#each localFolders as folder (folder.id)}
+            <span class="chip">
+              <span class="chip-name" title="{folder.trackCount} morceaux">{folder.name} ({folder.trackCount})</span>
+              {#if folder.handle}
+                <button
+                  class="chip-del"
+                  title="Rescanner ce dossier (nouveaux fichiers, suppressions)"
+                  onclick={async () => {
+                    localBusy = true;
+                    await rescanFolder(folder);
+                    await refreshLocal();
+                    localBusy = false;
+                  }}
+                >
+                  ↻
+                </button>
+              {/if}
+              <button
+                class="chip-del"
+                title="Retirer ce dossier de la bibliothèque (les fichiers sur le disque ne sont pas touchés)"
+                onclick={async () => {
+                  if (confirm(`Retirer « ${folder.name} » de la bibliothèque ?`)) {
+                    await removeFolder(folder.id);
+                    await refreshLocal();
+                  }
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          {/each}
+        </div>
+        <span class="mono head-count">{sortedLocal.length} morceaux</span>
+      </div>
+      {#each sortedLocal as track, i (track.videoId)}
+        <TrackRow
+          {track}
+          {mixer}
+          favorite={favoriteIds.has(track.videoId)}
+          highlighted={cursor === i}
+          selected={selectedIds.has(track.videoId)}
+          onRowClick={(e) => handleSelect(e, i)}
+          onRoute={route}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      {:else}
+        <p class="hint">
+          Ajoute un dossier musique (tes achats Bandcamp, Beatport, tes rips…) : EQ, tempo,
+          waveform complète et boucles précises fonctionnent ici <strong>sans extension</strong>,
+          et l'analyse BPM/tonalité est instantanée. Comme dans Traktor. 💾
+        </p>
+      {/each}
     {:else if tab === 'stats'}
       <StatsTab {libraryTracks} {mixer} onRoute={route} />
     {:else if tab === 'youtube'}
@@ -1018,6 +1143,11 @@
     border-radius: 4px;
     color: var(--yt-text);
     padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .head-count {
+    color: var(--yt-text-dim);
     font-size: 11px;
   }
 

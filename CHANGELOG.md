@@ -3,6 +3,16 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.16.0 — 2026-07-09 · « Fichiers locaux »
+
+La brique bibliothèque locale façon Traktor — tes achats Bandcamp/Beatport, tes rips, tes prods.
+
+- **Onglet 💾 LOCAL** : « + Dossier musique » (File System Access, permission mémorisée, ↻ rescan, ✕ retrait), scan récursif (MP3, FLAC, WAV, OGG, M4A, AAC, Opus, AIFF…), « Artiste - Titre » depuis le nom de fichier, numéros de piste nettoyés. Firefox : import ponctuel de dossier (fichiers stockés dans le navigateur).
+- **Deck local sans extension** : `LocalFileBackend` (audio + graphe Web Audio en page) — **EQ 3 bandes, kills, Master Tempo/Vinyle et rate continu natifs**. Le badge EXT ne concerne plus que les decks YouTube.
+- **Analyse instantanée** : le fichier est décodé entier au chargement — waveform complète immédiate, **BPM/grille et tonalité en quelques secondes** (vérifié à 140.0 pile sur un WAV de test), auto-gain. Tout est persisté comme pour YouTube (cues, boucles, notes, styles).
+- Filtre, tri, MATCH, sélection multiple, crates, favoris : les morceaux locaux passent dans **tout** le pipeline du browser (ids `file:` stables). Badge 💾 sur les lignes, liens YouTube retirés. Dexie v9 (`localFolders`, `localTracks`).
+- Limites v1 : filtre bipolaire/delay inactifs sur deck local, boucles précises au tick (~80 ms) — sample-accurate à venir.
+
 ## 0.15.0 — 2026-07-09 · « MIDI complet & preset S2 »
 
 - **22 nouvelles actions MIDI mappables** par deck : **EQ 3 bandes** (knobs ±12 dB), **kills** (mute High/Mid/Low), **boucles** (IN, OUT, reloop ∞, ÷2, ×2). Les toggles ne réagissent qu'à l'appui (un bouton mappé en CC ne bascule plus deux fois).

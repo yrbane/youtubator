@@ -157,7 +157,8 @@
     });
   });
 
-  const anyExtension = $derived(mixer.decks.some((d) => d.hasExtension));
+  // les decks locaux ont l'EQ nativement : seuls les decks YouTube comptent pour le badge EXT
+  const anyExtension = $derived(mixer.decks.some((d) => d.hasExtension && !d.isLocal));
 
   async function routeTrack(track: Track, deckId: string): Promise<void> {
     const deck = mixer.decks.find((d) => d.id === deckId);

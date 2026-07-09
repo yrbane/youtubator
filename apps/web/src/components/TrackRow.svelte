@@ -5,6 +5,7 @@
   import { meta } from '../lib/meta.svelte.js';
   import { preview } from '../lib/preview.svelte.js';
   import { nextColor, TRACK_COLORS } from '../lib/track-meta.js';
+  import { isLocalTrackId } from '../lib/local-files.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let {
@@ -57,6 +58,7 @@
 
   const m = $derived(meta.get(track.videoId));
   const sessionPlays = $derived(meta.sessionPlays(track.videoId));
+  const local = $derived(isLocalTrackId(track.videoId));
   const style = $derived(m?.style ?? '');
   const color = $derived(meta.colorOf(track.videoId));
 
@@ -165,14 +167,16 @@
       <button class="btn" title="Monter dans la crate" disabled={!onMoveUp} onclick={onMoveUp}>↑</button>
       <button class="btn" title="Descendre dans la crate" disabled={!onMoveDown} onclick={onMoveDown}>↓</button>
     {/if}
-    <button
-      class="btn phones"
-      class:on={preview.current === track.videoId}
-      onclick={() => void preview.toggle(track)}
-      title="Pré-écouter sans occuper un deck (démarre au tiers du morceau, sortie principale) — re-clic pour arrêter"
-    >
-      🎧
-    </button>
+    {#if !local}
+      <button
+        class="btn phones"
+        class:on={preview.current === track.videoId}
+        onclick={() => void preview.toggle(track)}
+        title="Pré-écouter sans occuper un deck (démarre au tiers du morceau, sortie principale) — re-clic pour arrêter"
+      >
+        🎧
+      </button>
+    {/if}
     {#each mixer.decks as deck (deck.id)}
       <button
         class="btn route"
@@ -198,15 +202,19 @@
     >
       {favorite ? '★' : '☆'}
     </button>
-    <a
-      class="btn yt-link"
-      href="https://www.youtube.com/watch?v={track.videoId}"
-      target="_blank"
-      rel="noreferrer"
-      title="Ouvrir dans YouTube (nouvel onglet)"
-    >
-      ↗
-    </a>
+    {#if local}
+      <span class="btn file-badge" title="Fichier local (bibliothèque de dossiers)">💾</span>
+    {:else}
+      <a
+        class="btn yt-link"
+        href="https://www.youtube.com/watch?v={track.videoId}"
+        target="_blank"
+        rel="noreferrer"
+        title="Ouvrir dans YouTube (nouvel onglet)"
+      >
+        ↗
+      </a>
+    {/if}
     {#if onRemove}
       <button class="btn remove" title={removeTitle} onclick={onRemove}>🗑</button>
     {/if}

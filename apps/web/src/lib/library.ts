@@ -141,6 +141,11 @@ class YoutubatorDb extends Dexie {
   trackMeta!: Table<TrackMetaRecord, string>;
   styleColors!: Table<StyleColorRecord, string>;
   smartlists!: Table<Smartlist, string>;
+  // typage souple : les interfaces vivent dans local-library.ts (pas d'import circulaire)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  localFolders!: Table<any, string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  localTracks!: Table<any, string>;
 
   constructor() {
     super('youtubator');
@@ -239,6 +244,21 @@ class YoutubatorDb extends Dexie {
       trackMeta: 'videoId, style, rating',
       styleColors: 'style',
       smartlists: 'id, name',
+    });
+    this.version(9).stores({
+      history: '++id, loadedAt, sessionId, byId',
+      favorites: 'videoId, order, byId',
+      playlists: 'id, name',
+      searches: '++id, norm, at',
+      accounts: 'accountId, lastUsedAt',
+      waveforms: 'videoId',
+      ytLists: 'key, accountId',
+      searchCache: 'norm, updatedAt',
+      trackMeta: 'videoId, style, rating',
+      styleColors: 'style',
+      smartlists: 'id, name',
+      localFolders: 'id, name',
+      localTracks: 'id, folderId, relPath',
     });
   }
 }
