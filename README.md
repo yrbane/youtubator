@@ -1,6 +1,6 @@
 # 🎛️ Youtubator
 
-![version](https://img.shields.io/badge/version-0.9.0-blue) — voir [CHANGELOG.md](CHANGELOG.md). La version vit dans `apps/web/package.json`, est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
+![version](https://img.shields.io/github/v/release/yrbane/youtubator?label=version&color=blue) — voir [CHANGELOG.md](CHANGELOG.md). La version vit dans `apps/web/package.json`, est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
 > **Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube.**
 > Interface inspirée de Traktor : decks vidéo, mixer central (volume, EQ 3 bandes, tempo), sync, recherche/historique/favoris, playlists.
