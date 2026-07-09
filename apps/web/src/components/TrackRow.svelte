@@ -97,9 +97,17 @@
   class:selected
   style="--tint: {color || 'transparent'}"
   onclick={handleRowClick}
+  draggable="true"
+  ondragstart={(e) => {
+    e.dataTransfer?.setData(
+      'application/x-youtubator-track',
+      JSON.stringify({ videoId: track.videoId, title: track.title, channel: track.channel, durationS: track.durationS, thumbnailUrl: track.thumbnailUrl }),
+    );
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy';
+  }}
   title={onRowClick
-    ? 'Clic : sélectionner · Ctrl+clic : ajouter · Maj+clic : plage — actions groupées en bas du browser'
-    : undefined}
+    ? 'Glisser vers un deck pour charger · Clic : sélectionner · Ctrl+clic : ajouter · Maj+clic : plage'
+    : 'Glisser vers un deck pour charger'}
 >
   <span class="colorwrap">
     <button

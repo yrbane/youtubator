@@ -1,5 +1,6 @@
 <script lang="ts">
   import ChannelStrip from './ChannelStrip.svelte';
+  import { automix } from '../lib/automix.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let { mixer }: { mixer: Mixer } = $props();
@@ -46,7 +47,18 @@
     >
       +
     </button>
+    <button
+      class="clock amx"
+      class:on={automix.enabled}
+      onclick={() => automix.toggle()}
+      title="AUTOMIX : l'app mixe toute seule — morceau suivant choisi au tempo/tonalité compatibles (bibliothèque locale + favoris + historique), chargé sur le deck opposé avec SYNC, départ sur le premier cue et transition douce au crossfader"
+    >
+      AUTOMIX
+    </button>
   </div>
+  {#if automix.enabled && automix.status}
+    <div class="amx-status" title="État de l'automix">{automix.status}</div>
+  {/if}
   <div class="strips">
     {#each mixer.decks as deck (deck.id)}
       <ChannelStrip {deck} {mixer} />
@@ -132,6 +144,21 @@
 
   .bpm.idle {
     color: var(--yt-text-dim);
+  }
+
+  .clock.amx.on {
+    background: var(--yt-deck-d);
+  }
+
+  .amx-status {
+    font-size: 10px;
+    color: var(--yt-text-dim);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    align-self: stretch;
+    text-align: center;
   }
 
   .strips {

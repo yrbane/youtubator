@@ -17,6 +17,7 @@
   import { recordHistory } from './lib/library.js';
   import { meta } from './lib/meta.svelte.js';
   import { preview } from './lib/preview.svelte.js';
+  import { automix } from './lib/automix.svelte.js';
   import { session } from './lib/session.svelte.js';
   import { loadYouTubeApi } from './lib/yt-iframe.js';
   import type { Track } from './lib/tracks.js';
@@ -142,6 +143,7 @@
   $effect(() => {
     ghost.attach(ghostContainer);
     preview.attach(previewContainer);
+    automix.attach(mixer, routeTrack);
     // accueil : connexion Google proposée avant l'interface, au premier lancement
     void session.init().then(() => {
       showOnboarding = shouldShowOnboarding(
@@ -170,6 +172,16 @@
     await meta.recordPlay(track.videoId); // compteurs de lecture (session + total)
     ui.setBrowserMax(false); // morceau trouvé et chargé : retour à la vue mix
     mixer.refresh();
+  }
+
+  /** Dépôt d'un morceau glissé depuis le browser sur un deck. */
+  function onDropTrack(deckId: string, json: string): void {
+    try {
+      const track = JSON.parse(json) as Track;
+      if (track?.videoId) void routeTrack(track, deckId);
+    } catch {
+      // payload inattendu : on ignore
+    }
   }
 
   function onKeydown(e: KeyboardEvent): void {
@@ -294,7 +306,7 @@
   <main class:four={mixer.decks.length > 2} class:no-video={!ui.showVideo}>
     <div class="col left">
       {#each mixer.decks.filter((_, i) => i % 2 === 0) as deck (deck.id)}
-        <DeckView {deck} {mixer} />
+        <DeckView {deck} {mixer} onDropTrack={(json) => onDropTrack(deck.id, json)} />
       {/each}
     </div>
     <div class="mixer-slot" style="width: {44 + Math.max(2, mixer.decks.length) * 76}px">
@@ -302,7 +314,7 @@
     </div>
     <div class="col right">
       {#each mixer.decks.filter((_, i) => i % 2 === 1) as deck (deck.id)}
-        <DeckView {deck} {mixer} />
+        <DeckView {deck} {mixer} onDropTrack={(json) => onDropTrack(deck.id, json)} />
       {/each}
     </div>
   </main>

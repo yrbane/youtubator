@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.19.0 — 2026-07-09 · « Automix intelligent & glisser-déposer »
+
+- **AUTOMIX** (bouton dans le mixer) : l'app mixe toute seule — le morceau suivant est choisi **au tempo (±6 %, octaves comprises) et à la tonalité compatibles** dans la bibliothèque (fichiers locaux + favoris + historique, anti-répétition sur les 12 derniers), chargé sur le deck opposé avec SYNC, démarré **sur son premier cue**, puis **transition douce de 12 s au crossfader** et rotation à l'infini. Une pointe de hasard parmi les 3 meilleurs candidats évite les enchaînements toujours identiques. Statut affiché (« Ensuite : … », « Transition → … »).
+- **Glisser-déposer** : toute ligne du browser se glisse directement sur un deck (surbrillance du deck cible), équivalent des boutons →A/→B.
+
 ## 0.18.0 — 2026-07-09 · « Deck local parité totale »
 
 Les cinq dernières marches du deck fichiers locaux — désormais au niveau (et parfois au-dessus) du deck YouTube+extension.

@@ -4,7 +4,34 @@
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
-  let { deck, mixer }: { deck: Deck; mixer: Mixer } = $props();
+  let {
+    deck,
+    mixer,
+    onDropTrack,
+  }: {
+    deck: Deck;
+    mixer: Mixer;
+    /** Un morceau du browser est déposé sur ce deck (glisser-déposer façon Traktor). */
+    onDropTrack?: (trackJson: string) => void;
+  } = $props();
+
+  // survol pendant un glisser-déposer de morceau
+  let dropHover = $state(false);
+
+  function onDragOver(e: DragEvent): void {
+    if (!e.dataTransfer?.types.includes('application/x-youtubator-track')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    dropHover = true;
+  }
+
+  function onDrop(e: DragEvent): void {
+    dropHover = false;
+    const data = e.dataTransfer?.getData('application/x-youtubator-track');
+    if (!data) return;
+    e.preventDefault();
+    onDropTrack?.(data);
+  }
 
   let container: HTMLDivElement;
 
@@ -28,7 +55,15 @@
   }
 </script>
 
-<article class="deck panel" style="--accent: {accent}" data-state={deck.state}>
+<article
+  class="deck panel"
+  class:drop-hover={dropHover}
+  style="--accent: {accent}"
+  data-state={deck.state}
+  ondragover={onDragOver}
+  ondragleave={() => (dropHover = false)}
+  ondrop={onDrop}
+>
   <header>
     <span class="badge">{deck.id}</span>
     <span class="title" title={deck.track?.title ?? ''}>
@@ -150,6 +185,11 @@
 </article>
 
 <style>
+  .deck.drop-hover {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+  }
+
   .deck {
     display: flex;
     flex-direction: column;
