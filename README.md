@@ -456,6 +456,8 @@ pnpm test         # Vitest sur tout le monorepo
 pnpm build        # build de production (app + extension)
 ```
 
+**Publication d'une version** : procédure complète dans [docs/RELEASE.md](docs/RELEASE.md).
+
 **Déploiements** : chaque push sur `main` publie **automatiquement** sur [yrbane.github.io/youtubator](https://yrbane.github.io/youtubator/) (GitHub Pages, base `/youtubator/`) **et** sur le miroir auto-hébergé **[youtubator.nethttp.net](https://youtubator.nethttp.net)** (workflow `deploy-nethttp.yml` : build base `/`, rsync SSH, secrets `NETHTTP_SSH_KEY`/`NETHTTP_KNOWN_HOSTS` ; `scripts/deploy-nethttp.sh` reste utilisable à la main). La CSP du miroir est portée par `apps/web/public/.htaccess` (celle du vhost bloquait YouTube et Google Sign-In). ⚠️ Pour la connexion compte YouTube sur un nouveau domaine, ajouter son origine aux **origines JavaScript autorisées** du Client ID OAuth (console Google).
 
 **Activer l'EQ et les modes tempo (extension)** :

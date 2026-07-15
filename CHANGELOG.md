@@ -3,14 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
-## 0.19.1 — 2026-07-09 · « Procédure de release documentée »
+## 0.19.1 — 2026-07-15 · « Release documentée & fichiers locaux réparés sur le miroir »
 
 - **`docs/RELEASE.md`** : la procédure complète de publication (vérifications, doc, commit unique version+changelog, CI verte avant tag, release avec zip, vitrines) est consignée dans le repo, utilisable sans outillage externe. Liée depuis le README § 16.
+- **Correctif CSP** : la politique servie par youtubator.nethttp.net ne déclarait pas `media-src`, si bien que l'audio `blob:` (decks fichiers locaux et pré-écoute 🎧) y était bloqué — GitHub Pages n'impose pas de CSP, seul le miroir était touché. Ajout de `media-src 'self' blob:` dans `apps/web/public/.htaccess`.
 - **`pnpm typecheck` réparé** (il ne pointait sur aucun tsconfig) : couvre l'audio-engine ; deux erreurs de types corrigées au passage (`ProtocolMessage` devient une union distributive qui se discrimine sur `type`).
-
-## 0.19.1 — 2026-07-15 · « Fichiers locaux réparés sur le miroir nethttp »
-
-- **Correctif CSP** : la politique de sécurité servie par youtubator.nethttp.net ne déclarait pas `media-src`, si bien que l'audio `blob:` (decks fichiers locaux et pré-écoute 🎧) était bloqué par le navigateur — uniquement sur le miroir, GitHub Pages n'imposant pas de CSP. Ajout de `media-src 'self' blob:` dans `apps/web/public/.htaccess`.
 
 ## 0.19.0 — 2026-07-09 · « Automix intelligent & glisser-déposer »
 
