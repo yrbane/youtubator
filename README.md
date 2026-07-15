@@ -202,6 +202,21 @@ L'UI interroge `capabilities` pour griser l'EQ en MVP — **jamais** de `if (isE
 - **F-SYNC-04** : beatmatching automatique — quand les deux grilles sont connues, rate esclave = BPM effectif maître / BPM esclave (appariement d'octave ½×/2×), puis **verrouillage de phase continu par PLL** : correction toutes les 250 ms, micro-bends de rate bornés à ±2 % (inaudibles, surtout en Master Tempo), **zone morte de ±2 ms** une fois calé, convergence ~1 s ; seek uniquement au-delà de 35 % de période. Bouton **φ** sur le bandeau pour recaler la phase manuellement, jauge d'écart en ms sur la waveform.
 - **F-SYNC-05 — master clock (façon Traktor)** : panneau **MASTER** en haut du mixer. **AUTO** (défaut) : le deck maître donne le tempo, BPM effectif affiché en continu. **CLOCK** : l'horloge adopte le BPM du maître à l'armement puis **fait loi** — tous les decks SYNC égalisent leur BPM effectif sur elle, deck maître compris ; boutons −/+ 0,5 BPM pour faire glisser le tempo du set, re-clic pour revenir en AUTO.
 
+### 6.3 bis Automix (v0.19, réglable v0.20)
+
+- **F-AMX-01 — armement** : bouton **AUTOMIX** dans le panneau MASTER. Armé, l'app mixe toute seule sur A/B : choix du morceau suivant, chargement sur le deck opposé avec SYNC, départ (premier cue ou début), transition au crossfader, rotation à l'infini. Statut affiché sous le panneau (« Ensuite : … », « Transition → … »).
+- **F-AMX-02 — cerveau** (`pickNextTrack`, pur et testé) : candidats = sources cochées, enrichis de leur analyse (BPM/tonalité persistées) ; fenêtre de **tempo ± N %** (appariement d'octave ½×/2×) ; tonalité selon le mode ; **anti-répétition** sur les N derniers ; bornes de durée min/max (anti-jingle / anti-DJ-set) ; **pointe de hasard** parmi les N meilleurs.
+- **F-AMX-03 — réglages** (⚙ à côté d'AUTOMIX, persistés en localStorage, bornés) :
+  - **Sources** : 💾 locaux · ♥ favoris · 🕘 historique (cochables) ;
+  - **Tempo** : tolérance ±1 à ±25 % ;
+  - **Tonalité** : *Ignorée* (tempo seul) / *Préférée* (compatibles d'abord, jamais bloquant) / *Stricte* (compatibles uniquement — sinon l'automix attend, pas de repli hasardeux) ;
+  - **Hasard** : pioche parmi les 1 à 10 meilleurs ; **Anti-répétition** : 0 à 50 ;
+  - **Durées** : min 0–10 min, max 0–60 min (0 = sans limite, durée inconnue tolérée) ;
+  - **Préparation** : à −15 … −180 s de la fin ; **Fondu** : 2–60 s, courbe *Douce* (smoothstep) / *Linéaire* / *Coupée* (bascule rapide au centre) ;
+  - **Basses échangées** : le low du deck entrant est coupé (kill) jusqu'au milieu du fondu puis les kills s'échangent — nécessite l'EQ (extension ou deck local), silencieusement inopérant sinon ;
+  - **Départ** : premier cue (on saute l'intro) ou début ; bouton ↺ = réglages d'usine.
+- **F-AMX-04 — mixer maintenant** : bouton **⏭** (visible quand l'automix est armé) : force la préparation puis la transition immédiate, sans attendre la fin du morceau.
+
 ### 6.4 Browser (zone basse, 3 onglets)
 
 - **F-BRW-01 — Recherche** : champ texte (déclenchement à Entrée, debounce 300 ms en saisie continue), résultats en liste (miniature, titre, chaîne, durée). Chaque ligne porte des boutons **→ A**, **→ B** (et C/D si présents) + ⭐ favori. Accepte aussi une URL/ID YouTube collée.

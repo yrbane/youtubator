@@ -43,11 +43,23 @@ test('les onglets du browser commutent', async ({ page }) => {
 
 test('les réglages s’ouvrent et se ferment', async ({ page }) => {
   await page.goto('/');
-  await page.getByTitle('Réglages').click();
+  await page.getByTitle(/^Réglages : clés API/).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByText('Clé API YouTube Data v3')).toBeVisible();
   await page.getByRole('button', { name: 'Fermer' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('le panneau de réglages automix s’ouvre, se règle et se ferme', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTitle("Réglages de l'automix").click();
+  const panel = page.getByRole('dialog', { name: 'Réglages automix' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(/Tempo ±6 %/)).toBeVisible(); // défaut d'usine
+  await panel.getByLabel(/Tempo/).fill('10');
+  await expect(panel.getByText(/Tempo ±10 %/)).toBeVisible();
+  await panel.getByTitle('Fermer').click();
+  await expect(panel).toHaveCount(0);
 });
 
 test('mobile : tout s’empile, sans défilement horizontal', async ({ browser }) => {

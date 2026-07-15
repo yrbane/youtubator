@@ -1,9 +1,12 @@
 <script lang="ts">
+  import AutomixPanel from './AutomixPanel.svelte';
   import ChannelStrip from './ChannelStrip.svelte';
   import { automix } from '../lib/automix.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
   let { mixer }: { mixer: Mixer } = $props();
+
+  let amxPanelOpen = $state(false);
 
   // BPM affiché : celui de l'horloge si armée, sinon le BPM effectif du deck maître
   const masterDeck = $derived(mixer.decks.find((d) => d.id === mixer.masterId));
@@ -51,11 +54,33 @@
       class="clock amx"
       class:on={automix.enabled}
       onclick={() => automix.toggle()}
-      title="AUTOMIX : l'app mixe toute seule — morceau suivant choisi au tempo/tonalité compatibles (bibliothèque locale + favoris + historique), chargé sur le deck opposé avec SYNC, départ sur le premier cue et transition douce au crossfader"
+      title="AUTOMIX : l'app mixe toute seule — morceau suivant choisi selon tes réglages (⚙ : sources, tempo, tonalité, hasard, durées, fondu…), chargé sur le deck opposé avec SYNC et enchaîné au crossfader"
     >
       AUTOMIX
     </button>
+    <button
+      class="step amx-gear"
+      class:open={amxPanelOpen}
+      onclick={() => (amxPanelOpen = !amxPanelOpen)}
+      title="Réglages de l'automix"
+      aria-label="Réglages de l'automix"
+    >
+      ⚙
+    </button>
+    {#if automix.enabled}
+      <button
+        class="step"
+        onclick={() => automix.skip()}
+        title="Mixer maintenant : force la transition vers le morceau suivant sans attendre la fin"
+        aria-label="Mixer maintenant"
+      >
+        ⏭
+      </button>
+    {/if}
   </div>
+  {#if amxPanelOpen}
+    <AutomixPanel onclose={() => (amxPanelOpen = false)} />
+  {/if}
   {#if automix.enabled && automix.status}
     <div class="amx-status" title="État de l'automix">{automix.status}</div>
   {/if}
@@ -81,6 +106,7 @@
 
 <style>
   .mixer {
+    position: relative; /* ancre le popover de réglages automix */
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -148,6 +174,11 @@
 
   .clock.amx.on {
     background: var(--yt-deck-d);
+  }
+
+  .amx-gear.open {
+    color: var(--yt-deck-d);
+    border-color: var(--yt-deck-d);
   }
 
   .amx-status {

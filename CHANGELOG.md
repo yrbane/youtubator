@@ -3,6 +3,18 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.0 — 2026-07-15 · « Automix sur mesure »
+
+L'automix passe de « il mixe tout seul » à « il mixe **comme toi** » : tous ses choix sont désormais réglables (⚙ à côté d'AUTOMIX, persistés, bornés, réglages d'usine en un clic ↺).
+
+- **Sources au choix** : 💾 fichiers locaux · ♥ favoris · 🕘 historique — cochables indépendamment.
+- **Tempo** : tolérance réglable de ±1 à ±25 % (octaves comprises).
+- **Tonalité, trois personnalités** : *Ignorée* (tempo seul), *Préférée* (les compatibles Camelot passent devant, jamais bloquant), *Stricte* (compatibles uniquement — sinon l'automix attend, aucun repli hasardeux).
+- **Hasard dosable** (pioche parmi les 1 à 10 meilleurs), **anti-répétition 0–50**, bornes de **durée min/max** (anti-jingle, anti-DJ-set d'une heure).
+- **Transition façonnable** : préparation à −15…−180 s, fondu 2–60 s, **courbes** Douce/Linéaire/Coupée, **échange de basses** (le low du deck entrant reste killé jusqu'au milieu du fondu, puis les basses basculent — EQ extension ou deck local), départ sur **premier cue ou début**.
+- **⏭ Mixer maintenant** : force la transition immédiate sans attendre la fin du morceau.
+- Sous le capot : `pickNextTrack` et les courbes de fondu restent purs et testés (14 + 3 cas), réglages sérialisés/bornés testés à part — 296 tests unitaires, 7 E2E.
+
 ## 0.19.1 — 2026-07-15 · « Release documentée & fichiers locaux réparés sur le miroir »
 
 - **`docs/RELEASE.md`** : la procédure complète de publication (vérifications, doc, commit unique version+changelog, CI verte avant tag, release avec zip, vitrines) est consignée dans le repo, utilisable sans outillage externe. Liée depuis le README § 16.
