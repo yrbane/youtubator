@@ -40,11 +40,15 @@ export interface ProtocolPayloads {
 
 export type ProtocolType = keyof ProtocolPayloads;
 
-export type ProtocolMessage<T extends ProtocolType = ProtocolType> = {
-  ns: typeof PROTOCOL_NS;
-  v: typeof PROTOCOL_VERSION;
-  type: T;
-} & ProtocolPayloads[T];
+// union distributive : pour T = union, chaque membre garde son payload propre,
+// ce qui permet à TypeScript de discriminer sur `type` dans les switch
+export type ProtocolMessage<T extends ProtocolType = ProtocolType> = T extends ProtocolType
+  ? {
+      ns: typeof PROTOCOL_NS;
+      v: typeof PROTOCOL_VERSION;
+      type: T;
+    } & ProtocolPayloads[T]
+  : never;
 
 const KNOWN_TYPES: ReadonlySet<string> = new Set([
   'HELLO',
@@ -70,7 +74,9 @@ export function createMessage<T extends ProtocolType>(
   type: T,
   payload: ProtocolPayloads[T],
 ): ProtocolMessage<T> {
-  return { ns: PROTOCOL_NS, v: PROTOCOL_VERSION, type, ...payload };
+  // le type conditionnel distributif ne se laisse pas assigner depuis un
+  // générique ouvert : l'objet construit est correct par construction
+  return { ns: PROTOCOL_NS, v: PROTOCOL_VERSION, type, ...payload } as ProtocolMessage<T>;
 }
 
 /** Valide une donnée reçue par postMessage ; null si étrangère au protocole. */
