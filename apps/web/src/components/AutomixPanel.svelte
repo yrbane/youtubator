@@ -107,13 +107,14 @@
 
 <style>
   .amx-panel {
-    position: absolute;
-    top: 28px;
+    /* fixed : la colonne mixer est étroite et ses ancêtres clippent (overflow) */
+    position: fixed;
+    top: 76px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 40;
-    width: 240px;
-    max-height: min(70vh, 460px);
+    width: min(300px, calc(100vw - 24px));
+    max-height: min(72vh, 520px);
     overflow-y: auto;
     display: flex;
     flex-direction: column;

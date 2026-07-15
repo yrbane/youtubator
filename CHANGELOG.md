@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.1 — 2026-07-15 · « Panneau automix déclippé »
+
+- **Correctif d'affichage** : le panneau ⚙ de l'automix était rogné par la colonne étroite du mixer (libellés coupés des deux côtés). Il flotte désormais au centre de l'écran (`position: fixed`, insensible aux `overflow` des ancêtres) et s'élargit à 300 px. Vérifié par capture avant/après.
+
 ## 0.20.0 — 2026-07-15 · « Automix sur mesure »
 
 L'automix passe de « il mixe tout seul » à « il mixe **comme toi** » : tous ses choix sont désormais réglables (⚙ à côté d'AUTOMIX, persistés, bornés, réglages d'usine en un clic ↺).

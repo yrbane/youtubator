@@ -106,7 +106,6 @@
 
 <style>
   .mixer {
-    position: relative; /* ancre le popover de réglages automix */
     display: flex;
     flex-direction: column;
     gap: 8px;
