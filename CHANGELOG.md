@@ -8,6 +8,10 @@ est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 - **`docs/RELEASE.md`** : la procédure complète de publication (vérifications, doc, commit unique version+changelog, CI verte avant tag, release avec zip, vitrines) est consignée dans le repo, utilisable sans outillage externe. Liée depuis le README § 16.
 - **`pnpm typecheck` réparé** (il ne pointait sur aucun tsconfig) : couvre l'audio-engine ; deux erreurs de types corrigées au passage (`ProtocolMessage` devient une union distributive qui se discrimine sur `type`).
 
+## 0.19.1 — 2026-07-15 · « Fichiers locaux réparés sur le miroir nethttp »
+
+- **Correctif CSP** : la politique de sécurité servie par youtubator.nethttp.net ne déclarait pas `media-src`, si bien que l'audio `blob:` (decks fichiers locaux et pré-écoute 🎧) était bloqué par le navigateur — uniquement sur le miroir, GitHub Pages n'imposant pas de CSP. Ajout de `media-src 'self' blob:` dans `apps/web/public/.htaccess`.
+
 ## 0.19.0 — 2026-07-09 · « Automix intelligent & glisser-déposer »
 
 - **AUTOMIX** (bouton dans le mixer) : l'app mixe toute seule — le morceau suivant est choisi **au tempo (±6 %, octaves comprises) et à la tonalité compatibles** dans la bibliothèque (fichiers locaux + favoris + historique, anti-répétition sur les 12 derniers), chargé sur le deck opposé avec SYNC, démarré **sur son premier cue**, puis **transition douce de 12 s au crossfader** et rotation à l'infini. Une pointe de hasard parmi les 3 meilleurs candidats évite les enchaînements toujours identiques. Statut affiché (« Ensuite : … », « Transition → … »).
