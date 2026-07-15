@@ -21,3 +21,4 @@ coverage/
 # Mémoire de session (outillage local)
 .remember/
 node-compile-cache/
+playwright-transform-cache-*/

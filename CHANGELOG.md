@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.2 — 2026-07-15 · « Hygiène du dépôt »
+
+- `.gitignore` : les caches Playwright (`playwright-transform-cache-*/`) ne peuvent plus se glisser dans un commit, comme `node-compile-cache/` avant eux.
+
 ## 0.20.1 — 2026-07-15 · « Panneau automix déclippé »
 
 - **Correctif d'affichage** : le panneau ⚙ de l'automix était rogné par la colonne étroite du mixer (libellés coupés des deux côtés). Il flotte désormais au centre de l'écran (`position: fixed`, insensible aux `overflow` des ancêtres) et s'élargit à 300 px. Vérifié par capture avant/après.
