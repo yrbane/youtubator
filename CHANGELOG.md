@@ -3,6 +3,10 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.3 — 2026-08-14 · « Changelog bilingue »
+
+- **`CHANGELOG.en.md`** : rattrapage de tout l'historique en anglais, entrée par entrée, en miroir de `CHANGELOG.md`. Les deux évoluent désormais ensemble à chaque version.
+
 ## 0.20.2 — 2026-07-15 · « Hygiène du dépôt »
 
 - `.gitignore` : les caches Playwright (`playwright-transform-cache-*/`) ne peuvent plus se glisser dans un commit, comme `node-compile-cache/` avant eux.
