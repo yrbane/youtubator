@@ -4,9 +4,14 @@ packages:
   - 'extension'
 allowBuilds:
   esbuild: true
+# Correctifs forcés de transitives vulnérables (2026-08-14, `pnpm audit`),
+# toutes tirées par extension>web-ext>addons-linter (outillage dev seul,
+# jamais en prod) : à réévaluer au prochain bump de web-ext.
 overrides:
   undici: '>=7.29.0'
   js-yaml: '>=5.2.3'
   fast-uri: '>=3.1.5'
   brace-expansion: '>=1.1.18'
+  # GHSA-w3rx-r6r6-pgpr / GHSA-5p2g-fcmc-qvqq (DoS ICNS/JXL/HEIF) : correctif
+  # 2.0.3 pas encore publié en amont au 2026-08-14, dernière dispo 2.0.2.
   image-size: '>=2.0.2'
