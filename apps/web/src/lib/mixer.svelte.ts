@@ -26,9 +26,17 @@ export class Mixer {
   clockEnabled = $state(false);
   clockBpm = $state(140);
 
+  #phaseTimer: ReturnType<typeof setInterval>;
+
   constructor() {
     // verrouillage de phase continu (beatmatch) : PLL serrée, pas de seeks
-    setInterval(() => this.#alignSlavePhases(), 250);
+    this.#phaseTimer = setInterval(() => this.#alignSlavePhases(), 250);
+  }
+
+  /** Arrête le ticker de phase et les decks — pour les montages/démontages répétés (tests). */
+  destroy(): void {
+    clearInterval(this.#phaseTimer);
+    for (const deck of this.decks) deck.destroy();
   }
 
   /** Arme/désarme l'horloge ; à l'armement, elle adopte le BPM effectif du maître courant. */

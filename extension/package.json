@@ -13,6 +13,6 @@
     "@youtubator/audio-engine": "workspace:*"
   },
   "devDependencies": {
-    "web-ext": "^10.4.0"
+    "web-ext": "^10.6.0"
   }
 }
