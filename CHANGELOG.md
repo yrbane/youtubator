@@ -3,6 +3,11 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.4 — 2026-08-14 · « Guidelines »
+
+- **`docs/GUIDELINES.md`** : premières règles de contribution — audit de sécurité des dépendances (`pnpm audit`) avant chaque release avec overrides justifiés et datés dans `pnpm-workspace.yaml`, et testabilité obligatoire des stores `*.svelte.ts` (runes) en import direct, sans monter de composant. Lié depuis le README § 16.
+- README § 14 : arborescence corrigée pour refléter la structure réelle (`apps/web/src/lib/`, fichiers plats dans `packages/audio-engine/src/`, extension déjà livrée et non « M2 »).
+
 ## 0.20.3 — 2026-08-14 · « Changelog bilingue »
 
 - **`CHANGELOG.en.md`** : rattrapage de tout l'historique en anglais, entrée par entrée, en miroir de `CHANGELOG.md`. Les deux évoluent désormais ensemble à chaque version.

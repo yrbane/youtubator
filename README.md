@@ -437,18 +437,14 @@ youtubator/
 │   └── web/                    # Application Svelte 5 (Vite)
 │       ├── src/
 │       │   ├── components/     # DeckView, MixerView, Browser, Settings
-│       │   ├── stores/         # état applicatif (runes)
-│       │   ├── services/       # SearchService, LibraryService
+│       │   ├── lib/             # état applicatif (runes *.svelte.ts) + services (search, library…)
 │       │   └── main.ts
 │       └── ...
 ├── packages/
 │   └── audio-engine/           # @youtubator/audio-engine (backends, sync, types)
-│       └── src/
-│           ├── backends/       # iframe-api/, extension/
-│           ├── sync/
-│           └── types.ts
-├── extension/                  # (M2) Extension Chrome MV3 — cœur du produit
-├── docs/                       # décisions d'architecture (ADR)
+│       └── src/                # fichiers plats : iframe-api-backend.ts, extension-backend.ts, sync.ts…
+├── extension/                  # Extension Chrome/Firefox MV3 — EQ réel, modes tempo, waveforms
+├── docs/                       # décisions d'architecture (ADR), procédure de release, guidelines
 ├── idea.md                     # idée d'origine
 └── README.md                   # ce document
 ```
@@ -472,6 +468,8 @@ pnpm build        # build de production (app + extension)
 ```
 
 **Publication d'une version** : procédure complète dans [docs/RELEASE.md](docs/RELEASE.md).
+
+**Contribuer** : règles de contribution (sécurité des dépendances, testabilité des stores) dans [docs/GUIDELINES.md](docs/GUIDELINES.md).
 
 **Déploiements** : chaque push sur `main` publie **automatiquement** sur [yrbane.github.io/youtubator](https://yrbane.github.io/youtubator/) (GitHub Pages, base `/youtubator/`) **et** sur le miroir auto-hébergé **[youtubator.nethttp.net](https://youtubator.nethttp.net)** (workflow `deploy-nethttp.yml` : build base `/`, rsync SSH, secrets `NETHTTP_SSH_KEY`/`NETHTTP_KNOWN_HOSTS` ; `scripts/deploy-nethttp.sh` reste utilisable à la main). La CSP du miroir est portée par `apps/web/public/.htaccess` (celle du vhost bloquait YouTube et Google Sign-In). ⚠️ Pour la connexion compte YouTube sur un nouveau domaine, ajouter son origine aux **origines JavaScript autorisées** du Client ID OAuth (console Google).
 
