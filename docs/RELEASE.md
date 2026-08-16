@@ -48,7 +48,9 @@ vérifier que ce qu'il raconte correspond encore au comportement réel.
   fonctionnalité, `major` pour une rupture. La version est injectée au build
   (`__APP_VERSION__`, voir `apps/web/vite.config.ts`) et affichée dans la topbar.
 - **Nouvelle entrée en tête de `CHANGELOG.md`** :
-  `## X.Y.Z — AAAA-MM-JJ · « titre »` + puces détaillées.
+  `## X.Y.Z — AAAA-MM-JJ · « titre »` + puces détaillées — **et son miroir dans
+  `CHANGELOG.en.md`** (même version, même date, titre et puces traduits),
+  dans le même commit. Les deux fichiers ne divergent jamais.
 - Message de commit en français, descriptif, **sans mention d'assistant**.
 - `git add` **ciblé** (jamais `-A` : risque d'embarquer caches et artefacts).
 - Push sur `main` → les trois workflows déploient.
