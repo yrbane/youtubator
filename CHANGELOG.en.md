@@ -3,6 +3,11 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.5 — 2026-08-16 · "Repo/server boundary"
+
+- **`docs/GUIDELINES.md`**: two new rules. §3 — the Apache vhost configuration (nethttp.net) lives outside this repo (only `.htaccess` and the deploy scripts are versioned): a server-side HTTP anomaly (internal-redirect loop, 500) on a 100% static app with no `RewriteRule` and no service worker is the vhost operator's problem, not a code fix here — investigated after production logs turned up no cause inside this repo. §4 — architecture decisions that get acted on go into `docs/adr/`, numbered, with Status/Date/Context/Decision/Consequences (already the practice for ADR 0001 and 0002, now made explicit). Added an operational note under §1: after editing `pnpm-workspace.yaml`, if `pnpm install` reports "Already up to date" without changing anything, `rm -rf node_modules` before reinstalling.
+- README § 16: pointer to `docs/GUIDELINES.md` updated with the two new topics.
+
 ## 0.20.4 — 2026-08-14 · "Guidelines"
 
 - **`docs/GUIDELINES.md`**: first contribution rules — dependency security audit (`pnpm audit`) before every release with justified, dated overrides in `pnpm-workspace.yaml`, and mandatory testability of `*.svelte.ts` (rune) stores via direct import, without mounting a component. Linked from README § 16.

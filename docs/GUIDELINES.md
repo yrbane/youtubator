@@ -24,6 +24,11 @@ pnpm audit
   à côté de l'override le plus proche (paquet, avisory GHSA, dernière version
   disponible), pas de suppression silencieuse de l'alerte.
 
+⚠️ Après une modification de `pnpm-workspace.yaml` (ex. ajout d'un override) ou
+d'un `package.json`, si `pnpm install` répond « Already up to date » sans
+toucher `pnpm-lock.yaml` ni installer quoi que ce soit : `rm -rf node_modules`
+puis réinstaller. La résolution ne se relance pas toujours toute seule.
+
 Youtubator n'a aucune dépendance runtime de production concernée à ce jour
 (`dexie`, `potard`) — le risque connu vit entièrement dans l'outillage dev
 (`web-ext` → `addons-linter`, `vite`/`vitest`). Ne pas relâcher la vigilance
@@ -45,3 +50,27 @@ concerné (`apps/web/vitest.config.ts`) — c'est le cas depuis la PR qui a
 corrigé la fuite de ticker de `Deck#wireBackend` et ajouté `Mixer#destroy()`.
 Tout nouveau paquet introduisant des fichiers `*.svelte.ts` doit répliquer ce
 réglage avant d'écrire son premier test.
+
+## 3. La configuration serveur (vhost, Apache) vit hors du dépôt
+
+Le miroir auto-hébergé `youtubator.nethttp.net` tourne sur un vhost Apache
+partagé (« websecurity »), configuré côté serveur — ce dépôt ne versionne que
+`apps/web/public/.htaccess` (surcharge de la CSP, cf. §1 de son en-tête) et
+les scripts de déploiement (`scripts/deploy-nethttp.sh`,
+`.github/workflows/deploy-nethttp.yml`). Youtubator est une app 100 %
+statique (aucune route serveur, aucun `RewriteRule` dans `.htaccess`, pas de
+service worker) : une anomalie HTTP qui ressemble à un problème serveur
+(redirections internes en boucle — `AH00124`, 500 générique) **ne peut pas
+être causée par ce dépôt**. Vérifier d'abord que le build (`dist/index.html`
+présent, `.htaccess` inchangé) est sain ; si oui, l'incident relève de
+l'opérateur du vhost nethttp.net, pas d'un correctif de code ici.
+
+## 4. Les décisions d'architecture actées vont dans `docs/adr/`, numérotées
+
+Toute décision qui change la structure du projet (choix de stack, découpage
+en étages, dépendance imposée par une contrainte externe — cross-origin,
+API tierce…) devient une ADR : `docs/adr/NNNN-titre-court.md` avec
+**Statut**, **Date**, section *Contexte* puis *Décision* puis *Conséquences*.
+Une ADR qui en amende une autre le dit explicitement dans son **Statut**
+(ex. ADR 0002 : « amende le point 3 de l'ADR 0001 ») plutôt que de laisser
+les deux documents se contredire silencieusement.
