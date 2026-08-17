@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Hook pre-commit : refuse le commit si gitleaks détecte un secret dans le
+# diff indexé. Installation : scripts/install-hooks.sh (voir docs/GUIDELINES.md §5).
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠ gitleaks introuvable — scan de secrets ignoré (voir docs/GUIDELINES.md §5 pour l'installer)." >&2
+  exit 0
+fi
+
+gitleaks protect --staged --redact -v
