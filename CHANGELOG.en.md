@@ -3,6 +3,13 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.6 — 2026-08-17 · "Secret scanning"
+
+- **`docs/GUIDELINES.md`**: new §5 rule — `gitleaks` now runs as a versioned pre-commit hook (`.githooks/pre-commit`, enabled via `scripts/install-hooks.sh`), refuses the commit if a secret shows up in the staged diff, degrades gracefully (a warning) if `gitleaks` isn't installed on the machine. §1 updated: dependency audit re-checked on 2026-08-17, still 2 *high* alerts with no upstream fix on `image-size` (unchanged).
+- README § 16: pointer to `docs/GUIDELINES.md` updated with the new topic.
+- Investigated the production alerts "observed" for `gravitysmtp`, `/.git` and `.aws/` scans, and the `AH00124` redirect loop: confirmed out of scope for this repo (§3 of the guidelines, already in place) — no trace of a WordPress plugin, server route, or `RewriteRule` in the code; these are bot probes hitting the shared hosting. Full git-history scan (`gitleaks detect`, 85 commits): no secrets found.
+- The `.githooks/pre-commit` hook and the dev-dependency fixes are under review on the `lutin/ameliorations` branch (PR #2), not yet merged — see that PR for the code-side details.
+
 ## 0.20.5 — 2026-08-16 · "Repo/server boundary"
 
 - **`docs/GUIDELINES.md`**: two new rules. §3 — the Apache vhost configuration (nethttp.net) lives outside this repo (only `.htaccess` and the deploy scripts are versioned): a server-side HTTP anomaly (internal-redirect loop, 500) on a 100% static app with no `RewriteRule` and no service worker is the vhost operator's problem, not a code fix here — investigated after production logs turned up no cause inside this repo. §4 — architecture decisions that get acted on go into `docs/adr/`, numbered, with Status/Date/Context/Decision/Consequences (already the practice for ADR 0001 and 0002, now made explicit). Added an operational note under §1: after editing `pnpm-workspace.yaml`, if `pnpm install` reports "Already up to date" without changing anything, `rm -rf node_modules` before reinstalling.
