@@ -9,6 +9,7 @@
     tapTempo,
   } from '@youtubator/audio-engine';
   import { BUCKET_S, nearestCue } from '../lib/waveform.js';
+  import { startVisibilityAwareLoop } from '../lib/visibility-loop.js';
   import type { Deck } from '../lib/deck.svelte.js';
   import type { Mixer } from '../lib/mixer.svelte.js';
 
@@ -253,14 +254,9 @@
     ].join('|');
   }
 
-  $effect(() => {
-    let raf = 0;
-    const loop = (): void => {
-      if (document.hidden) {
-        // onglet caché : zéro travail canvas, on repasse en veille douce
-        setTimeout(() => (raf = requestAnimationFrame(loop)), 500);
-        return;
-      }
+  $effect(() =>
+    // onglet caché : zéro travail canvas, poll en veille douce (voir visibility-loop.ts)
+    startVisibilityAwareLoop(() => {
       for (const deck of loadedDecks) {
         const canvas = canvases[deck.id];
         if (!canvas) continue;
@@ -270,11 +266,8 @@
           draw(deck, canvas);
         }
       }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  });
+    }),
+  );
 </script>
 
 {#snippet deckControls(deck: Deck)}

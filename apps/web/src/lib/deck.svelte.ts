@@ -189,6 +189,10 @@ export class Deck {
   }
 
   #wireBackend(backend: DeckAudioBackend): void {
+    if (this.#tickTimer !== null) {
+      clearInterval(this.#tickTimer);
+      this.#tickTimer = null;
+    }
     backend.onStateChange((s) => {
       switch (s) {
         case 'cued':
