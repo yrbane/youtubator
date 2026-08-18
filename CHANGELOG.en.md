@@ -3,6 +3,14 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.7 — 2026-08-18 · "What main actually knows"
+
+- **`docs/GUIDELINES.md` corrected**: rules §1, §2 and §5 described a state already achieved on `main` (dependency audit down to 2 alerts, Svelte plugin loaded for `*.svelte.ts` stores, active `gitleaks` hook) — in reality, all three fixes live only on the `lutin/ameliorations` branch (PR #2, opened 2026-08-14, **still not merged** as of 2026-08-18): on `main`, `pnpm audit` still reports its original 19 alerts, `apps/web/vitest.config.ts` doesn't exist, neither does `.githooks/`. The three rules now spell out this gap explicitly instead of glossing over it — a contributor following them to the letter on `main` shouldn't be caught off guard.
+- §1: audit re-checked on 2026-08-18 — unchanged (19 dev-only alerts on `main`, 2 of which — *high*, on `image-size` — will stay unpatched upstream even after the PR merges; `web-ext` is already on its latest published version, nothing more to bump tooling-side).
+- §5: full history scan re-run (`gitleaks detect --log-opts="--all"`, 87 commits) — no secrets found.
+- **New §6 rule**: logic with its own lifecycle (timers, sequencing) gets extracted into a DOM-free `*-core.ts` module, testable via direct `import` — like `deck-core.ts`, `automix-core.ts` and `midi-core.ts`, already on `main`.
+- README § 16: pointer to `docs/GUIDELINES.md` updated with the new topic.
+
 ## 0.20.6 — 2026-08-17 · "Secret scanning"
 
 - **`docs/GUIDELINES.md`**: new §5 rule — `gitleaks` now runs as a versioned pre-commit hook (`.githooks/pre-commit`, enabled via `scripts/install-hooks.sh`), refuses the commit if a secret shows up in the staged diff, degrades gracefully (a warning) if `gitleaks` isn't installed on the machine. §1 updated: dependency audit re-checked on 2026-08-17, still 2 *high* alerts with no upstream fix on `image-size` (unchanged).
