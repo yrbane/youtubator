@@ -35,11 +35,19 @@ Youtubator n'a aucune dépendance runtime de production concernée à ce jour
 pour autant : une dépendance runtime future suit la même procédure, avec une
 priorité plus élevée (impact utilisateur final, pas seulement CI/poste dev).
 
-**Vérifié le 2026-08-17** : toujours 2 alertes *high* sur `image-size@2.0.2`
-(GHSA-5p2g-fcmc-qvqq, DoS JXL/HEIF), épinglé en dur par
-`web-ext@10.6.0 → addons-linter@10.10.0` — inchangé depuis le dernier passage,
-aucun correctif publié en amont (`npm view image-size versions` s'arrête
-toujours à `2.0.2`). Les 17 autres alertes du dernier audit restent résorbées.
+**État réel sur `main` au 2026-08-18** : `pnpm audit` y remonte encore
+**19 alertes (14 *high* + 5 *moderate*)**, toutes dev-only (`web-ext` →
+`addons-linter` → `cheerio`/`undici`/`js-yaml`/`fast-uri`/`brace-expansion`/
+`image-size`/`adm-zip`/`shell-quote`/`nanoid`, plus `postcss` côté Vite). Les
+correctifs (bump + `pnpm-workspace.yaml: overrides`) sont déjà écrits et
+vérifiés sur la branche `lutin/ameliorations` (PR #2, ouverte le 2026-08-14,
+**pas encore fusionnée**) : une fois mergée, il ne restera que les 2 alertes
+*high* sur `image-size` sans correctif publié en amont (`>=2.0.3` annoncé par
+l'avisory GHSA-5p2g-fcmc-qvqq, jamais paru sur npm à ce jour ;
+`web-ext@10.6.0` est déjà sa dernière version publiée, rien à bumper de plus
+côté outillage). Tant que la PR n'est pas mergée, ne pas répéter les 17
+correctifs déjà préparés — les relire sur la branche, pas les rejouer à la
+main sur `main`.
 
 ## 2. Les stores `*.svelte.ts` (runes) doivent être testables sans monter de composant
 
@@ -52,10 +60,15 @@ permet d'écrire un test qui reproduit un bug de cycle de vie (fuite de
 sur les dépendances lourdes (backends audio, IndexedDB).
 
 Ceci suppose que le plugin Svelte soit chargé dans la config Vitest du paquet
-concerné (`apps/web/vitest.config.ts`) — c'est le cas depuis la PR qui a
-corrigé la fuite de ticker de `Deck#wireBackend` et ajouté `Mixer#destroy()`.
-Tout nouveau paquet introduisant des fichiers `*.svelte.ts` doit répliquer ce
-réglage avant d'écrire son premier test.
+concerné (`apps/web/vitest.config.ts`, avec son propre `defineConfig` et
+`svelte()`) — introduit par la PR qui corrige la fuite de ticker de
+`Deck#wireBackend` et ajoute `Mixer#destroy()` (branche `lutin/ameliorations`,
+PR #2). **Sur `main`, pas encore fusionnée à ce jour** : `apps/web` n'a pas ce
+fichier, le projet Vitest racine le déclare inline sans le plugin, et un
+`import` direct d'un `*.svelte.ts` dans un test y échoue (runes non
+transformées). Tout nouveau paquet introduisant des fichiers `*.svelte.ts`
+doit répliquer ce réglage — dès la fusion de la PR sur `main`, ou immédiatement
+s'il est développé sur une branche qui en dépend déjà.
 
 ## 3. La configuration serveur (vhost, Apache) vit hors du dépôt
 
@@ -87,7 +100,34 @@ les deux documents se contredire silencieusement.
 `scripts/install-hooks.sh` — `git config core.hooksPath .githooks`) : il
 scanne le diff indexé (`gitleaks protect --staged`) et refuse le commit si un
 secret y apparaît. Un poste sans `gitleaks` installé laisse passer le commit
-avec un avertissement plutôt que de bloquer un contributeur non équipé — donc
-un scan complet de l'historique (`gitleaks detect --source . --log-opts="--all"`)
-reste nécessaire à chaque passage du lutin, hook ou pas. Aucun secret trouvé
-lors du scan du 2026-08-17 (85 commits, historique complet + arbre de travail).
+avec un avertissement plutôt que de bloquer un contributeur non équipé.
+
+**Ce hook n'existe que sur la branche `lutin/ameliorations` (PR #2), pas
+encore fusionnée sur `main` à ce jour** : `main` n'a ni `.githooks/`, ni
+`scripts/install-hooks.sh`. Tant que la PR n'est pas mergée, quiconque clone
+`main` n'a donc aucun filet local — le scan complet de l'historique
+(`gitleaks detect --source . --log-opts="--all"`) reste la seule garantie
+réelle, et doit être relancé à chaque passage du lutin, hook ou pas.
+Aucun secret trouvé lors du scan du 2026-08-18 (87 commits, historique complet
++ arbre de travail).
+
+## 6. La logique avec cycle de vie propre (minuteurs, séquencement) s'extrait dans un module `*-core.ts` sans DOM
+
+Même principe de testabilité que la règle 2, étendu au-delà des stores : toute
+logique de calcul ou d'orchestration temporelle qui n'a pas besoin du DOM vit
+dans un module `*-core.ts` dédié plutôt que dans le composant `.svelte` ou le
+backend qui l'utilise — `packages/audio-engine/src/deck-core.ts`,
+`apps/web/src/lib/automix-core.ts` et `midi-core.ts` en sont les exemples de
+référence déjà sur `main`, chacun testé en `*-core.test.ts` par `import`
+direct, sans `happy-dom` ni composant monté.
+
+Un composant qui orchestre plusieurs minuteurs enchaînés (par exemple un
+`setTimeout` qui réarme lui-même un `requestAnimationFrame` une fois l'onglet
+redevenu visible) ne doit pas garder cette logique inline dans son `$effect` :
+elle s'extrait dans un tel module, avec une fonction d'arrêt qui annule
+strictement **tout** ce qu'elle a armé — pas seulement le dernier identifiant
+capturé par la dernière itération de la boucle. C'est la même famille de bug
+que la fuite de ticker visée par la règle 2 (une ressource asynchrone non
+suivie survit à son `$effect`), version « minuteur en cascade » : le cleanup
+doit suivre chaque ressource créée, y compris celles armées indirectement par
+une autre.
