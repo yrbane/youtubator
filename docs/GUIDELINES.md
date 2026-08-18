@@ -35,6 +35,12 @@ Youtubator n'a aucune dépendance runtime de production concernée à ce jour
 pour autant : une dépendance runtime future suit la même procédure, avec une
 priorité plus élevée (impact utilisateur final, pas seulement CI/poste dev).
 
+**Vérifié le 2026-08-17** : toujours 2 alertes *high* sur `image-size@2.0.2`
+(GHSA-5p2g-fcmc-qvqq, DoS JXL/HEIF), épinglé en dur par
+`web-ext@10.6.0 → addons-linter@10.10.0` — inchangé depuis le dernier passage,
+aucun correctif publié en amont (`npm view image-size versions` s'arrête
+toujours à `2.0.2`). Les 17 autres alertes du dernier audit restent résorbées.
+
 ## 2. Les stores `*.svelte.ts` (runes) doivent être testables sans monter de composant
 
 Les classes d'état partagé (`Deck`, `Mixer`, `Automix`…) vivent dans des
@@ -74,3 +80,14 @@ API tierce…) devient une ADR : `docs/adr/NNNN-titre-court.md` avec
 Une ADR qui en amende une autre le dit explicitement dans son **Statut**
 (ex. ADR 0002 : « amende le point 3 de l'ADR 0001 ») plutôt que de laisser
 les deux documents se contredire silencieusement.
+
+## 5. Scan de secrets systématique avant chaque commit
+
+`gitleaks` tourne en hook pre-commit (`.githooks/pre-commit`, activé par
+`scripts/install-hooks.sh` — `git config core.hooksPath .githooks`) : il
+scanne le diff indexé (`gitleaks protect --staged`) et refuse le commit si un
+secret y apparaît. Un poste sans `gitleaks` installé laisse passer le commit
+avec un avertissement plutôt que de bloquer un contributeur non équipé — donc
+un scan complet de l'historique (`gitleaks detect --source . --log-opts="--all"`)
+reste nécessaire à chaque passage du lutin, hook ou pas. Aucun secret trouvé
+lors du scan du 2026-08-17 (85 commits, historique complet + arbre de travail).

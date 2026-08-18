@@ -3,6 +3,13 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.6 — 2026-08-17 · « Scan de secrets »
+
+- **`docs/GUIDELINES.md`** : nouvelle règle §5 — `gitleaks` tourne désormais en hook pre-commit versionné (`.githooks/pre-commit`, activé par `scripts/install-hooks.sh`), refuse le commit si un secret apparaît dans le diff indexé, dégrade proprement (avertissement) si `gitleaks` n'est pas installé sur le poste. §1 mis à jour : audit de dépendances revérifié le 2026-08-17, toujours 2 alertes *high* sans correctif amont sur `image-size` (inchangé).
+- README § 16 : pointeur vers `docs/GUIDELINES.md` mis à jour avec le nouveau sujet.
+- Investigation des alertes de production « constatées » sur `gravitysmtp`, scans `/.git`, `.aws/` et boucle `AH00124` : confirmé hors périmètre de ce dépôt (§3 des guidelines, déjà en place) — aucune trace de plugin WordPress, de route serveur ou de `RewriteRule` dans le code, ce sont des sondes de bots sur l'hébergement partagé. Scan complet de l'historique git (`gitleaks detect`, 85 commits) : aucun secret trouvé.
+- Le hook `.githooks/pre-commit` et les correctifs de dépendances dev sont en revue sur la PR `lutin/ameliorations` (#2), pas encore mergée — voir cette PR pour le détail des correctifs de code.
+
 ## 0.20.5 — 2026-08-16 · « Frontière repo/serveur »
 
 - **`docs/GUIDELINES.md`** : deux nouvelles règles. §3 — la configuration du vhost Apache (nethttp.net) vit hors du dépôt (seuls `.htaccess` et les scripts de déploiement sont versionnés) : une anomalie HTTP côté serveur (boucle de redirections internes, 500) sur une app 100 % statique sans `RewriteRule` ni service worker relève de l'opérateur du vhost, pas d'un correctif de code ici — investigation menée suite à des logs de production ne révélant aucune cause dans ce dépôt. §4 — les décisions d'architecture actées vont dans `docs/adr/`, numérotées, avec Statut/Date/Contexte/Décision/Conséquences (pratique déjà suivie par les ADR 0001 et 0002, désormais explicite). Ajout d'une note opérationnelle sous §1 : après modif de `pnpm-workspace.yaml`, si `pnpm install` répond « Already up to date » sans rien changer, `rm -rf node_modules` avant de réinstaller.
