@@ -9,6 +9,10 @@ build/
 # Couverture de tests
 coverage/
 
+# Sorties Playwright (rapport HTML, traces, état du dernier run)
+test-results/
+playwright-report/
+
 # Environnement
 .env
 .env.*

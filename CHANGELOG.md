@@ -3,6 +3,12 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.8 — 2026-08-23 · « Le rapport de test n'a rien à faire dans l'historique »
+
+- **`.gitignore`** : `test-results/` et `playwright-report/` (sorties Playwright — état du dernier run, rapport HTML) manquaient depuis l'introduction des tests e2e (`88fcc02`). `test-results/.last-run.json` s'était glissé dans le suivi git dès ce commit et n'avait jamais été retiré — `git rm --cached`, non regénéré au prochain `pnpm test`/`playwright test`.
+- **`docs/GUIDELINES.md`** : nouvelle règle §7 — tout outil de dev qui écrit un dossier de sortie doit voir `.gitignore` mis à jour dans le même commit que son introduction, pas après coup (c'est la deuxième fois que ce type d'oubli se reproduit, après `node-compile-cache/`/`playwright-transform-cache-*/` en v0.20.2). §1 et §5 revérifiés le 2026-08-23 : audit inchangé (toujours 19 alertes dev-only sur `main`, correctifs en attente sur la PR #2 — désormais ouverte depuis 9 nuits, arbitrage demandé en issue #10), scan `gitleaks` complet sans secret (89 commits).
+- README § 16 : pointeur vers `docs/GUIDELINES.md` mis à jour avec le nouveau sujet.
+
 ## 0.20.7 — 2026-08-18 · « Ce que main sait vraiment »
 
 - **`docs/GUIDELINES.md` corrigé** : les règles §1, §2 et §5 décrivaient un état déjà acquis sur `main` (audit de dépendances resserré à 2 alertes, plugin Svelte chargé pour les stores `*.svelte.ts`, hook `gitleaks` actif) — en réalité, ces trois correctifs vivent uniquement sur la branche `lutin/ameliorations` (PR #2, ouverte le 2026-08-14, **toujours pas mergée** au 2026-08-18) : sur `main`, `pnpm audit` remonte encore ses 19 alertes d'origine, `apps/web/vitest.config.ts` n'existe pas, `.githooks/` non plus. Les trois règles précisent maintenant explicitement cet écart plutôt que de l'occulter — un contributeur qui les suit à la lettre sur `main` ne doit pas être surpris.
