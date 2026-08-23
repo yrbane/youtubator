@@ -35,19 +35,19 @@ Youtubator n'a aucune dépendance runtime de production concernée à ce jour
 pour autant : une dépendance runtime future suit la même procédure, avec une
 priorité plus élevée (impact utilisateur final, pas seulement CI/poste dev).
 
-**État réel sur `main` au 2026-08-18** : `pnpm audit` y remonte encore
+**État réel sur `main` au 2026-08-23** : `pnpm audit` y remonte toujours
 **19 alertes (14 *high* + 5 *moderate*)**, toutes dev-only (`web-ext` →
 `addons-linter` → `cheerio`/`undici`/`js-yaml`/`fast-uri`/`brace-expansion`/
 `image-size`/`adm-zip`/`shell-quote`/`nanoid`, plus `postcss` côté Vite). Les
 correctifs (bump + `pnpm-workspace.yaml: overrides`) sont déjà écrits et
 vérifiés sur la branche `lutin/ameliorations` (PR #2, ouverte le 2026-08-14,
-**pas encore fusionnée**) : une fois mergée, il ne restera que les 2 alertes
-*high* sur `image-size` sans correctif publié en amont (`>=2.0.3` annoncé par
-l'avisory GHSA-5p2g-fcmc-qvqq, jamais paru sur npm à ce jour ;
-`web-ext@10.6.0` est déjà sa dernière version publiée, rien à bumper de plus
-côté outillage). Tant que la PR n'est pas mergée, ne pas répéter les 17
-correctifs déjà préparés — les relire sur la branche, pas les rejouer à la
-main sur `main`.
+CI verte, **toujours pas fusionnée 9 nuits plus tard** — arbitrage demandé en
+issue #10) : une fois mergée, il ne restera que les 2 alertes *high* sur
+`image-size` sans correctif publié en amont (`>=2.0.3` annoncé par l'avisory
+GHSA-5p2g-fcmc-qvqq, jamais paru sur npm à ce jour ; `web-ext@10.6.0` est déjà
+sa dernière version publiée, rien à bumper de plus côté outillage). Tant que
+la PR n'est pas mergée, ne pas répéter les correctifs déjà préparés — les
+relire sur la branche, pas les rejouer à la main sur `main`.
 
 ## 2. Les stores `*.svelte.ts` (runes) doivent être testables sans monter de composant
 
@@ -108,7 +108,7 @@ encore fusionnée sur `main` à ce jour** : `main` n'a ni `.githooks/`, ni
 `main` n'a donc aucun filet local — le scan complet de l'historique
 (`gitleaks detect --source . --log-opts="--all"`) reste la seule garantie
 réelle, et doit être relancé à chaque passage du lutin, hook ou pas.
-Aucun secret trouvé lors du scan du 2026-08-18 (87 commits, historique complet
+Aucun secret trouvé lors du scan du 2026-08-23 (89 commits, historique complet
 + arbre de travail).
 
 ## 6. La logique avec cycle de vie propre (minuteurs, séquencement) s'extrait dans un module `*-core.ts` sans DOM
@@ -131,3 +131,22 @@ que la fuite de ticker visée par la règle 2 (une ressource asynchrone non
 suivie survit à son `$effect`), version « minuteur en cascade » : le cleanup
 doit suivre chaque ressource créée, y compris celles armées indirectement par
 une autre.
+
+## 7. `.gitignore` se met à jour dans le même commit que l'outil qui génère le dossier
+
+Tout outil de dev qui écrit un dossier de sortie sur disque (rapport, cache,
+état de dernier run) doit voir ce dossier ajouté à `.gitignore` **dans le
+commit qui l'introduit** — pas après coup, une fois qu'un fichier généré s'est
+déjà glissé dans un commit. C'est déjà arrivé deux fois : `node-compile-cache/`
+et `playwright-transform-cache-*/` (corrigés en v0.20.2, après coup) puis
+`test-results/.last-run.json` — écrit par Playwright après chaque run local
+(état pass/fail pour `--last-failed`), tracké par erreur depuis le commit qui a
+introduit les tests e2e (`88fcc02`, jamais rattrapé) et retiré seulement en
+v0.20.8, avec `playwright-report/` (dossier du rapport HTML, déjà référencé
+par `.github/workflows/ci.yml` en artefact CI) ajouté au passage par
+anticipation.
+
+Avant de committer l'ajout d'un nouvel outil (test runner, bundler, linter…),
+vérifier sa doc pour son dossier de sortie par défaut et l'ajouter à
+`.gitignore` immédiatement — `git status` ne doit jamais faire apparaître un
+fichier généré comme candidat au prochain commit.
