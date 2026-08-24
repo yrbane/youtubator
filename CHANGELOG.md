@@ -3,6 +3,13 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.9 — 2026-08-24 · « Deux règles vraies aujourd'hui »
+
+- **`docs/GUIDELINES.md`** : nouvelles règles §8 et §9. §8 documente que `any` (une vingtaine d'occurrences, `apps/web/src`, `extension/src`) reste cantonné aux frontières avec des API navigateur sans typage officiel dans le projet (`chrome.*`, le global `YT`, `google` du Sign-In, Web MIDI, File System Access) — `packages/audio-engine/src` et les modules `*-core.ts` (règle 6) sont à zéro `any`, vérifié par grep. §9 documente le critère qui distingue une capacité commune (rejoint `DeckAudioBackend`/`DeckCapabilities`) d'une capacité propre à un seul backend (narrowing `instanceof` depuis `Deck`, comme `LocalFileBackend#decodeForAnalysis`/`setFilter`/`engageLoop`) — pertinent pour le futur backend SoundCloud (issue #1).
+- README § 16 : pointeur vers `docs/GUIDELINES.md` mis à jour avec les deux nouveaux sujets.
+- §1 revérifiée : état inchangé sur `main` (`pnpm audit` toujours à 19 alertes dev-only, correctifs prêts sur la PR #2 — CI verte, `MERGEABLE`, toujours pas fusionnée après 10 nuits ; arbitrage demandé en issues #10 et #13, aucune réponse à ce jour). Pas de nouveau correctif rejoué à la main sur `main` en attendant.
+- Investigation des nouvelles alertes de production « constatées » ce soir (scans `/.git/HEAD` et `/.git/config` bloqués par ModSecurity, règle 930130) : le nom d'hôte ciblé est `git.nethttp.net`, pas `youtubator.nethttp.net` — confirmé hors périmètre de ce dépôt (§3 des guidelines), même diagnostic que l'issue #8 (bruit de scan sur l'hébergement mutualisé, déjà bloqué en amont). Détail dans le commentaire ajouté à l'issue #8.
+
 ## 0.20.8 — 2026-08-23 · « Le rapport de test n'a rien à faire dans l'historique »
 
 - **`.gitignore`** : `test-results/` et `playwright-report/` (sorties Playwright — état du dernier run, rapport HTML) manquaient depuis l'introduction des tests e2e (`88fcc02`). `test-results/.last-run.json` s'était glissé dans le suivi git dès ce commit et n'avait jamais été retiré — `git rm --cached`, non regénéré au prochain `pnpm test`/`playwright test`.
