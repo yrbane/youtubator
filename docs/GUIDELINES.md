@@ -193,3 +193,43 @@ disponibilité ; si elle est propre à un seul backend, elle reste une méthode
 publique de ce backend, atteinte depuis `Deck` par le même `instanceof` que
 `LocalFileBackend` — jamais ajoutée à l'interface commune pour un seul
 utilisateur.
+
+## 10. Un token OAuth vit en `sessionStorage`, jamais en `localStorage`
+
+`apps/web/src/lib/youtube-auth.ts` distingue explicitement les deux : le
+Client ID (`youtubator.ytClientId`) et le compte actif
+(`youtubator.activeAccountId`) sont des identifiants non sensibles, persistés
+en `localStorage` pour survivre d'une session à l'autre ; l'access token
+YouTube lui-même (`storeToken`/`getValidToken`, préfixe
+`youtubator.ytToken.`) vit exclusivement en `sessionStorage` — effacé à la
+fermeture de l'onglet, jamais écrit sur disque à plus long terme. Le
+commentaire au-dessus de `DEFAULT_CLIENT_ID` (`app-config.ts`) précise
+pourquoi le Client ID, lui, peut être public sans risque : protégé par les
+« origines JavaScript autorisées » du projet Google, pas par le secret.
+
+Un token d'accès (contrairement au Client ID) donne un accès réel au compte
+YouTube de l'utilisateur (scope `youtube.force-ssl`, lecture/écriture) : le
+faire migrer vers `localStorage` pour un confort quelconque (survie au
+redémarrage du navigateur, partage entre onglets sans re-connexion) briserait
+cette limite volontaire sans qu'aucun test ne le signale. Toute nouvelle
+donnée d'authentification (nouveau backend avec OAuth, ex. SoundCloud —
+issue #1) suit le même partage : secret de session en `sessionStorage`,
+identifiant non sensible seul en `localStorage`.
+
+## 11. Un listener `message` cross-frame filtre par `e.source`, jamais par confiance implicite dans l'origine
+
+Deux frontières `postMessage` traversent une origine cross-origin par
+construction : `apps/web/src/lib/deck-channel.ts` (app ↔ iframe YouTube) et
+`extension/src/main.ts` (content script ↔ page parente, mode extension). Dans
+les deux cas, l'émission se fait avec un origin générique (`'*'`, YouTube ne
+publie pas d'origine stable à cibler) mais la réception filtre strictement
+par référence de fenêtre — `e.source === iframe.contentWindow` d'un côté,
+`e.source === window.parent` de l'autre — avant de traiter `e.data`. Un
+listener `message` qui traiterait `e.data` sans ce filtre laisserait
+n'importe quelle page insérée dans l'onglet (autre iframe, extension tierce)
+injecter des messages arbitraires dans le protocole `FrameAgent`/`Deck`.
+
+Un nouveau canal `postMessage` (nouveau backend embarqué en iframe, nouveau
+pont content-script) reprend ce même filtre par `e.source` — jamais de
+vérification par `e.origin` seule (l'origine de l'iframe YouTube change selon
+la vidéo/domaine `-nocookie`) ni, pire, aucune vérification du tout.

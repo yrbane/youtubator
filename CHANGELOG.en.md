@@ -3,6 +3,32 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.10 — 2026-08-25 · "Where session secrets live"
+
+- **`docs/GUIDELINES.md`**: new §10 and §11 rules. §10 documents the split
+  already in place in `youtube-auth.ts` between non-sensitive identifiers
+  persisted in `localStorage` (Client ID, active account) and the OAuth
+  access token itself, confined to `sessionStorage` (cleared when the tab
+  closes) — a future OAuth backend (SoundCloud, issue #1) follows the same
+  split. §11 documents the `e.source` filtering (never `e.origin` alone, and
+  never implicit trust) used by the repo's two cross-frame `postMessage`
+  channels (`deck-channel.ts` app↔YouTube iframe,
+  `extension/src/main.ts` content-script↔parent page), verified: these are
+  the only two `message` listeners in the repo and both already filter
+  correctly.
+- README § 16: pointer to `docs/GUIDELINES.md` updated with the two new
+  topics.
+- §1 and §5 re-checked: unchanged on `main` (`pnpm audit` still at 19
+  dev-only alerts, fixes ready on PR #2 — CI green, still not merged after
+  11 nights; arbitration requested in issues #10 and #13, no answer to date;
+  `pnpm test` 296/296 green before and after this commit, no code change);
+  `gitleaks detect --log-opts="--all"` scan clean (91 commits).
+- Recurrence of the production symptom that opened issue #8 (`GET /` → 500 +
+  `AH00124`, same client/timestamp across both lines, `python-requests`
+  user-agent): re-checked, same diagnosis as the four previous passes — out
+  of scope for this repo (GUIDELINES §3). Details in the comment added to
+  issue #8.
+
 ## 0.20.9 — 2026-08-24 · "Two rules that are true today"
 
 - **`docs/GUIDELINES.md`**: new §8 and §9 rules. §8 documents that `any` (about twenty occurrences, `apps/web/src`, `extension/src`) stays confined to boundaries with browser APIs the project has no official typings for (`chrome.*`, the `YT` global, `google` from Sign-In, Web MIDI, File System Access) — `packages/audio-engine/src` and the `*-core.ts` modules (rule 6) sit at zero `any`, verified by grep. §9 documents the criterion that separates a capability shared across backends (joins `DeckAudioBackend`/`DeckCapabilities`) from one specific to a single backend (`instanceof` narrowing from `Deck`, like `LocalFileBackend#decodeForAnalysis`/`setFilter`/`engageLoop`) — relevant for the future SoundCloud backend (issue #1).
