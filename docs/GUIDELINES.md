@@ -267,9 +267,9 @@ règle 12 ce soir) passe donc `pnpm typecheck` et `pnpm build` sans être
 détectée nulle part.
 
 En attendant l'arbitrage de l'issue #3, toute modification de type dans
-`apps/web/src/**/*.ts` ou `extension/src/**/*.ts` (hors `.svelte`) se vérifie
-explicitement avant commit, avec les mêmes options que `tsconfig.base.json`
-faute de `tsconfig.json` dédié à ces paquets :
+`apps/web/src/**/*.ts` ou `extension/src/**/*.ts` se vérifie explicitement
+avant commit, avec les mêmes options que `tsconfig.base.json` faute de
+`tsconfig.json` dédié à ces paquets :
 
 ```bash
 npx tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes \
@@ -278,6 +278,13 @@ npx tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyType
   <fichiers .ts modifiés et leurs imports directs>
 ```
 
-Les fichiers `.svelte` (runes comprises) ne passent pas par cette voie — `tsc`
-seul ne les transforme pas ; pour ceux-là, seule une revue manuelle attentive
+Preuve que ce n'est pas un risque théorique : cette commande, lancée pour la
+première fois ce soir, a immédiatement trouvé deux violations réelles,
+invisibles jusqu'ici (`WaveformRecord#gridV` dans `library.ts` et l'indexation
+de `TRACK_COLORS` dans `track-meta.ts` — voir CHANGELOG v0.20.12).
+
+Les fichiers `.svelte` et les stores `*.svelte.ts` à runes (`$state`,
+`$effect`…, règle 2) ne passent pas par cette voie — vérifié ce soir sur
+`deck.svelte.ts` : `tsc` seul échoue avec `Cannot find name '$state'`, faute
+du préprocesseur Svelte. Pour ceux-là, seule une revue manuelle attentive
 protège tant que `svelte-check` n'est pas configuré (issue #3).

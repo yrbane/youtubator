@@ -3,6 +3,17 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.13 — 2026-08-26 · « Précision sur la règle 13 »
+
+- `docs/GUIDELINES.md` §13 précisé : l'exclusion du `tsc --noEmit` ciblé ne
+  vaut pas que pour les fichiers `.svelte`, mais aussi pour les stores
+  `*.svelte.ts` à runes de la règle 2 (`deck.svelte.ts`, `mixer.svelte.ts`…) —
+  vérifié ce soir : `tsc` seul échoue dessus avec `Cannot find name '$state'`,
+  faute du préprocesseur Svelte. La règle référence aussi désormais les deux
+  correctifs trouvés ce soir (v0.20.12) comme preuve concrète que ce n'est pas
+  un risque théorique.
+- Aucun changement de code, `pnpm test` 296/296 vert avant et après.
+
 ## 0.20.12 — 2026-08-26 · « Ce que la règle 13 vient de trouver »
 
 - **Deux correctifs de types poussés sur `lutin/ameliorations` (PR #2)**,
