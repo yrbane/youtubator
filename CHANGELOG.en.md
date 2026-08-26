@@ -3,6 +3,35 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.14 — 2026-08-26 · "The full sweep"
+
+- **`tsc --noEmit` sweep extended to all 78 `.ts` files (excluding
+  `*.svelte.ts`)** in `apps/web/src` and `extension/src`, instead of just the
+  two files fixed in v0.20.12 — two more real violations found and fixed,
+  pushed to `lutin/ameliorations` (PR #2):
+  - `local-library.ts`: `LocalTrack#album`/`#genre` (`string`, without
+    `| null`) were explicitly assigned `undefined` in
+    `collect()`/`importFiles()` — same family as `gridV`, fixed the same way
+    (`| null`, `?? null` default); no consumer (`Browser.svelte`)
+    distinguishes `undefined` from `null`.
+  - `extension/audio-graph.ts`: `accumulateChroma()` incremented
+    `chroma[bin]` with a direct `+=` — `noUncheckedIndexedAccess` can't prove
+    `bin` (modulo 12) stays within the `Float64Array(12)` bounds, always true
+    at runtime; explicit read with a `?? 0` fallback before the write,
+    unchanged behavior.
+  - A fifth violation found (`local-files.test.ts`, an assertion on a
+    possibly-`undefined` array element) remains open: test-only, no
+    production impact, not fixed tonight out of budget caution.
+  - One false positive discarded: compiling `background.ts` and
+    `offscreen.ts` together triggers a "Cannot redeclare … chrome" error that
+    disappears when compiling each file alone — an artifact of the sweep
+    method, not a project bug.
+- `docs/GUIDELINES.md` §13 updated with the final count (4 real violations
+  fixed, 1 remaining, 1 false positive discarded) and the warning about
+  compiling extension entry points together.
+- 299 tests still green on the branch, app + extension build with no new
+  warning. No change on `main` (rule 6): `pnpm test` 296/296 unchanged.
+
 ## 0.20.13 — 2026-08-26 · "A precision on rule 13"
 
 - `docs/GUIDELINES.md` §13 clarified: the targeted `tsc --noEmit` exclusion

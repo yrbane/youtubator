@@ -278,10 +278,20 @@ npx tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyType
   <fichiers .ts modifiés et leurs imports directs>
 ```
 
-Preuve que ce n'est pas un risque théorique : cette commande, lancée pour la
-première fois ce soir, a immédiatement trouvé deux violations réelles,
-invisibles jusqu'ici (`WaveformRecord#gridV` dans `library.ts` et l'indexation
-de `TRACK_COLORS` dans `track-meta.ts` — voir CHANGELOG v0.20.12).
+Preuve que ce n'est pas un risque théorique : lancée pour la première fois ce
+soir sur les 78 fichiers `.ts` (hors `*.svelte.ts`) de `apps/web/src` et
+`extension/src`, cette commande a trouvé quatre violations réelles, toutes
+invisibles jusqu'ici — `WaveformRecord#gridV` (`library.ts`), l'indexation de
+`TRACK_COLORS` (`track-meta.ts`), `LocalTrack#album`/`#genre`
+(`local-library.ts`) et l'incrémentation de `chroma[bin]`
+(`extension/audio-graph.ts`) — voir CHANGELOG v0.20.12 et v0.20.14. Une
+cinquième (`local-files.test.ts`, assertion sur un élément de tableau
+possiblement `undefined`) reste ouverte, test-only et sans impact production.
+⚠️ Ne pas compiler plusieurs fichiers d'entrée d'extension indépendants
+(`background.ts`, `offscreen.ts`) en un seul appel `tsc` : chacun déclare son
+propre `declare const chrome: any`, et les compiler ensemble déclenche un faux
+« Cannot redeclare block-scoped variable » qui n'existe pas en isolation —
+vérifié en compilant `background.ts` seul.
 
 Les fichiers `.svelte` et les stores `*.svelte.ts` à runes (`$state`,
 `$effect`…, règle 2) ne passent pas par cette voie — vérifié ce soir sur

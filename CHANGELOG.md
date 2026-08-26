@@ -3,6 +3,35 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.14 — 2026-08-26 · « Le balayage complet »
+
+- **Balayage `tsc --noEmit` étendu aux 78 fichiers `.ts` (hors `*.svelte.ts`)**
+  de `apps/web/src` et `extension/src`, au lieu des deux seuls fichiers
+  corrigés en v0.20.12 — deux violations réelles supplémentaires trouvées et
+  corrigées, poussées sur `lutin/ameliorations` (PR #2) :
+  - `local-library.ts` : `LocalTrack#album`/`#genre` (`string`, sans `| null`)
+    recevaient explicitement `undefined` dans `collect()`/`importFiles()` —
+    même famille que `gridV`, corrigé pareil (`| null`, défaut `?? null`) ;
+    aucun consommateur (`Browser.svelte`) ne distingue `undefined` de `null`.
+  - `extension/audio-graph.ts` : `accumulateChroma()` incrémentait
+    `chroma[bin]` par `+=` direct — `noUncheckedIndexedAccess` ne peut pas
+    prouver que `bin` (modulo 12) reste dans les bornes du `Float64Array(12)`,
+    toujours vrai à l'exécution ; lecture explicite avec repli `?? 0` avant
+    l'écriture, comportement inchangé.
+  - Une cinquième violation identifiée (`local-files.test.ts`, assertion sur
+    un élément de tableau potentiellement `undefined`) reste ouverte :
+    test-only, sans impact production, non corrigée ce soir par prudence de
+    budget.
+  - Un faux positif écarté : compiler `background.ts` et `offscreen.ts`
+    ensemble déclenche un « Cannot redeclare … chrome » qui disparaît en
+    compilant chaque fichier seul — artefact de la méthode de balayage, pas
+    un bug du projet.
+- `docs/GUIDELINES.md` §13 mis à jour avec le décompte final (4 violations
+  réelles corrigées, 1 restante, 1 faux positif écarté) et l'avertissement sur
+  la compilation groupée des points d'entrée de l'extension.
+- 299 tests toujours verts sur la branche, build app + extension sans nouvelle
+  alerte. Aucun changement sur `main` (règle 6) : `pnpm test` 296/296 inchangé.
+
 ## 0.20.13 — 2026-08-26 · « Précision sur la règle 13 »
 
 - `docs/GUIDELINES.md` §13 précisé : l'exclusion du `tsc --noEmit` ciblé ne
