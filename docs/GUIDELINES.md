@@ -150,3 +150,86 @@ Avant de committer l'ajout d'un nouvel outil (test runner, bundler, linter…),
 vérifier sa doc pour son dossier de sortie par défaut et l'ajouter à
 `.gitignore` immédiatement — `git status` ne doit jamais faire apparaître un
 fichier généré comme candidat au prochain commit.
+
+## 8. `any` n'est toléré qu'aux frontières avec une API navigateur non typée
+
+`tsconfig.base.json` active `strict`, `noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes` et `verbatimModuleSyntax` sur tout le monorepo —
+mais `any` apparaît bel et bien dans le code (`grep -rn ": any\|as any"
+apps/web/src extension/src`, une vingtaine d'occurrences à ce jour). Elles se
+concentrent **exclusivement** sur des globaux ou API sans typage officiel dans
+le projet : `chrome.*` (`extension/src/background.ts`, `offscreen.ts`,
+`capture.ts` — pas de `@types/chrome` installé), le global `YT` de l'IFrame
+API et `google` du Sign-In (`apps/web/src/lib/yt-iframe.ts`,
+`youtube-auth.ts`), `navigator.requestMIDIAccess` (Web MIDI, `midi.svelte.ts`)
+et la File System Access API (`FileSystemDirectoryHandle.values()`,
+`webkitRelativePath`, `local-library.ts`).
+
+`packages/audio-engine/src` (le cœur pur) et tous les modules `*-core.ts`
+(règle 6) sont à zéro `any` aujourd'hui — c'est vérifiable par le même grep.
+Un nouvel `any` en dehors d'une frontière API non typée équivalente (nouveau
+SDK tiers sans types, nouvelle API navigateur expérimentale) doit être vu
+comme une régression, pas une commodité ; le typage se resserre dès que
+possible juste après la frontière (variable locale re-typée, pas de
+propagation du `any` dans les signatures publiques du module).
+
+## 9. Une capacité partagée entre backends vit dans `DeckAudioBackend` ; une capacité propre à un seul backend s'atteint par `instanceof` depuis `Deck`
+
+Le contrat `DeckAudioBackend` (`packages/audio-engine/src/types.ts`) documente
+déjà : « L'UI ne consulte que `capabilities`, jamais le type concret » — vrai
+pour le comportement commun aux backends (lecture, seek, EQ, tempo). Mais
+`LocalFileBackend` expose en plus des méthodes que `ExtensionBackend` et
+`IframeApiBackend` n'ont pas (`decodeForAnalysis`, `onMeter`, `engageLoop` /
+`exitLoop`, `setFilter`) : `apps/web/src/lib/deck.svelte.ts` y accède par
+narrowing `instanceof LocalFileBackend`, jamais l'inverse — un backend n'importe
+jamais `Deck` ni ne connaît son orchestrateur.
+
+Ce n'est pas une incohérence avec le docblock : c'est le critère qui tranche
+où loger une nouvelle capacité. Avant d'écrire du code pour une capacité
+nouvelle (typiquement au moment d'ajouter le backend SoundCloud, issue #1) :
+si elle a du sens pour au moins deux backends (même dégradée), elle rejoint
+`DeckAudioBackend`/`DeckCapabilities` et `capabilities` en signale la
+disponibilité ; si elle est propre à un seul backend, elle reste une méthode
+publique de ce backend, atteinte depuis `Deck` par le même `instanceof` que
+`LocalFileBackend` — jamais ajoutée à l'interface commune pour un seul
+utilisateur.
+
+## 10. Un token OAuth vit en `sessionStorage`, jamais en `localStorage`
+
+`apps/web/src/lib/youtube-auth.ts` distingue explicitement les deux : le
+Client ID (`youtubator.ytClientId`) et le compte actif
+(`youtubator.activeAccountId`) sont des identifiants non sensibles, persistés
+en `localStorage` pour survivre d'une session à l'autre ; l'access token
+YouTube lui-même (`storeToken`/`getValidToken`, préfixe
+`youtubator.ytToken.`) vit exclusivement en `sessionStorage` — effacé à la
+fermeture de l'onglet, jamais écrit sur disque à plus long terme. Le
+commentaire au-dessus de `DEFAULT_CLIENT_ID` (`app-config.ts`) précise
+pourquoi le Client ID, lui, peut être public sans risque : protégé par les
+« origines JavaScript autorisées » du projet Google, pas par le secret.
+
+Un token d'accès (contrairement au Client ID) donne un accès réel au compte
+YouTube de l'utilisateur (scope `youtube.force-ssl`, lecture/écriture) : le
+faire migrer vers `localStorage` pour un confort quelconque (survie au
+redémarrage du navigateur, partage entre onglets sans re-connexion) briserait
+cette limite volontaire sans qu'aucun test ne le signale. Toute nouvelle
+donnée d'authentification (nouveau backend avec OAuth, ex. SoundCloud —
+issue #1) suit le même partage : secret de session en `sessionStorage`,
+identifiant non sensible seul en `localStorage`.
+
+## 11. Un listener `message` cross-frame filtre par `e.source`, jamais par confiance implicite dans l'origine
+
+Deux frontières `postMessage` traversent une origine cross-origin par
+construction : `apps/web/src/lib/deck-channel.ts` (app ↔ iframe YouTube) et
+`extension/src/main.ts` (content script ↔ page parente, mode extension). Dans
+les deux cas, l'émission se fait avec un origin générique (`'*'`, YouTube ne
+publie pas d'origine stable à cibler) mais la réception filtre strictement
+par référence de fenêtre — `e.source === iframe.contentWindow` d'un côté,
+`e.source === window.parent` de l'autre — avant de traiter `e.data`. Un
+listener `message` qui traiterait `e.data` sans ce filtre laisserait
+n'importe quelle page insérée dans l'onglet (autre iframe, extension tierce)
+injecter des messages arbitraires dans le protocole `FrameAgent`/`Deck`.
+
+Un nouveau canal `postMessage` (nouveau backend embarqué en iframe, nouveau
+pont content-script) reprend ce même filtre par `e.source` — jamais de
+vérification par `e.origin` seule (l'origine de l'iframe YouTube change selon
+la vidéo/domaine `-nocookie`) ni, pire, aucune vérification du tout.
