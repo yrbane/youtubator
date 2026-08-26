@@ -21,9 +21,9 @@ export interface LocalTrack {
   relPath: string;
   artist: string;
   title: string;
-  album?: string;
+  album?: string | null;
   /** Genre du tag (ID3/Vorbis) — sert de style par défaut. */
-  genre?: string;
+  genre?: string | null;
   ext: string;
   size: number;
   handle?: FileSystemFileHandle;
@@ -61,8 +61,8 @@ async function collect(
         relPath,
         artist: tags?.artist ?? fromName.artist,
         title: tags?.title ?? fromName.title,
-        album: tags?.album ?? undefined,
-        genre: tags?.genre ?? undefined,
+        album: tags?.album ?? null,
+        genre: tags?.genre ?? null,
         ext: entry.name.split('.').pop()!.toLowerCase(),
         size: file.size,
         handle: entry,
@@ -119,8 +119,8 @@ export async function importFiles(files: FileList | File[]): Promise<LocalFolder
         relPath,
         artist: tags?.artist ?? fromName.artist,
         title: tags?.title ?? fromName.title,
-        album: tags?.album ?? undefined,
-        genre: tags?.genre ?? undefined,
+        album: tags?.album ?? null,
+        genre: tags?.genre ?? null,
         ext: file.name.split('.').pop()!.toLowerCase(),
         size: file.size,
         file,
