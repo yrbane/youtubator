@@ -35,14 +35,14 @@ Youtubator n'a aucune dépendance runtime de production concernée à ce jour
 pour autant : une dépendance runtime future suit la même procédure, avec une
 priorité plus élevée (impact utilisateur final, pas seulement CI/poste dev).
 
-**État réel sur `main` au 2026-08-23** : `pnpm audit` y remonte toujours
+**État réel sur `main` au 2026-08-26** : `pnpm audit` y remonte toujours
 **19 alertes (14 *high* + 5 *moderate*)**, toutes dev-only (`web-ext` →
 `addons-linter` → `cheerio`/`undici`/`js-yaml`/`fast-uri`/`brace-expansion`/
 `image-size`/`adm-zip`/`shell-quote`/`nanoid`, plus `postcss` côté Vite). Les
 correctifs (bump + `pnpm-workspace.yaml: overrides`) sont déjà écrits et
 vérifiés sur la branche `lutin/ameliorations` (PR #2, ouverte le 2026-08-14,
-CI verte, **toujours pas fusionnée 9 nuits plus tard** — arbitrage demandé en
-issue #10) : une fois mergée, il ne restera que les 2 alertes *high* sur
+CI verte, **toujours pas fusionnée 12 nuits plus tard** — arbitrage demandé en
+issues #10 et #13) : une fois mergée, il ne restera que les 2 alertes *high* sur
 `image-size` sans correctif publié en amont (`>=2.0.3` annoncé par l'avisory
 GHSA-5p2g-fcmc-qvqq, jamais paru sur npm à ce jour ; `web-ext@10.6.0` est déjà
 sa dernière version publiée, rien à bumper de plus côté outillage). Tant que
@@ -108,7 +108,7 @@ encore fusionnée sur `main` à ce jour** : `main` n'a ni `.githooks/`, ni
 `main` n'a donc aucun filet local — le scan complet de l'historique
 (`gitleaks detect --source . --log-opts="--all"`) reste la seule garantie
 réelle, et doit être relancé à chaque passage du lutin, hook ou pas.
-Aucun secret trouvé lors du scan du 2026-08-23 (89 commits, historique complet
+Aucun secret trouvé lors du scan du 2026-08-26 (93 commits, historique complet
 + arbre de travail).
 
 ## 6. La logique avec cycle de vie propre (minuteurs, séquencement) s'extrait dans un module `*-core.ts` sans DOM
@@ -233,3 +233,51 @@ Un nouveau canal `postMessage` (nouveau backend embarqué en iframe, nouveau
 pont content-script) reprend ce même filtre par `e.source` — jamais de
 vérification par `e.origin` seule (l'origine de l'iframe YouTube change selon
 la vidéo/domaine `-nocookie`) ni, pire, aucune vérification du tout.
+
+## 12. `any` à la frontière d'une API HTTP externe se résout dès le `fetch`, jamais par un `Promise<any>` générique
+
+Contrairement aux frontières API navigateur non typées de la règle 8
+(`chrome.*`, `YT`, `google`, Web MIDI, File System Access — un SDK ou un
+global qu'on ne contrôle pas), une réponse JSON d'API HTTP externe
+(`fetch(...).json()`) n'impose aucun `any` : rien n'empêche de déclarer
+l'interface de la réponse, même minimaliste et à champs optionnels, puisqu'il
+s'agit seulement de documenter un contrat qu'on lit déjà. `main` illustrait le
+contre-exemple dans `apps/web/src/lib/youtube-account.ts` : `apiGet(): Promise<any>`
+propageait `any` jusque dans la signature publique de
+`fetchAccountIdentity(): Promise<{ channels: any; userinfo: any }>` — alors
+que `accounts.ts` définissait déjà `RawChannels`/`RawUserinfo` pour le même
+usage, seulement non exportées.
+
+**Corrigé sur la branche `lutin/ameliorations` (PR #2), pas encore sur
+`main`** : `apiGet<T>` est désormais générique, chaque appel précise sa forme
+(`RawChannels`, `RawPlaylistsResponse`, `RawVideosResponse`,
+`RawPlaylistItemsResponse`) — zéro `any` restant dans `youtube-account.ts`,
+vérifié par le même grep que la règle 8. Un futur endpoint HTTP externe
+(SoundCloud oEmbed, issue #1) suit le même principe : une interface `Raw*`
+minimale dès le premier appel, jamais un `Promise<any>` de confort.
+
+## 13. `pnpm typecheck` ne couvre que `packages/audio-engine` — vérifier `apps/web`/`extension` à la main tant que l'issue #3 n'est pas tranchée
+
+Le script racine `typecheck` (`package.json`) est `tsc -p packages/audio-engine
+--noEmit` : il ne voit ni `apps/web` (aucun `tsconfig.json`), ni `extension`
+(même constat). `pnpm build` ne comble pas ce trou — `vite build` transpile
+via esbuild sans vérifier les types. Une régression de type dans un fichier
+`.ts` de ces deux paquets (par exemple un `any` qu'on resserre, comme la
+règle 12 ce soir) passe donc `pnpm typecheck` et `pnpm build` sans être
+détectée nulle part.
+
+En attendant l'arbitrage de l'issue #3, toute modification de type dans
+`apps/web/src/**/*.ts` ou `extension/src/**/*.ts` (hors `.svelte`) se vérifie
+explicitement avant commit, avec les mêmes options que `tsconfig.base.json`
+faute de `tsconfig.json` dédié à ces paquets :
+
+```bash
+npx tsc --noEmit --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes \
+  --verbatimModuleSyntax --noImplicitOverride --target ES2022 --module ESNext \
+  --moduleResolution bundler --lib ES2022,DOM,DOM.Iterable --skipLibCheck \
+  <fichiers .ts modifiés et leurs imports directs>
+```
+
+Les fichiers `.svelte` (runes comprises) ne passent pas par cette voie — `tsc`
+seul ne les transforme pas ; pour ceux-là, seule une revue manuelle attentive
+protège tant que `svelte-check` n'est pas configuré (issue #3).

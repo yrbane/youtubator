@@ -3,6 +3,38 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.11 — 2026-08-26 · « Un any qui ne devrait pas voyager »
+
+- **`docs/GUIDELINES.md`** : nouvelles règles §12 et §13. §12 étend la règle 8
+  aux réponses JSON d'API HTTP externe (`fetch(...).json()`) : contrairement
+  à une API navigateur non typée, rien n'empêche de typer une réponse HTTP —
+  `apps/web/src/lib/youtube-account.ts` propageait pourtant `any` jusque dans
+  la signature publique de `fetchAccountIdentity()`, alors que `accounts.ts`
+  définissait déjà `RawChannels`/`RawUserinfo` pour le même usage sans les
+  exporter. §13 documente que `pnpm typecheck` ne couvre que
+  `packages/audio-engine` (ni `apps/web`, ni `extension` n'ont de
+  `tsconfig.json`) et que `pnpm build` ne comble pas ce trou (esbuild
+  transpile sans vérifier les types) — avec la commande `tsc --noEmit` à
+  lancer à la main sur ces deux paquets tant que l'issue #3 n'est pas
+  tranchée.
+- **Correctif de typage poussé sur la branche `lutin/ameliorations` (PR #2)**,
+  pas sur `main` (règle 6) : `apiGet` devient générique, `fetchAccountIdentity`/
+  `fetchMyPlaylists`/`fetchPlaylistPage`/`fetchLikedPlaylistId` n'utilisent
+  plus `any` — vérifié par `tsc --noEmit` ciblé (le typecheck racine ne
+  couvre pas ce fichier, cf. §13) et par la suite de tests complète
+  (299/299 verts sur la branche, build sans nouvelle alerte). La branche a
+  aussi été resynchronisée avec `main` (2 commits doc absorbés) ; CI verte
+  après les deux push.
+- README § 16 : pointeur vers `docs/GUIDELINES.md` mis à jour avec les deux
+  nouveaux sujets.
+- §1 et §5 revérifiées : état inchangé sur `main` (`pnpm audit` toujours 19
+  alertes dev-only, correctifs prêts sur la PR #2 — CI verte, toujours pas
+  fusionnée après 12 nuits ; arbitrage demandé en issues #10 et #13, aucune
+  réponse à ce jour ; `pnpm test` 296/296 vert avant et après ce commit,
+  aucun changement de code sur `main`) ; scan `gitleaks detect
+  --log-opts="--all"` sans secret (93 commits, historique complet des deux
+  branches).
+
 ## 0.20.10 — 2026-08-25 · « Où vivent les secrets de session »
 
 - **`docs/GUIDELINES.md`** : nouvelles règles §10 et §11. §10 documente la

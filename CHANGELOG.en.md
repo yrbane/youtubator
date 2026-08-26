@@ -3,6 +3,35 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.11 — 2026-08-26 · "An any that shouldn't travel"
+
+- **`docs/GUIDELINES.md`**: new §12 and §13 rules. §12 extends rule 8 to
+  external HTTP API JSON responses (`fetch(...).json()`): unlike an untyped
+  browser API, nothing prevents typing an HTTP response — yet
+  `apps/web/src/lib/youtube-account.ts` propagated `any` all the way into the
+  public signature of `fetchAccountIdentity()`, even though `accounts.ts`
+  already defined `RawChannels`/`RawUserinfo` for the same use, just not
+  exported. §13 documents that `pnpm typecheck` only covers
+  `packages/audio-engine` (neither `apps/web` nor `extension` has a
+  `tsconfig.json`) and that `pnpm build` doesn't fill that gap (esbuild
+  transpiles without type-checking) — with the `tsc --noEmit` command to run
+  by hand on those two packages until issue #3 is settled.
+- **Typing fix pushed to the `lutin/ameliorations` branch (PR #2)**, not to
+  `main` (rule 6): `apiGet` becomes generic, `fetchAccountIdentity`/
+  `fetchMyPlaylists`/`fetchPlaylistPage`/`fetchLikedPlaylistId` no longer use
+  `any` — verified with a targeted `tsc --noEmit` (the root typecheck script
+  doesn't cover this file, see §13) and the full test suite (299/299 green
+  on the branch, build with no new warning). The branch was also resynced
+  with `main` (2 doc commits absorbed); CI green after both pushes.
+- README § 16: pointer to `docs/GUIDELINES.md` updated with the two new
+  topics.
+- §1 and §5 re-checked: unchanged on `main` (`pnpm audit` still at 19
+  dev-only alerts, fixes ready on PR #2 — CI green, still not merged after
+  12 nights; arbitration requested in issues #10 and #13, no answer to date;
+  `pnpm test` 296/296 green before and after this commit, no code change on
+  `main`); `gitleaks detect --log-opts="--all"` scan clean (93 commits,
+  full history of both branches).
+
 ## 0.20.10 — 2026-08-25 · "Where session secrets live"
 
 - **`docs/GUIDELINES.md`**: new §10 and §11 rules. §10 documents the split
