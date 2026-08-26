@@ -3,6 +3,26 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.12 — 2026-08-26 · « Ce que la règle 13 vient de trouver »
+
+- **Deux correctifs de types poussés sur `lutin/ameliorations` (PR #2)**,
+  trouvés en appliquant la commande `tsc --noEmit` ciblée de la règle 13
+  (v0.20.11 ci-dessous) sur `apps/web/src` : sans elle, ni `pnpm typecheck`
+  (limité à `packages/audio-engine`) ni `pnpm build` (esbuild, sans
+  vérification de types) ne les auraient révélés.
+  - `library.ts` : `WaveformRecord#gridV` (`number`, sans `| null`
+    contrairement à ses voisins `bpm`/`anchorS`/`loopInS`/`loopOutS`)
+    recevait explicitement `undefined` dans `saveWaveform` — rejeté par
+    `exactOptionalPropertyTypes`. Aligné sur la convention des champs
+    voisins (`| null`, défaut `?? null`), sans changement de comportement.
+  - `track-meta.ts` : `nextColor` indexait `TRACK_COLORS` par un modulo sans
+    que `noUncheckedIndexedAccess` puisse prouver l'index dans les bornes
+    (il l'est toujours à l'exécution) — fallback explicite `TRACK_COLORS[0]`,
+    comportement inchangé (299 tests toujours verts sur la branche, dont
+    ceux de `nextColor`).
+- Aucun changement sur `main` (règle 6) : `pnpm test` 296/296 vert avant et
+  après ce commit.
+
 ## 0.20.11 — 2026-08-26 · « Un any qui ne devrait pas voyager »
 
 - **`docs/GUIDELINES.md`** : nouvelles règles §12 et §13. §12 étend la règle 8
