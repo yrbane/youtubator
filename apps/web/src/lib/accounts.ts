@@ -9,7 +9,8 @@ export interface AccountProfile {
   likedPlaylistId: string | null;
 }
 
-interface RawChannels {
+/** Réponse brute de `channels?part=snippet,contentDetails&mine=true` (API YouTube Data v3). */
+export interface RawChannels {
   items?: Array<{
     id?: string;
     snippet?: { title?: string; thumbnails?: Record<string, { url?: string }> };
@@ -17,7 +18,8 @@ interface RawChannels {
   }>;
 }
 
-interface RawUserinfo {
+/** Réponse brute de `oauth2/v3/userinfo` (Google Sign-In). */
+export interface RawUserinfo {
   email?: string;
   name?: string;
   picture?: string;
