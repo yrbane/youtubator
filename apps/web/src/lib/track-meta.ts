@@ -19,8 +19,8 @@ export function clampRating(value: number): number {
 /** Couleur suivante de la palette (cycle, retour à « sans couleur » en bout). */
 export function nextColor(current: string): string {
   const index = TRACK_COLORS.indexOf(current as (typeof TRACK_COLORS)[number]);
-  // couleur hors palette : on repart du début
-  return TRACK_COLORS[(Math.max(index, 0) + 1) % TRACK_COLORS.length];
+  // couleur hors palette : on repart du début ; le modulo garde toujours l'index dans les bornes
+  return TRACK_COLORS[(Math.max(index, 0) + 1) % TRACK_COLORS.length] ?? TRACK_COLORS[0];
 }
 
 export function normalizeStyle(style: string): string {

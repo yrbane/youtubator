@@ -65,7 +65,7 @@ export interface WaveformRecord {
   bpm?: number | null;
   anchorS?: number | null;
   /** Version de l'algorithme de grille (v2 = affinage anti-dérive). */
-  gridV?: number;
+  gridV?: number | null;
   /** Dernière boucle posée (restaurée désactivée : ∞ pour relancer). */
   loopInS?: number | null;
   loopOutS?: number | null;
@@ -434,7 +434,7 @@ export async function saveWaveform(record: WaveformRecord): Promise<void> {
     bpm: record.bpm ?? null,
     anchorS: record.anchorS ?? null,
     // toute grille écrite par l'algorithme courant est v2 (affinage anti-dérive)
-    gridV: record.gridV ?? (record.bpm ? 2 : undefined),
+    gridV: record.gridV ?? (record.bpm ? 2 : null),
     loopInS: record.loopInS ?? null,
     loopOutS: record.loopOutS ?? null,
     keyCamelot: record.keyCamelot ?? null,
