@@ -3,6 +3,32 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.15 — 2026-08-30 · « Deux règles de plus, un incident écarté »
+
+- **`docs/GUIDELINES.md`** : deux nouvelles règles convergées ce soir.
+  - Règle 14 — tout nouveau domaine externe contacté par l'app doit être
+    ajouté à la CSP du miroir (`apps/web/public/.htaccess`) **dans le même
+    commit** : liste blanche stricte (`default-src 'self'`), déjà oubliée
+    deux fois pour le même type de ressource (`media-src blob:` pour les
+    fichiers locaux, v0.16.0 → corrigé seulement en v0.19.1/v0.19.2, invisible
+    sur GitHub Pages qui ignore les `.htaccess`).
+  - Règle 15 — le schéma Dexie (`YoutubatorDb`, `library.ts`) s'étend par
+    version cumulative, jamais par modification d'une version déjà publiée ;
+    angle mort réel documenté au passage : aucun `library.test.ts`, aucune
+    dépendance `fake-indexeddb`, les deux `.upgrade()` existants ne sont
+    exercés qu'en production.
+- **Investigation production (issue #8)** : nouvelles alertes 502/503 en
+  volume sur `/presence`, `/qrdata`, `/score`, `/state`, `/toucher` (host
+  `machine.nethttp.net`, backend `127.0.0.1:8723` injoignable par
+  intermittence) — confirmé hors périmètre de ce dépôt : aucune de ces
+  routes n'existe ici, aucun code serveur, et le déploiement de ce dépôt vise
+  exclusivement `youtubator.nethttp.net`. Troisième vhost distinct rencontré
+  dans cette issue.
+- `pnpm test` (296 tests), `pnpm typecheck` et `gitleaks detect` (99 commits)
+  toujours verts ce soir ; `pnpm audit` toujours à 19 alertes dev-only déjà
+  corrigées sur `lutin/ameliorations` (PR #2, en attente d'arbitrage — voir
+  issues #10/#13).
+
 ## 0.20.14 — 2026-08-26 · « Le balayage complet »
 
 - **Balayage `tsc --noEmit` étendu aux 78 fichiers `.ts` (hors `*.svelte.ts`)**

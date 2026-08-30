@@ -3,6 +3,31 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.15 — 2026-08-30 · "Two more rules, one incident ruled out"
+
+- **`docs/GUIDELINES.md`**: two new rules converged tonight.
+  - Rule 14 — any new external domain the app talks to must be added to the
+    mirror's CSP (`apps/web/public/.htaccess`) **in the same commit**: a
+    strict allowlist (`default-src 'self'`), already missed twice for the
+    same kind of resource (`media-src blob:` for local files, v0.16.0 →
+    only fixed in v0.19.1/v0.19.2, invisible on GitHub Pages which ignores
+    `.htaccess`).
+  - Rule 15 — the Dexie schema (`YoutubatorDb`, `library.ts`) grows by
+    cumulative version, never by editing an already-published version; blind
+    spot documented along the way: no `library.test.ts`, no `fake-indexeddb`
+    dependency, both existing `.upgrade()` calls are exercised in production
+    only.
+- **Production investigation (issue #8)**: new 502/503 alerts in volume on
+  `/presence`, `/qrdata`, `/score`, `/state`, `/toucher` (host
+  `machine.nethttp.net`, backend `127.0.0.1:8723` intermittently
+  unreachable) — confirmed out of this repo's scope: none of these routes
+  exist here, no server code at all, and this repo only deploys to
+  `youtubator.nethttp.net`. Third distinct vhost seen in this issue.
+- `pnpm test` (296 tests), `pnpm typecheck` and `gitleaks detect` (99
+  commits) all still green tonight; `pnpm audit` still at 19 dev-only
+  alerts already fixed on `lutin/ameliorations` (PR #2, awaiting a merge
+  decision — see issues #10/#13).
+
 ## 0.20.14 — 2026-08-26 · "The full sweep"
 
 - **`tsc --noEmit` sweep extended to all 78 `.ts` files (excluding

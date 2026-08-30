@@ -298,3 +298,49 @@ Les fichiers `.svelte` et les stores `*.svelte.ts` à runes (`$state`,
 `deck.svelte.ts` : `tsc` seul échoue avec `Cannot find name '$state'`, faute
 du préprocesseur Svelte. Pour ceux-là, seule une revue manuelle attentive
 protège tant que `svelte-check` n'est pas configuré (issue #3).
+
+## 14. Un nouveau domaine externe contacté par l'app se déclare dans la CSP du miroir, dans le même commit
+
+`apps/web/public/.htaccess` réécrit la CSP du vhost partagé (règle 3) pour
+autoriser explicitement chaque origine externe dont l'app a besoin :
+`script-src`/`frame-src`/`connect-src` pour YouTube et Google Sign-In,
+`img-src` pour les vignettes (`i.ytimg.com`, `*.ggpht.com`,
+`*.googleusercontent.com`). C'est une liste blanche stricte —
+`default-src 'self'` — donc toute ressource non listée y est bloquée
+silencieusement sur `youtubator.nethttp.net` uniquement (GitHub Pages ignore
+les `.htaccess`, cf. commentaire en tête du fichier : l'incident ne s'y
+reproduit jamais, ce qui retarde sa détection).
+
+Déjà arrivé deux fois pour le même type d'oubli : la bibliothèque de fichiers
+locaux (lecture par `blob:`, v0.16.0) a fonctionné sans accroc sur GitHub
+Pages mais cassait le miroir nethttp — `media-src` n'avait pas été mis à jour
+pour autoriser `blob:`, corrigé seulement 3 versions plus tard (v0.19.1, puis
+re-précisé en v0.19.2 « + lien RELEASE.md »). Un nouveau backend qui charge
+une ressource cross-origin (nouvel embed SoundCloud, issue #1 ; nouvelle
+police, nouvelle API tierce) suit le même réflexe : mettre à jour cette ligne
+**avant** de considérer la fonctionnalité terminée, pas seulement quand un
+rapport signale que « ça marche sur GitHub Pages mais pas sur le miroir ».
+
+## 15. Le schéma Dexie (`YoutubatorDb`) s'étend par version cumulative, jamais par modification d'une version existante — mais reste sans test de migration à ce jour
+
+`apps/web/src/lib/library.ts` déclare 9 versions Dexie successives
+(`this.version(1)` à `this.version(9)`), chacune réécrivant l'intégralité du
+schéma `.stores()` jusque-là plutôt qu'un simple diff — `version(2)` et
+`version(7)` ajoutent en plus un `.upgrade(async (tx) => …)` qui transforme
+les données existantes (attribution `by`/`byId` par défaut pour les entrées
+v1 ; dérivation de `styleColors` depuis `trackMeta` pour les entrées v6). Une
+évolution de schéma modifie donc toujours la **dernière** version si elle
+n'a jamais été publiée, ou en ajoute une **nouvelle** si elle l'a été — jamais
+de réécriture d'une version déjà taguée, sous peine de casser la migration
+des utilisateurs qui ont une base IndexedDB existante à cette version.
+
+Angle mort réel et vérifié ce soir : il n'existe aucun `library.test.ts`, ni
+de dépendance `fake-indexeddb` dans `package.json` — `YoutubatorDb` et ses
+deux `.upgrade()` ne sont exercés qu'en production, jamais par la suite
+Vitest (`happy-dom` ne fournit pas d'IndexedDB, `apps/web/src/test-setup.ts`
+ne comble que `localStorage`/`sessionStorage`). Une régression dans un futur
+`.upgrade()` ne serait donc détectée par aucun test avant d'atteindre un
+utilisateur avec des données réelles à migrer. Combler ce point suppose
+d'introduire une dépendance de test (`fake-indexeddb`, la solution documentée
+par Dexie lui-même) — un choix qui dépasse une simple correction et reste à
+trancher plutôt qu'à imposer ce soir.
