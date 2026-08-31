@@ -1,6 +1,6 @@
 {
   "name": "@youtubator/web",
-  "version": "0.20.15",
+  "version": "0.20.16",
   "private": true,
   "type": "module",
   "description": "Application principale Youtubator (Svelte 5 + Vite)",

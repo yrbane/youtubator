@@ -344,3 +344,26 @@ utilisateur avec des données réelles à migrer. Combler ce point suppose
 d'introduire une dépendance de test (`fake-indexeddb`, la solution documentée
 par Dexie lui-même) — un choix qui dépasse une simple correction et reste à
 trancher plutôt qu'à imposer ce soir.
+
+## 16. L'installation en CI tourne en `--frozen-lockfile=false` depuis l'origine du workflow — un garde-fou manquant, pas un correctif
+
+Les deux jobs de `.github/workflows/ci.yml` (`ci` et `e2e`) installent avec
+`pnpm install --frozen-lockfile=false`, présent tel quel depuis le premier
+commit du fichier (jamais commenté, jamais réévalué). Ce flag autorise pnpm à
+**recalculer** la résolution de dépendances en mémoire si `package.json` ne
+correspond plus exactement à `pnpm-lock.yaml`, au lieu d'échouer
+immédiatement — c'est l'inverse du comportement par défaut de pnpm hors CI
+(`--frozen-lockfile` strict) et l'inverse de ce que `pnpm-lock.yaml` est censé
+garantir : un commit qui élargit une plage de version dans un `package.json`
+sans régénérer le lockfile passerait la CI silencieusement, avec une
+résolution différente de celle qu'installerait un contributeur en local.
+
+Vérifié ce soir : `pnpm install --frozen-lockfile` (strict, sans `=false`)
+réussit sans aucune modification sur `main` — le lockfile est à jour, ce
+n'est donc pas un correctif qui répare quelque chose d'actuellement cassé,
+seulement un garde-fou absent. Retirer `=false` dans les deux occurrences du
+workflow est bloqué par la même limite que l'issue #20 : le token OAuth du
+lutin n'a pas le scope `workflow`, GitHub refuse toute mise à jour de
+`.github/workflows/*.yml` par ce canal — la correction reste décrite ici pour
+application manuelle par le mainteneur, ou automatique dès que le scope sera
+ajouté.

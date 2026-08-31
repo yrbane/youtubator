@@ -3,6 +3,27 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.16 — 2026-08-31 · "The lockfile that doesn't bite"
+
+- **`docs/GUIDELINES.md`**: rule 16 — the `ci`/`e2e` jobs in
+  `.github/workflows/ci.yml` have installed with `pnpm install
+  --frozen-lockfile=false` since the file's first commit, never commented
+  on. This flag lets pnpm recompute the dependency resolution in memory if
+  `package.json` drifts from `pnpm-lock.yaml`, instead of failing — the
+  opposite of pnpm's strict default behavior outside CI. Verified tonight:
+  `pnpm install --frozen-lockfile` (strict) succeeds with no changes at all
+  on `main`, so this isn't a fix for anything currently broken, only a
+  missing guard rail. The fix is blocked by the same limit as issue #20
+  (the lutin's token lacks the `workflow` OAuth scope, so GitHub refuses
+  any update to `.github/workflows/*.yml` through this channel): described
+  in the guidelines for manual application, or automatic once the scope is
+  granted.
+- `pnpm test` (296 tests), `pnpm typecheck`, `pnpm build` and `gitleaks
+  detect --source . --log-opts="--all"` (100 commits) all green tonight;
+  `pnpm audit` still at 19 dev-only alerts already fixed on
+  `lutin/ameliorations` (PR #2, `MERGEABLE`/`CLEAN`, CI green, still
+  awaiting a merge decision — issues #10/#13).
+
 ## 0.20.15 — 2026-08-30 · "Two more rules, one incident ruled out"
 
 - **`docs/GUIDELINES.md`**: two new rules converged tonight.
