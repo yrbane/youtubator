@@ -367,3 +367,24 @@ lutin n'a pas le scope `workflow`, GitHub refuse toute mise à jour de
 `.github/workflows/*.yml` par ce canal — la correction reste décrite ici pour
 application manuelle par le mainteneur, ou automatique dès que le scope sera
 ajouté.
+
+## 17. Un workflow qui n'appelle pas l'API GitHub déclare des `permissions` minimales explicites, comme `pages.yml`
+
+`.github/workflows/pages.yml` déclare `permissions: contents: read, pages:
+write, id-token: write` — strictement ce dont `configure-pages`/`deploy-pages`
+a besoin. `.github/workflows/deploy-nethttp.yml`, lui, ne déclare **aucun**
+bloc `permissions` : son seul contact avec l'API GitHub est le `checkout`
+initial (`contents: read`) — tout le reste du job (build Vite, rsync par SSH
+vers `nethttp.net`) ne touche jamais `GITHUB_TOKEN`. Sans bloc explicite, le
+token hérite du réglage par défaut du dépôt (Settings → Actions → Workflow
+permissions), plus large que nécessaire ici et non documenté par ce fichier.
+`.github/workflows/ci.yml` a le même trou.
+
+Vérifié ce soir : ni `ci.yml` ni `deploy-nethttp.yml` ne déclarent de
+`permissions`, alors que `pages.yml` (même dépôt) le fait déjà correctement.
+Correction identique pour les deux (`permissions: contents: read` en tête de
+job) bloquée par la même limite que la règle 16 et l'issue #20 : décrite ici
+pour application manuelle par le mainteneur, ou automatique dès que le scope
+`workflow` sera ajouté au token du lutin. Tout nouveau workflow doit partir de
+la déclaration minimale dès sa création — comme `pages.yml` le fait déjà —
+plutôt que d'hériter implicitement du réglage par défaut du dépôt.

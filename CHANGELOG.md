@@ -3,6 +3,30 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.17 — 2026-09-01 · « Le bloc permissions qu'on n'a jamais écrit »
+
+- **`docs/GUIDELINES.md`** : règle 17 — `.github/workflows/pages.yml` déclare
+  un bloc `permissions` minimal (`contents: read, pages: write, id-token:
+  write`), strictement ce dont `deploy-pages` a besoin. `deploy-nethttp.yml`
+  et `ci.yml`, eux, n'en déclarent aucun alors qu'ils n'appellent jamais
+  `GITHUB_TOKEN` au-delà du `checkout` initial : le token hérite donc du
+  réglage par défaut du dépôt, plus large que nécessaire et non documenté par
+  ces fichiers. Correction (`permissions: contents: read` en tête de job)
+  bloquée par la même limite que la règle 16 et l'issue #20 (token du lutin
+  sans le scope OAuth `workflow`) : décrite ici pour application manuelle par
+  le mainteneur.
+- Incident production écarté : les logs signalent un scan de `/.git/config`
+  (bot, 3.71.7.238) — 404 immédiat, bloqué en amont par ModSecurity/OWASP CRS
+  (`930130`, score d'anomalie dépassé). Vérifié dans ce dépôt :
+  `scripts/deploy-nethttp.sh` et `.github/workflows/deploy-nethttp.yml` ne
+  rsyncent jamais que `apps/web/dist/` vers le docroot — `.git` n'a jamais été
+  exposé, rien à corriger côté application.
+- `pnpm test` (296 tests), `pnpm typecheck`, `pnpm build` et `gitleaks detect
+  --source . --log-opts="--all"` (101 commits) tous verts ce soir ; `pnpm
+  audit` toujours à 19 alertes dev-only, identiques à celles déjà corrigées
+  sur `lutin/ameliorations` (PR #2, toujours `MERGEABLE`/`CLEAN`, CI verte,
+  ouverte depuis le 2026-08-14, en attente d'arbitrage — issues #10/#13).
+
 ## 0.20.16 — 2026-08-31 · « Le lockfile qui ne mord pas »
 
 - **`docs/GUIDELINES.md`** : règle 16 — les jobs `ci`/`e2e` de

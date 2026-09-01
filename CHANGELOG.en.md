@@ -3,6 +3,31 @@
 [SemVer](https://semver.org/) versioning: the version lives in `apps/web/package.json`,
 is injected at build time (`__APP_VERSION__`) and shown in the app's topbar.
 
+## 0.20.17 — 2026-09-01 · "The permissions block that was never written"
+
+- **`docs/GUIDELINES.md`**: rule 17 — `.github/workflows/pages.yml` declares
+  a minimal `permissions` block (`contents: read, pages: write, id-token:
+  write`), strictly what `deploy-pages` needs. `deploy-nethttp.yml` and
+  `ci.yml` declare none at all, even though they never touch `GITHUB_TOKEN`
+  beyond the initial `checkout`: the token therefore inherits the repo's
+  default setting, broader than necessary here and undocumented by these
+  files. The fix (`permissions: contents: read` at the top of each job) is
+  blocked by the same limit as rule 16 and issue #20 (the lutin's token
+  lacks the `workflow` OAuth scope): described here for manual application
+  by the maintainer.
+- Production incident ruled out: the logs flagged a `/.git/config` scan
+  (bot, 3.71.7.238) — immediate 404, blocked upstream by ModSecurity/OWASP
+  CRS (`930130`, anomaly score exceeded). Verified in this repo:
+  `scripts/deploy-nethttp.sh` and `.github/workflows/deploy-nethttp.yml`
+  only ever rsync `apps/web/dist/` to the docroot — `.git` was never
+  exposed, nothing to fix on the application side.
+- `pnpm test` (296 tests), `pnpm typecheck`, `pnpm build` and `gitleaks
+  detect --source . --log-opts="--all"` (101 commits) all green tonight;
+  `pnpm audit` still at 19 dev-only alerts, identical to the ones already
+  fixed on `lutin/ameliorations` (PR #2, still `MERGEABLE`/`CLEAN`, CI
+  green, open since 2026-08-14, still awaiting a merge decision — issues
+  #10/#13).
+
 ## 0.20.16 — 2026-08-31 · "The lockfile that doesn't bite"
 
 - **`docs/GUIDELINES.md`**: rule 16 — the `ci`/`e2e` jobs in
