@@ -105,7 +105,8 @@ export function createEqGraph(video: HTMLVideoElement): EqGraph {
         const mag = Math.pow(10, spectrum[k]! / 20);
         if (!Number.isFinite(mag) || mag <= 0) continue;
         const midi = Math.round(12 * Math.log2(f / 440) + 69);
-        chroma[((midi % 12) + 12) % 12] += mag;
+        const bin = ((midi % 12) + 12) % 12;
+        chroma[bin] = (chroma[bin] ?? 0) + mag;
       }
       chromaSamples++;
     },

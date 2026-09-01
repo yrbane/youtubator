@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
-// Config racine : un projet vitest par paquet du monorepo
+// Config racine : un projet vitest par paquet du monorepo. `web` a sa propre
+// config (apps/web/vitest.config.ts, plugin svelte pour les runes) car les
+// deps ne sont pas hissées à la racine dans le workspace pnpm.
 export default defineConfig({
   test: {
     projects: [
@@ -18,14 +20,7 @@ export default defineConfig({
           environment: 'happy-dom',
         },
       },
-      {
-        test: {
-          name: 'web',
-          root: 'apps/web',
-          environment: 'happy-dom',
-          setupFiles: ['./src/test-setup.ts'],
-        },
-      },
+      'apps/web',
     ],
   },
 });

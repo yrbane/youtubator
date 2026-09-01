@@ -2,6 +2,7 @@
   "name": "youtubator",
   "version": "0.20.16",
   "private": true,
+  "type": "module",
   "description": "Table de mixage DJ dans le navigateur, dont les platines sont des players YouTube",
   "license": "MIT",
   "author": "yrbane",
@@ -26,6 +27,6 @@
     "esbuild": "^0.28.1",
     "happy-dom": "^20.10.6",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }

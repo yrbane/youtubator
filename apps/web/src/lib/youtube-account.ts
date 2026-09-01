@@ -1,5 +1,6 @@
 import { isoDurationToSeconds } from './iso-duration.js';
 import type { Track } from './tracks.js';
+import type { RawChannels, RawUserinfo } from './accounts.js';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
@@ -16,6 +17,19 @@ interface RawPlaylistItem {
     resourceId?: { videoId?: string };
     thumbnails?: Record<string, { url?: string }>;
   };
+}
+
+interface RawPlaylistItemsResponse {
+  items?: RawPlaylistItem[];
+  nextPageToken?: string;
+}
+
+interface RawPlaylistsResponse {
+  items?: Array<{ id?: string; snippet?: { title?: string }; contentDetails?: { itemCount?: number } }>;
+}
+
+interface RawVideosResponse {
+  items?: Array<{ id?: string; contentDetails?: { duration?: string } }>;
 }
 
 /** Convertit un playlistItem de l'API en Track ; null si vidéo privée/supprimée. */
@@ -38,18 +52,18 @@ export function mapPlaylistItemToTrack(item: RawPlaylistItem): Track | null {
   };
 }
 
-async function apiGet(token: string, path: string): Promise<any> {
+async function apiGet<T>(token: string, path: string): Promise<T> {
   const res = await fetch(`${API}/${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) throw new Error('Session YouTube expirée — reconnecte-toi.');
   if (!res.ok) throw new Error(`API YouTube en échec (${res.status})`);
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 /** ID de la playlist « J'aime » du compte connecté. */
 export async function fetchLikedPlaylistId(token: string): Promise<string> {
-  const json = await apiGet(token, 'channels?part=contentDetails&mine=true');
+  const json = await apiGet<RawChannels>(token, 'channels?part=contentDetails&mine=true');
   const likes = json.items?.[0]?.contentDetails?.relatedPlaylists?.likes;
   if (!likes) throw new Error('Playlist « J’aime » introuvable sur ce compte.');
   return likes;
@@ -129,22 +143,27 @@ export async function addVideoToYtPlaylist(token: string, playlistId: string, vi
 }
 
 /** Identité du compte : chaîne YouTube + userinfo Google (email, avatar). */
-export async function fetchAccountIdentity(token: string): Promise<{ channels: any; userinfo: any }> {
+export async function fetchAccountIdentity(
+  token: string,
+): Promise<{ channels: RawChannels; userinfo: RawUserinfo }> {
   const [channels, userinfoRes] = await Promise.all([
-    apiGet(token, 'channels?part=snippet,contentDetails&mine=true'),
+    apiGet<RawChannels>(token, 'channels?part=snippet,contentDetails&mine=true'),
     fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${token}` },
     }),
   ]);
-  const userinfo = userinfoRes.ok ? await userinfoRes.json() : {};
+  const userinfo: RawUserinfo = userinfoRes.ok ? await userinfoRes.json() : {};
   return { channels, userinfo };
 }
 
 /** Playlists du compte connecté. */
 export async function fetchMyPlaylists(token: string): Promise<YtPlaylist[]> {
-  const json = await apiGet(token, 'playlists?part=snippet,contentDetails&mine=true&maxResults=50');
-  return (json.items ?? []).map((p: any) => ({
-    id: p.id,
+  const json = await apiGet<RawPlaylistsResponse>(
+    token,
+    'playlists?part=snippet,contentDetails&mine=true&maxResults=50',
+  );
+  return (json.items ?? []).map((p) => ({
+    id: p.id ?? '',
     title: p.snippet?.title ?? '(sans titre)',
     itemCount: p.contentDetails?.itemCount ?? 0,
   }));
@@ -182,17 +201,15 @@ export async function fetchPlaylistPage(
   playlistId: string,
   pageToken?: string | null,
 ): Promise<PlaylistPage> {
-  const json = await apiGet(token, buildPlaylistItemsPath(playlistId, pageToken));
-  const tracks = ((json.items ?? []) as RawPlaylistItem[])
-    .map(mapPlaylistItemToTrack)
-    .filter((t): t is Track => t !== null);
+  const json = await apiGet<RawPlaylistItemsResponse>(token, buildPlaylistItemsPath(playlistId, pageToken));
+  const tracks = (json.items ?? []).map(mapPlaylistItemToTrack).filter((t): t is Track => t !== null);
 
   if (tracks.length > 0) {
     const ids = tracks.map((t) => t.videoId).join(',');
     try {
-      const videos = await apiGet(token, `videos?part=contentDetails&id=${ids}`);
+      const videos = await apiGet<RawVideosResponse>(token, `videos?part=contentDetails&id=${ids}`);
       const durations = new Map<string, number>(
-        (videos.items ?? []).map((v: any) => [v.id, isoDurationToSeconds(v.contentDetails?.duration ?? '')]),
+        (videos.items ?? []).map((v) => [v.id ?? '', isoDurationToSeconds(v.contentDetails?.duration ?? '')]),
       );
       for (const t of tracks) t.durationS = durations.get(t.videoId) ?? 0;
     } catch {
