@@ -388,3 +388,28 @@ pour application manuelle par le mainteneur, ou automatique dès que le scope
 `workflow` sera ajouté au token du lutin. Tout nouveau workflow doit partir de
 la déclaration minimale dès sa création — comme `pages.yml` le fait déjà —
 plutôt que d'hériter implicitement du réglage par défaut du dépôt.
+
+## 18. `extension/manifest.src.json` ne déclare que les permissions Chrome réellement appelées dans `extension/src`
+
+Trois permissions aujourd'hui : `tabCapture`, `offscreen`, `downloads`.
+Vérifiable par grep — chaque permission déclarée a un appel `chrome.*`
+correspondant dans le code, et chaque appel `chrome.*` du code qui **exige**
+une permission manifest en a une :
+
+```bash
+grep -rn "chrome\.\(tabCapture\|offscreen\|downloads\)" extension/src/
+grep -rohn "chrome\.[a-zA-Z]*\." extension/src/*.ts | sort -u
+```
+
+La seconde commande remonte aussi `chrome.action` et `chrome.runtime`,
+disponibles sans déclaration dans `permissions` (API de base de toute
+extension MV3) — ne pas les y ajouter par réflexe. Même logique pour
+`content_scripts`/`web_accessible_resources` : les deux ne ciblent que
+`https://www.youtube.com/*` et `https://www.youtube-nocookie.com/*`, jamais
+`<all_urls>` ni un domaine plus large que ce que `frame-agent.ts`/
+`worklet.ts` utilisent réellement — c'est ce périmètre étroit qui rend la
+revue d'une future demande de permission (nouveau backend embarqué, issue
+#1) immédiate : toute permission qui n'apparaît pas dans ce grep est soit
+un oubli de nettoyage après une fonctionnalité retirée, soit une extension de
+périmètre à justifier explicitement (et à documenter dans `docs/STORES.md`
+une fois l'issue #9 tranchée), jamais une addition silencieuse.

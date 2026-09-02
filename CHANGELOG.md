@@ -3,6 +3,26 @@
 Versionnage [SemVer](https://semver.org/lang/fr/) : la version vit dans `apps/web/package.json`,
 est injectée au build (`__APP_VERSION__`) et affichée dans la topbar de l'app.
 
+## 0.20.18 — 2026-09-02 · « Les trois permissions et rien de plus »
+
+- **`docs/GUIDELINES.md`** : règle 18 — `extension/manifest.src.json` ne
+  déclare que les permissions Chrome effectivement appelées dans
+  `extension/src` (`tabCapture`, `offscreen`, `downloads`), vérifiable par
+  grep : chaque permission a son appel `chrome.*`, et les seuls autres appels
+  `chrome.*` du code (`chrome.action`, `chrome.runtime`) sont des API de base
+  MV3 qui ne se déclarent pas. Même minimalisme côté `content_scripts` et
+  `web_accessible_resources` : uniquement `youtube.com`/`youtube-nocookie.com`,
+  jamais `<all_urls>`. Vérifié ce soir, les deux grep confirment un périmètre
+  exact — ni permission orpheline, ni appel non couvert.
+- Audit dépendances (`pnpm audit`) toujours à 19 alertes dev-only (5
+  modérées + 14 hautes), identiques à celles déjà corrigées sur
+  `lutin/ameliorations` (PR #2, `MERGEABLE`/`CLEAN`, CI verte, ouverte depuis
+  le 2026-08-14, en attente d'arbitrage — issues #10/#13) : correctifs déjà
+  écrits sur la branche, pas rejoués à la main sur `main` pour ne pas la
+  dupliquer.
+- `pnpm test` (296 tests), `pnpm typecheck` et `pnpm build` verts ce soir ;
+  `gitleaks detect --source . --log-opts="--all"` (102 commits) sans fuite.
+
 ## 0.20.17 — 2026-09-01 · « Le bloc permissions qu'on n'a jamais écrit »
 
 - **`docs/GUIDELINES.md`** : règle 17 — `.github/workflows/pages.yml` déclare
